@@ -1,21 +1,11 @@
-def main():
-    import argparse
+"""
+Sort GFA File
+"""
 
-    parser = argparse.ArgumentParser(description="gaftools sort-gfa")
-    parser.add_argument("-g", "--genome", dest="gfa_file",
-                        help="The pangenome graph to be sorted.")
-    parser.add_argument("-o", "--out", dest="out_file",
-                        help="The name of the output file (Write to stdout by default).")
+import sys
 
-    args = parser.parse_args()
-    if not args.gfa_file:
-        print("Please input the gfa file to be sorted using --genome (or -g)...")
-        return
-    if not args.out_file:
-        gfa_sort(args.gfa_file)
-    else:
-        gfa_sort(args.gfa_file, args.out_file)
-
+def run(gfa_path, output=sys.stdout):
+    gfa_sort(gfa_path, output)
 
 def gfa_sort(gfa_path, out_path = None, return_list = False):
     '''This function sorts the given gfa file based on the contig name and start position within the
@@ -25,14 +15,19 @@ def gfa_sort(gfa_path, out_path = None, return_list = False):
     '''
 
     import functools
+    import gzip
 
     gfa_lines = []
 
-    with open(gfa_path, "r") as gfa_file:
-        for line_count, line in enumerate(gfa_file):
-            gfa_lines.append(line)
+    gz_flag = gfa_path[-2:] == "gz"
+    if gz_flag:
+        gfa_file = gzip.open(gfa_path,"r")
+    else:
+        gfa_file = open(gfa_path,"r")
+    for line_count, line in enumerate(gfa_file):
+        gfa_lines.append(line)
     #print("Read", line_count, "lines")
-
+    gfa_file.close()
     gfa_s = []
     gfa_other = []
     for line in gfa_lines:
@@ -84,6 +79,17 @@ def compare(ln1, ln2):
         return 1
 
 
-if __name__ == "__main__":
-    main()
+# fmt: off
+def add_arguments(parser):
+    arg = parser.add_argument
+    # Positional arguments
+    arg('gfa_path', metavar='GFA', help='Input GFA file to conver the coordinates')
+    arg('-o', '--output', default=sys.stdout,
+        help='Output sorted GFA file. If omitted, use standard output.')
+    
+# fmt: on
+def validate(args, parser):
+    return True
 
+def main(args):
+    run(**vars(args))
