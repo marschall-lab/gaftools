@@ -1,24 +1,14 @@
-def main():
-    import argparse
+"""
+Sort GAF File
+"""
 
-    parser = argparse.ArgumentParser(description="gaftools sort_gaf")
-    parser.add_argument("-m", "--mapping", dest="gaf_file",
-                        help="The pangenome graph to be sorted.")
-    parser.add_argument("-o", "--out", dest="out_file",
-                        help="The name of the output file (Write to stdout by default).")
+import sys
 
-    args = parser.parse_args()
-    if not args.gaf_file:
-        print("Please input the gaf file to be sorted using --mapping (or -m)...")
-        return
-    if not args.out_file:
-        sort_gaf(args.gaf_file)
-    else:
-        sort_gaf(args.gaf_file, args.out_file)
+def run(gaf_path, output=sys.stdout):
+    gaf_sort(gaf_path, output)
 
 
-
-def sort_gaf(gaf_path, out_path = None):
+def gaf_sort(gaf_path, out_path = None):
     '''This function sorts a gaf file (mappings to a pangenome graph) in sstable coordinate system based on 1)Contig name 2)Start
     position of the contig's mapping loci.
     '''
@@ -27,7 +17,6 @@ def sort_gaf(gaf_path, out_path = None):
     import gzip
 
     gaf_lines = []
-    i = 0
     
     if is_file_gzipped(gaf_path):
        open_gaf = gzip.open
@@ -47,7 +36,6 @@ def sort_gaf(gaf_path, out_path = None):
         with open(out_path, "w") as out_file:
             for line_count, line in enumerate(gaf_lines):
                 out_file.write('\t'.join(line) + '\n') 
-
     else:
         for line_count, line in enumerate(gaf_lines):
              print('\t'.join(line) + '\n')
@@ -87,6 +75,18 @@ def is_file_gzipped(src):
         return inp.read(2) == b'\x1f\x8b'
 
 
-if __name__ == "__main__":
-    main()
+def add_arguments(parser):
+    arg = parser.add_argument
+    # Positional arguments
+    arg('gaf_path', metavar='GAF', help='Input GAF file to be sorted')
+    arg('-o', '--output', default=sys.stdout, help='The name of the output file (Write to stdout by default).')
+
+
+def validate(args, parser):
+    return True
+
+
+def main(args):
+    run(**vars(args))
+
 

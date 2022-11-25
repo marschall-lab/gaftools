@@ -101,14 +101,16 @@ def stable_to_unstable(gaf_path, gfa_path, out_path):
             if nd == ">" or nd == "<":
                 orient = nd
                 continue
-            if ':' in nd:
+            if ':' in nd and '-' in nd:
                 tmp = nd.rstrip().split(':')
                 query_contig_name = tmp[0]
                 (query_start, query_end) = tmp[1].rstrip().split('-')
+                split_contig = True
             else:
                 query_start = gaf_line_elements[7]
                 query_end = gaf_line_elements[8] 
                 query_contig_name = nd
+                split_contig = False
             if not orient:
                 orient = ">"
 
@@ -121,7 +123,10 @@ def stable_to_unstable(gaf_path, gfa_path, out_path):
                 if i.start <= int(query_start) < i.end:
                     cases = 1
                     if new_start == -1:
-                        new_start = int(query_start) - i.start
+                        if split_contig:
+                            new_start = int(query_start)
+                        else:
+                            new_start = int(query_start) - i.start
                 elif i.start < int(query_end) <= i.end:
                     cases = 2
                 elif int(query_start) < i.start < i.end < int(query_end):
