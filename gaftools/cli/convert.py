@@ -52,14 +52,14 @@ def stable_to_unstable(gaf_path, gfa_path, out_path):
     import gzip
     
     '''Needs to sort the gfa to use logn time binary search'''
-    print("Sorting the GFA file")
+    print("Sorting the GFA file...")
     gfa_lines = gfa_sort(gfa_path, None, True)
     
     '''We load the reference genome into memory for fast execution. The reference is not very large
     so it does not seem to be a big issue... This creates a dictionary where each element is a
     contig which keeps the list of start and end locations with node name(S).
     '''
-    print("Loading the GFA file into memory")
+    #print("Loading the GFA file into memory")
     reference = {}    
     contig_name = None
     for gfa_line in gfa_lines:
@@ -74,7 +74,7 @@ def stable_to_unstable(gaf_path, gfa_path, out_path):
         end_pos = int([k for k in gfa_line if k.startswith("LN:i:")][0][5:]) + start_pos
         tmp = Node1(gfa_line[1], start_pos, end_pos)
         reference[contig_name].append(tmp)
-    print()
+    #print()
     
     gaf_unstable = open(out_path, "w")
 
@@ -127,9 +127,6 @@ def stable_to_unstable(gaf_path, gfa_path, out_path):
                 elif int(query_start) < i.start < i.end < int(query_end):
                     cases = 3
                 
-                #if query_contig_name == "NA20129#2#JAHEPD010000261.1":
-                #    print(i.start, i.end, i.node_id, cases)
-
                 if cases != -1:    
                     unstable_coord += orient+i.node_id
                     new_total += (i.end - i.start)
@@ -147,7 +144,7 @@ def stable_to_unstable(gaf_path, gfa_path, out_path):
             gaf_unstable.write("\t%s"%i)
     gaf_file.close()
     gaf_unstable.close()
-
+    print("Done...")
 
 
 def unstable_to_stable(gaf_path, gfa_path, out_path):
