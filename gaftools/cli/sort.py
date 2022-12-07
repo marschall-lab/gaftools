@@ -36,53 +36,64 @@ def gfa_sort(gfa_path, out_path = None, return_list = False):
     This can be called from the command line or from another funtion by providing "True" to
     return_list argument.
     '''
-
+    import glob
+    from heapq import merge
     import functools
     import gzip
+    import os
+
 
     gfa_lines = []
 
     gz_flag = gfa_path[-2:] == "gz"
-    if gz_flag:
-        gfa_file = gzip.open(gfa_path,"r")
-    else:
-        gfa_file = open(gfa_path,"r")
-    for line_count, line in enumerate(gfa_file):
-        gfa_lines.append(line)
-    #print("Read", line_count, "lines")
-    gfa_file.close()
-    gfa_s = []
-    gfa_other = []
-    for line in gfa_lines:
-        val = line.rstrip().split('\t')
-        if val[0] == "S":
-            gfa_s.append(val)
-        else:
-            gfa_other.append(val)
-    
-    gfa_s.sort(key=functools.cmp_to_key(compare_gfa))
-    
-    if return_list:
-       return gfa_s
+    path = "part*.gfa"
+    chunk_size = 250000
+    chunk_id = 1
 
-    elif out_path:
-        with open(out_path, "w", encoding='utf-8') as out_file:
-            for line_count, line in enumerate(gfa_s):
-                out_file.write('\t'.join(line) + '\n')
-        
-            for line_count2, line in enumerate(gfa_other):
-                out_file.write('\t'.join(line) + '\n')
-
-        #print("Wrote", line_count + line_count2, "lines to", out_file)
-    
+    if is_file_gzipped(gfa_path):
+       open_gfa = gzip.open
+       is_gzipped = True
     else:
-        for line_count, line in enumerate(gfa_s):
-             print('\t'.join(line) + '\n')
+        open_gfa = open
+    
+    with open_gfa(gfa_path, 'rt') as gfa_file:
+        f_out = open('part_{}.gfa'.format(chunk_id), 'w')
         
-        for line_count2, line in enumerate(gfa_other):
-            print('\t'.join(line) + '\n')
- 
-    return True
+        for line_num, mapping in enumerate(gfa_file, 1):
+            val = mapping.rstrip().split('\t')
+            gfa_lines.append(val)
+        
+            if not line_num % chunk_size:
+                gfa_lines.sort(key=functools.cmp_to_key(compare_gfa))
+                
+                for line_count, line in enumerate(gfa_lines):
+                    f_out.write('\t'.join(line) + '\n') 
+            
+                print('Splitting', chunk_id)
+                f_out.close()
+                gfa_lines = []
+                chunk_id += 1
+                f_out = open('part_{}.gfa'.format(chunk_id), 'w')
+
+
+        if gfa_lines:
+            print('Splitting', chunk_id)
+            gfa_lines.sort(key=functools.cmp_to_key(compare_gfa))
+            for line_count, line in enumerate(gfa_lines):
+                f_out.write('\t'.join(line) + '\n') 
+            f_out.close()
+            gfa_lines = []
+
+    chunks = []
+    for filename in glob.glob(path):
+        chunks += [open(filename, 'r')]
+    
+    with open(out_path, 'w') as f_out:
+        f_out.writelines(merge(*chunks, key=functools.cmp_to_key(compare_gfa2)))
+    
+    for part_file in glob.glob(path):
+        if os.path.isfile(part_file):
+            os.remove(part_file)
 
 
 
@@ -95,7 +106,6 @@ def gaf_sort(gaf_path, out_path = None):
     import functools
     import gzip
     from heapq import merge
-    import functools
     import os
 
 
@@ -152,6 +162,44 @@ def gaf_sort(gaf_path, out_path = None):
 
 
 def compare_gfa(ln1, ln2):
+    
+    if not ln1[0] == "S" and not ln2[0] == "S":
+        #If both are not S lines, then leave it
+        return -1
+    elif ln1[0] == "S" and not ln2[0] == "S":
+        return -1
+    elif not ln1[0] == "S" and ln2[0] == "S":
+        return 1
+
+    chr1 = [k for k in ln1 if k.startswith("SN:Z:")][0][5:]
+    chr2 = [k for k in ln2 if k.startswith("SN:Z:")][0][5:]
+    start1 = int([k for k in ln1 if k.startswith("SO:i:")][0][5:])
+    start2 = int([k for k in ln2 if k.startswith("SO:i:")][0][5:])
+
+    if chr1 == chr2:
+        if start1 < start2:
+            return -1
+        else:
+            return 1
+    if chr1 < chr2:
+        return -1
+    else:
+        return 1
+
+
+def compare_gfa2(ln1, ln2):
+
+    ln1 = ln1.rstrip().split('\t')
+    ln2 = ln2.rstrip().split('\t')
+    #print(ln1, ln2)
+    if not ln1[0] == "S" and not ln2[0] == "S":
+        #If both are not S lines, then leave it
+        return -1
+    elif ln1[0] == "S" and not ln2[0] == "S":
+        return -1
+    elif not ln1[0] == "S" and ln2[0] == "S":
+        return 1
+
     chr1 = [k for k in ln1 if k.startswith("SN:Z:")][0][5:]
     chr2 = [k for k in ln2 if k.startswith("SN:Z:")][0][5:]
     start1 = int([k for k in ln1 if k.startswith("SO:i:")][0][5:])
