@@ -48,7 +48,7 @@ def stable_to_unstable(gaf_path, gfa_path, out_path):
 
     import re
     import copy
-    from gaftools.cli.sort_gfa import gfa_sort
+    from gaftools.cli.sort import gfa_sort
     import gzip
     
     '''Needs to sort the gfa to use logn time binary search'''

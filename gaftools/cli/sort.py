@@ -30,7 +30,7 @@ def run(gaf_file, gfa_file, output=sys.stdout):
         gfa_sort(gfa_file, output)
 
 
-def gfa_sort(gfa_path, out_path = None, return_list = False):
+def gfa_sort(gfa_path, out_path = None, return_list = True):
     '''This function sorts the given gfa file based on the contig name and start position within the
     contig. Note that it only sorts S lines and leaves the others.
     This can be called from the command line or from another funtion by providing "True" to the
@@ -89,10 +89,17 @@ def gfa_sort(gfa_path, out_path = None, return_list = False):
    
     if return_list:
         gfa_s = []
-        tmp = [s.rstrip() for s in merge(*chunks, key=functools.cmp_to_key(compare_gfa2))]
+        tmp = merge(*chunks, key=functools.cmp_to_key(compare_gfa2))
         for i in tmp:
+            #print(i)
             if i[0] == "S":
-                gfa_s.append(i.rstrip())
+                #print(i.rstrip())
+                gfa_s.append(i.rstrip().split('\t'))
+        
+        for part_file in glob.glob(path):
+            if os.path.isfile(part_file):
+                os.remove(part_file)
+        
         return gfa_s
 
     with open(out_path, 'w') as f_out:
@@ -101,7 +108,6 @@ def gfa_sort(gfa_path, out_path = None, return_list = False):
     for part_file in glob.glob(path):
         if os.path.isfile(part_file):
             os.remove(part_file)
-
 
 
 def gaf_sort(gaf_path, out_path = None):
