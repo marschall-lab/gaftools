@@ -111,7 +111,7 @@ def gaf_sort(gaf_path, out_path = None):
         open_gaf = open
 
 
-    with open(gaf_path, 'rt') as gaf_file:
+    with open_gaf(gaf_path, 'rt') as gaf_file:
         f_out = open('part_{}.gaf'.format(chunk_id), 'w')
         
         for line_num, mapping in enumerate(gaf_file, 1):
@@ -142,7 +142,7 @@ def gaf_sort(gaf_path, out_path = None):
     chunks = []
     for filename in glob.glob(path):
         chunks += [open(filename, 'r')]
-
+    
     with open(out_path, 'w') as f_out:
         f_out.writelines(merge(*chunks, key=functools.cmp_to_key(compare_gaf2)))
     
