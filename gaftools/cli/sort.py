@@ -33,9 +33,10 @@ def run(gaf_file, gfa_file, output=sys.stdout):
 def gfa_sort(gfa_path, out_path = None, return_list = False):
     '''This function sorts the given gfa file based on the contig name and start position within the
     contig. Note that it only sorts S lines and leaves the others.
-    This can be called from the command line or from another funtion by providing "True" to
+    This can be called from the command line or from another funtion by providing "True" to the
     return_list argument.
     '''
+
     import glob
     from heapq import merge
     import functools
@@ -44,8 +45,6 @@ def gfa_sort(gfa_path, out_path = None, return_list = False):
 
 
     gfa_lines = []
-
-    gz_flag = gfa_path[-2:] == "gz"
     path = "part*.gfa"
     chunk_size = 250000
     chunk_id = 1
@@ -87,7 +86,15 @@ def gfa_sort(gfa_path, out_path = None, return_list = False):
     chunks = []
     for filename in glob.glob(path):
         chunks += [open(filename, 'r')]
-    
+   
+    if return_list:
+        gfa_s = []
+        tmp = [s.rstrip() for s in merge(*chunks, key=functools.cmp_to_key(compare_gfa2))]
+        for i in tmp:
+            if i[0] == "S":
+                gfa_s.append(i.rstrip())
+        return gfa_s
+
     with open(out_path, 'w') as f_out:
         f_out.writelines(merge(*chunks, key=functools.cmp_to_key(compare_gfa2)))
     
