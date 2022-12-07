@@ -1,5 +1,5 @@
 """
-Sorting the GAF File
+Sorting GAF and GFA files
 """
 
 import logging
@@ -13,131 +13,172 @@ from gaftools.cli import CommandLineError
 
 logger = logging.getLogger(__name__)
 
-def run(
-    phase_input_files,
-    variant_file,
-    reference=None,
-    output=sys.stdout,
-    samples=None,
-    chromosomes=None,
-    ignore_read_groups=False,
-    indels=True,
-    mapping_quality=20,
-    max_coverage=15,
-    nopriors=False,
-    ped=None,
-    recombrate=1.26,
-    genmap=None,
-    gt_qual_threshold=0,
-    prioroutput=None,
-    constant=0.0,
-    overhang=10,
-    affine_gap=False,
-    gap_start=10,
-    gap_extend=7,
-    mismatch=15,
-    write_command_line_header=True,
-    use_ped_samples=False,
-    eff_pop_size = 10
-):
-    exit
+def run(gaf_file, gfa_file, output=sys.stdout):
+    if gaf_file and gfa_file:
+        print("Error: Please input only the GAF or the GFA file")
+        print()
+        return
+    elif not gaf_file and not gfa_file:
+        print("Error: Please input a GAF or a GFA file to be sorted")
+        print()
+        return
+
+    if (gaf_file):
+        gaf_sort(gaf_file, output)
+    else:
+        gfa_sort(gfa_file, output)
 
 
-# fmt: off
+def gfa_sort(gfa_path, out_path = None, return_list = False):
+    '''This function sorts the given gfa file based on the contig name and start position within the
+    contig. Note that it only sorts S lines and leaves the others.
+    This can be called from the command line or from another funtion by providing "True" to
+    return_list argument.
+    '''
+
+    import functools
+    import gzip
+
+    gfa_lines = []
+
+    gz_flag = gfa_path[-2:] == "gz"
+    if gz_flag:
+        gfa_file = gzip.open(gfa_path,"r")
+    else:
+        gfa_file = open(gfa_path,"r")
+    for line_count, line in enumerate(gfa_file):
+        gfa_lines.append(line)
+    #print("Read", line_count, "lines")
+    gfa_file.close()
+    gfa_s = []
+    gfa_other = []
+    for line in gfa_lines:
+        val = line.rstrip().split('\t')
+        if val[0] == "S":
+            gfa_s.append(val)
+        else:
+            gfa_other.append(val)
+    
+    gfa_s.sort(key=functools.cmp_to_key(compare_gfa))
+    
+    if return_list:
+       return gfa_s
+
+    elif out_path:
+        with open(out_path, "w", encoding='utf-8') as out_file:
+            for line_count, line in enumerate(gfa_s):
+                out_file.write('\t'.join(line) + '\n')
+        
+            for line_count2, line in enumerate(gfa_other):
+                out_file.write('\t'.join(line) + '\n')
+
+        #print("Wrote", line_count + line_count2, "lines to", out_file)
+    
+    else:
+        for line_count, line in enumerate(gfa_s):
+             print('\t'.join(line) + '\n')
+        
+        for line_count2, line in enumerate(gfa_other):
+            print('\t'.join(line) + '\n')
+ 
+    return True
+
+
+def gaf_sort(gaf_path, out_path = None):
+    '''This function sorts a gaf file (mappings to a pangenome graph) in sstable coordinate system based on 1)Contig name 2)Start
+    position of the contig's mapping loci.
+    '''
+
+    import functools
+    import gzip
+
+    gaf_lines = []
+    
+    if is_file_gzipped(gaf_path):
+       open_gaf = gzip.open
+       is_gzipped = True
+    else:
+        open_gaf = open
+
+    with open_gaf(gaf_path, "rt") as gaf_file:
+        for line_count, mapping in enumerate(gaf_file):
+            val = mapping.rstrip().split('\t')
+            gaf_lines.append(val)
+
+    gaf_lines.sort(key=functools.cmp_to_key(compare_gaf))
+
+    if out_path:
+        with open(out_path, "w") as out_file:
+            for line_count, line in enumerate(gaf_lines):
+                out_file.write('\t'.join(line) + '\n') 
+    else:
+        for line_count, line in enumerate(gaf_lines):
+             print('\t'.join(line) + '\n')
+
+    return True
+
+
+
+def compare_gfa(ln1, ln2):
+    chr1 = [k for k in ln1 if k.startswith("SN:Z:")][0][5:]
+    chr2 = [k for k in ln2 if k.startswith("SN:Z:")][0][5:]
+    start1 = int([k for k in ln1 if k.startswith("SO:i:")][0][5:])
+    start2 = int([k for k in ln2 if k.startswith("SO:i:")][0][5:])
+
+    if chr1 == chr2:
+        if start1 < start2:
+            return -1
+        else:
+            return 1
+    if chr1 < chr2:
+        return -1
+    else:
+        return 1
+
+
+
+def compare_gaf(ln1, ln2):
+
+    if ln1[5][0] == ">" or ln1[5][0] == "<":
+        chr1 = ln1[5][1:].lower()
+    else:
+        chr1 = ln1[5].lower()
+
+
+    if ln2[5][0] == ">" or ln2[5][0] == "<":
+        chr2 = ln2[5][1:].lower()
+    else:
+        chr2 = ln2[5].lower()
+
+    start1 = ln1[7]
+    start2 = ln2[7]
+
+    if chr1 == chr2:
+        if start1 < start2:
+            return -1
+        else:
+            return 1
+    if chr1 < chr2:
+        return -1
+    else:
+        return 1
+
+
+def is_file_gzipped(src):
+    with open(src, "rb") as inp:
+        return inp.read(2) == b'\x1f\x8b'
+
+
 def add_arguments(parser):
     arg = parser.add_argument
-    # Positional arguments
-    arg('variant_file', metavar='VCF', help='VCF file with variants to be genotyped (can be gzip-compressed)')
-    arg('phase_input_files', nargs='*', metavar='PHASEINPUT',
-        help='BAM or VCF file(s) with phase information, either through sequencing reads (BAM) or through phased blocks (VCF)')
 
-    arg('-o', '--output', default=sys.stdout,
-        help='Output VCF file. Add .gz to the file name to get compressed output. '
-        'If omitted, use standard output.')
-    arg('--reference', '-r', metavar='FASTA',
-        help='Reference file. Provide this to detect alleles through re-alignment. '
-        'If no index (.fai) exists, it will be created')
-
-    arg = parser.add_argument_group('Input pre-processing, selection and filtering').add_argument
-    arg('--max-coverage', '-H', metavar='MAXCOV', default=15, type=int,
-        help='Reduce coverage to at most MAXCOV (default: %(default)s).')
-    arg('--mapping-quality', '--mapq', metavar='QUAL',
-        default=20, type=int, help='Minimum mapping quality (default: %(default)s)')
-    arg('--indels', dest='indels', default=False, action='store_true',
-        help='Also genotype indels (default: genotype only SNPs)')
-    arg('--ignore-read-groups', default=False, action='store_true',
-        help='Ignore read groups in BAM header and assume all reads come '
-        'from the same sample.')
-    arg('--sample', dest='samples', metavar='SAMPLE', default=[], action='append',
-        help='Name of a sample to genotype. If not given, all samples in the '
-        'input VCF are genotyped. Can be used multiple times.')
-    arg('--chromosome', dest='chromosomes', metavar='CHROMOSOME', default=[], action='append',
-        help='Name of chromosome to genotyped. If not given, all chromosomes in the '
-        'input VCF are genotyped. Can be used multiple times.')
-    arg('--gt-qual-threshold', metavar='GTQUALTHRESHOLD', type=float, default=0,
-        help='Phred scaled error probability threshold used for genotyping (default: %(default)s). Must be at least 0. '
-        'If error probability of genotype is higher, genotype ./. is output.')
-    arg('--no-priors', dest='nopriors', default=False, action='store_true',
-        help='Skip initial prior genotyping and use uniform priors (default: %(default)s).')
-    arg('-p', '--prioroutput', default=None,
-        help='output prior genotype likelihoods to the given file.')
-    arg('--overhang', metavar='OVERHANG', default=10, type=int,
-        help='When --reference is used, extend alignment by this many bases to left and right when realigning (default: %(default)s).')
-    arg('--constant', metavar='CONSTANT', default=0, type=float,
-        help='This constant is used to regularize the priors (default: %(default)s).')
-    arg('--affine-gap', default=False, action='store_true',
-        help='When detecting alleles through re-alignment, use affine gap costs (EXPERIMENTAL).')
-    arg('--gap-start', metavar='GAPSTART', default=10, type=float,
-        help='gap starting penalty in case affine gap costs are used (default: %(default)s).')
-    arg('--gap-extend', metavar='GAPEXTEND', default=7, type=float,
-        help='gap extend penalty in case affine gap costs are used (default: %(default)s).')
-    arg('--mismatch', metavar='MISMATCH', default=15, type=float,
-        help='mismatch cost in case affine gap costs are used (default: %(default)s)')
-    arg('--eff-pop-size', metavar='EFFPOPSIZE', default = 10, type = int,
-        help="Parameter for transition probability computing (default: %(default)s)")
-
-    arg = parser.add_argument_group('Pedigree genotyping').add_argument
-    arg('--ped', metavar='PED/FAM',
-        help='Use pedigree information in PED file to improve genotyping '
-        '(switches to PedMEC algorithm). Columns 2, 3, 4 must refer to child, '
-        'mother, and father sample names as used in the VCF and BAM. Other '
-        'columns are ignored (EXPERIMENTAL).')
-    arg('--recombrate', metavar='RECOMBRATE', type=float, default=1.26,
-        help='Recombination rate in cM/Mb (used with --ped). If given, a constant recombination '
-        'rate is assumed (default: %(default)gcM/Mb).')
-    arg('--genmap', metavar='FILE',
-        help='File with genetic map (used with --ped) to be used instead of constant recombination '
-        'rate, i.e. overrides option --recombrate.')
-    arg('--use-ped-samples', dest='use_ped_samples',
-        action='store_true', default=False,
-        help='Only work on samples mentioned in the provided PED file.')
-    
-# fmt: on
+    arg('--gaf', dest = 'gaf_file', metavar='GAF', default = None, required = False, help='GAF File whose coordinates have to be changed')
+    arg('--gfa', dest = 'gfa_file', metavar='GFA', default = None, required = False, help='Input GFA file to conver the coordinates')
+    arg('-o', '--output', default=sys.stdout, help='Output GAF file. If omitted, use standard output.')
 
 
 def validate(args, parser):
-    if args.ignore_read_groups and args.ped:
-        parser.error("Option --ignore-read-groups cannot be used together with --ped")
-    if args.genmap and not args.ped:
-        parser.error("Option --genmap can only be used together with --ped")
-    if args.genmap and len(args.chromosomes) != 1:
-        parser.error(
-            "Option --genmap can only be used when working on exactly one chromosome (use --chromosome)"
-        )
-    if len(args.phase_input_files) == 0:
-        parser.error("Not providing any PHASEINPUT files not allowed for genotyping.")
-    if args.gt_qual_threshold < 0:
-        parser.error("Genotype quality threshold (gt-qual-threshold) must be at least 0.")
-    if args.prioroutput is not None and args.nopriors:
-        parser.error("Genotype priors are only computed if --no-priors is NOT set.")
-    if args.constant != 0 and args.nopriors:
-        parser.error("--constant can only be used if --no-priors is NOT set..")
-    if args.affine_gap and not args.reference:
-        parser.error("Option --affine-gap can only be used together with --reference.")
-    if args.use_ped_samples and not args.ped:
-        parser.error("Option --use-ped-samples can only be used when PED file is provided (--ped).")
-    if args.use_ped_samples and args.samples:
-        parser.error("Option --use-ped-samples cannot be used together with --samples")
+    return True
 
 
 def main(args):
