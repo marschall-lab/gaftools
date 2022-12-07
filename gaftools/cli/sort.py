@@ -13,6 +13,7 @@ from gaftools.cli import CommandLineError
 
 logger = logging.getLogger(__name__)
 
+
 def run(gaf_file, gfa_file, output=sys.stdout):
     if gaf_file and gfa_file:
         print("Error: Please input only the GAF or the GFA file")
@@ -84,39 +85,70 @@ def gfa_sort(gfa_path, out_path = None, return_list = False):
     return True
 
 
+
 def gaf_sort(gaf_path, out_path = None):
     '''This function sorts a gaf file (mappings to a pangenome graph) in sstable coordinate system based on 1)Contig name 2)Start
     position of the contig's mapping loci.
     '''
 
+    import glob  
     import functools
     import gzip
+    from heapq import merge
+    import functools
+    import os
+
 
     gaf_lines = []
-    
+    path = "part*.gaf"
+    chunk_size = 500000
+    chunk_id = 1
+
     if is_file_gzipped(gaf_path):
        open_gaf = gzip.open
        is_gzipped = True
     else:
         open_gaf = open
 
-    with open_gaf(gaf_path, "rt") as gaf_file:
-        for line_count, mapping in enumerate(gaf_file):
+
+    with open(gaf_path, 'rt') as gaf_file:
+        f_out = open('part_{}.gaf'.format(chunk_id), 'w')
+        
+        for line_num, mapping in enumerate(gaf_file, 1):
             val = mapping.rstrip().split('\t')
             gaf_lines.append(val)
+        
+            if not line_num % chunk_size:
+                gaf_lines.sort(key=functools.cmp_to_key(compare_gaf))
+                
+                for line_count, line in enumerate(gaf_lines):
+                    f_out.write('\t'.join(line) + '\n') 
+            
+                print('Splitting', chunk_id)
+                f_out.close()
+                gaf_lines = []
+                chunk_id += 1
+                f_out = open('part_{}.gaf'.format(chunk_id), 'w')
 
-    gaf_lines.sort(key=functools.cmp_to_key(compare_gaf))
 
-    if out_path:
-        with open(out_path, "w") as out_file:
+        if gaf_lines:
+            print('Splitting', chunk_id)
+            gaf_lines.sort(key=functools.cmp_to_key(compare_gaf))
             for line_count, line in enumerate(gaf_lines):
-                out_file.write('\t'.join(line) + '\n') 
-    else:
-        for line_count, line in enumerate(gaf_lines):
-             print('\t'.join(line) + '\n')
+                f_out.write('\t'.join(line) + '\n') 
+            f_out.close()
+            gaf_lines = []
 
-    return True
+    chunks = []
+    for filename in glob.glob(path):
+        chunks += [open(filename, 'r')]
 
+    with open(out_path, 'w') as f_out:
+        f_out.writelines(merge(*chunks, key=functools.cmp_to_key(compare_gaf2)))
+    
+    for part_file in glob.glob(path):
+        if os.path.isfile(part_file):
+            os.remove(part_file)
 
 
 def compare_gfa(ln1, ln2):
@@ -136,6 +168,34 @@ def compare_gfa(ln1, ln2):
         return 1
 
 
+def compare_gaf2(ln1, ln2):
+    
+    ln1 = ln1.rstrip().split('\t')
+    ln2 = ln2.rstrip().split('\t')
+
+    if ln1[5][0] == ">" or ln1[5][0] == "<":
+        chr1 = ln1[5][1:].lower()
+    else:
+        chr1 = ln1[5].lower()
+
+
+    if ln2[5][0] == ">" or ln2[5][0] == "<":
+        chr2 = ln2[5][1:].lower()
+    else:
+        chr2 = ln2[5].lower()
+
+    start1 = ln1[7]
+    start2 = ln2[7]
+
+    if chr1 == chr2:
+        if start1 < start2:
+            return -1
+        else:
+            return 1
+    if chr1 < chr2:
+        return -1
+    else:
+        return 1
 
 def compare_gaf(ln1, ln2):
 
