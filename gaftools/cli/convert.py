@@ -1,5 +1,5 @@
 """
-Convert Coordinate Systems between the stable system and unstable system
+Convert between stable and unstable coordinate systems
 """
 
 import logging
