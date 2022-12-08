@@ -30,6 +30,7 @@ def gaf_stat(gaf_path, cigar_stat=False):
     total_mapq = 0
     total_primary = 0
     total_secondary = 0
+    alignment_count = 0
 
     if cigar_stat:
         total_del = 0
@@ -44,11 +45,48 @@ def gaf_stat(gaf_path, cigar_stat=False):
         
     with open_gaf(gaf_path, "rt") as gaf_file:
         for mapping in gaf_file:
+            alignment_count += 1
             val = mapping.rstrip().split('\t')
-            gaf_lines.append(val)
+            #gaf_lines.append(val)
+            hashed_readname = hash(val[0])
+            read_names.add(hashed_readname)
+            total_aligned_bases += int(val[9])
+            total_mapq += int(val[11])
+            is_primary = [k for k in val if k.startswith("tp:A:")][0][5:]
+            if is_primary != "P":
+                total_secondary += 1
+            else:
+                total_primary += 1
+        
+            if cigar_stat:
+                '''Cigar string analysis'''
+                cigar = [k for k in val if k.startswith("cg:Z:")][0][5:]
+                all_cigars = ["".join(x) for _, x in itertools.groupby(cigar, key=str.isdigit)]
+                if len(all_cigars) == 2:
+                    total_perfect += 1
+                #print(all_cigars)
+                for cnt in range(0, len(all_cigars)-1, 2):
+                    if all_cigars[cnt+1] == "D":
+                        total_del += 1
+                        if int(all_cigars[cnt]) >= 50:
+                            total_del_large += 1
+                    elif all_cigars[cnt+1] == "I":
+                        total_ins += 1
+                        if int(all_cigars[cnt]) >= 50:
+                            total_ins_large += 1
+                    elif all_cigars[cnt+1] == "X":
+                        total_x += 1
+                        if int(all_cigars[cnt]) >= 50:
+                            total_x_large += 1
+                    elif all_cigars[cnt+1] == "=":
+                        total_match += 1
+                        if int(all_cigars[cnt]) >= 50:
+                            total_match_large += 1
+    
+
 
     #print("Done reading")
-    for line_count, val in enumerate(gaf_lines):
+    '''for line_count, val in enumerate(gaf_lines):
         hashed_readname = hash(val[0])
         read_names.add(hashed_readname)
         total_aligned_bases += int(val[9])
@@ -60,7 +98,7 @@ def gaf_stat(gaf_path, cigar_stat=False):
             total_primary += 1
         
         if cigar_stat:
-            '''Cigar string analysis'''
+            #Cigar string analysis
             cigar = [k for k in val if k.startswith("cg:Z:")][0][5:]
             all_cigars = ["".join(x) for _, x in itertools.groupby(cigar, key=str.isdigit)]
             if len(all_cigars) == 2:
@@ -83,14 +121,14 @@ def gaf_stat(gaf_path, cigar_stat=False):
                     total_match += 1
                     if int(all_cigars[cnt]) >= 50:
                          total_match_large += 1
-    
+    '''
     print()
-    print("Total alignments:", line_count + 1)
+    print("Total alignments:", alignment_count)
     print("\tPrimary:", total_primary)
     print("\tSecondary:", total_secondary)
     print("Reads with at least one alignment:", len(read_names))
     print("Total aligned bases:", str(total_aligned_bases))
-    print("Average mapping quality:", round((total_mapq/line_count), 1))
+    print("Average mapping quality:", round((total_mapq/alignment_count), 1))
     
     if cigar_stat:
         print("Cigar string statistics:\n\tTotal deletion regions: %d (%d >50bps)\n\tTotal insertion regions: %d (%d >50bps)\n\tTotal substitution regions: %d (%d >50bps)\n\tTotal match regions: %d (%d >50bps)" % 
