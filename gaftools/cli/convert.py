@@ -50,6 +50,7 @@ def stable_to_unstable(gaf_path, gfa_path, out_path):
     import copy
     from gaftools.cli.sort import gfa_sort
     import gzip
+    import itertools
     
     '''Needs to sort the gfa to use logn time binary search'''
     print("Sorting the GFA file...")
@@ -78,7 +79,7 @@ def stable_to_unstable(gaf_path, gfa_path, out_path):
     
     gaf_unstable = open(out_path, "w")
 
-    print("Reading the alignments...")
+    print("Reading and converting the alignments...")
     gz_flag = gaf_path[-2:] == "gz"
     if gz_flag:
         gaf_file = gzip.open(gaf_path,"r")
@@ -151,15 +152,24 @@ def stable_to_unstable(gaf_path, gfa_path, out_path):
 
         if line_count != 0:
             gaf_unstable.write("\n")
-        gaf_unstable.write("%s\t%s\t%s\t%s\t%s\t%s\t%d\t%d\t%d" %(gaf_line_elements[0], gaf_line_elements[1], gaf_line_elements[2], 
+        gaf_unstable.write("%s\t%s\t%s\t+\t%s\t%s\t%d\t%d\t%d" %(gaf_line_elements[0], gaf_line_elements[1], gaf_line_elements[2], 
                                                                     gaf_line_elements[3],
-                                                                    gaf_line_elements[4],
                                                                     unstable_coord, new_total,
                                                                     new_start, new_start +
                                                                     int(gaf_line_elements[9])))
         line_count += 1
-        for i in gaf_line_elements[9:len(gaf_line_elements)]:
+        for i in gaf_line_elements[9:len(gaf_line_elements)-1]:
             gaf_unstable.write("\t%s"%i)
+        
+        #Add cigar in reverse 
+        if gaf_line_elements[4] == "-":
+            cigar = gaf_line_elements[-1][5:]
+            all_cigars = ["".join(x) for _, x in itertools.groupby(cigar, key=str.isdigit)]
+            new_cigar = "cg:Z:"
+            for i in range(len(all_cigars), 0, -2):
+                new_cigar += str(all_cigars[i-2]) + str(all_cigars[i-1])
+            gaf_unstable.write("\t%s"%new_cigar)
+
     gaf_file.close()
     gaf_unstable.close()
     print("Done...")
