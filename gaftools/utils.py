@@ -7,10 +7,6 @@ import pyfaidx
 from dataclasses import dataclass
 
 
-class FastaNotIndexedError(Exception):
-    pass
-
-
 class InvalidRegion(Exception):
     pass
 
@@ -40,18 +36,26 @@ def detect_file_format(path):
 
     return None
 
+def is_file_gzipped(src):
+    with open(src, "rb") as inp:
+        return inp.read(2) == b'\x1f\x8b'
 
-def IndexedFasta(path):
-    try:
-        f = pyfaidx.Fasta(path, as_raw=True, sequence_always_upper=True, build_index=False)
-    except pyfaidx.IndexNotFoundError:
-        raise FastaNotIndexedError(path)
-    return f
+def search_intervals(intervals, query_start, query_end, start, end):
+    '''Given the start-end coordinates in the GFA file for the given contig (SO, SO+LN), it
+    searches for the given (query_start, query_end) matches. (query_start, query_end) is the start
+    and end location of a mapping in the gaf file.
+    '''
 
+    if start <= end:    
+        mid = start + (end - start) // 2
+        if query_end <= intervals[mid].start:
+            return search_intervals(intervals, query_start, query_end, start, mid - 1)
+        elif query_start >= intervals[mid].end:
+            return search_intervals(intervals, query_start, query_end, mid + 1, end)
+        else:
+            return start, end
 
-def plural_s(n: int) -> str:
-    return "" if n == 1 else "s"
-
+    return -1, -1
 
 @dataclass
 class Region:
@@ -97,13 +101,3 @@ class Region:
                 raise InvalidRegion("Region must be specified as chrom[:start[-end]])") from None
         return Region(chromosome, start, end)
 
-
-_warning_count: DefaultDict[str, int] = defaultdict(int)
-
-
-def warn_once(logger, msg: str, *args) -> None:
-    if _warning_count[msg] == 0 and not logger.isEnabledFor(logging.DEBUG):
-        logger.warning(msg + " Hiding further warnings of this type, use --debug to show", *args)
-    else:
-        logger.debug(msg, *args)
-    _warning_count[msg] += 1
