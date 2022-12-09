@@ -152,11 +152,17 @@ def stable_to_unstable(gaf_path, gfa_path, out_path):
 
         if line_count != 0:
             gaf_unstable.write("\n")
+        
+        if gaf_line_elements[4] == "-":
+            new_end = new_total - new_start
+            new_start = new_end - (int(gaf_line_elements[8]) - int(gaf_line_elements[7]))
+        else:
+            new_end = new_start + (int(gaf_line_elements[8]) - int(gaf_line_elements[7]))
+
         gaf_unstable.write("%s\t%s\t%s\t+\t%s\t%s\t%d\t%d\t%d" %(gaf_line_elements[0], gaf_line_elements[1], gaf_line_elements[2], 
                                                                     gaf_line_elements[3],
                                                                     unstable_coord, new_total,
-                                                                    new_start, new_start +
-                                                                    int(gaf_line_elements[9])))
+                                                                    new_start, new_end))
         line_count += 1
         for i in gaf_line_elements[9:len(gaf_line_elements)-1]:
             gaf_unstable.write("\t%s"%i)
@@ -169,6 +175,8 @@ def stable_to_unstable(gaf_path, gfa_path, out_path):
             for i in range(len(all_cigars), 0, -2):
                 new_cigar += str(all_cigars[i-2]) + str(all_cigars[i-1])
             gaf_unstable.write("\t%s"%new_cigar)
+        else:
+            gaf_unstable.write("\t%s"%gaf_line_elements[-1])
 
     gaf_file.close()
     gaf_unstable.close()
