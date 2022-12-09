@@ -112,12 +112,16 @@ def stable_to_unstable(gaf_path, gfa_path, out_path):
                 query_contig_name = nd
                 split_contig = False
             if not orient:
-                orient = ">"
+                if gaf_line_elements[4] == "+":
+                    orient = ">"
+                else:
+                    orient = "<"
 
             #print(orient, query_contig_name, query_start, query_end)
             '''Find the matching nodes from the reference genome here'''
             start, end = search_intervals(reference[query_contig_name], int(query_start), int(query_end), 0, len(reference[query_contig_name]))
-
+            
+            nodes_tmp = []
             for i in reference[query_contig_name][start:end+1]:
                 cases = -1
                 if i.start <= int(query_start) < i.end:
@@ -132,10 +136,19 @@ def stable_to_unstable(gaf_path, gfa_path, out_path):
                 elif int(query_start) < i.start < i.end < int(query_end):
                     cases = 3
                 
-                if cases != -1:    
-                    unstable_coord += orient+i.node_id
+                if cases != -1:
+                    nodes_tmp.append(i.node_id)
+                    #unstable_coord += orient+i.node_id
                     new_total += (i.end - i.start)
-        
+            
+            if orient == "<":
+                for i in reversed(nodes_tmp):
+                    unstable_coord += orient+i
+            else:
+                for i in nodes_tmp:
+                    unstable_coord += orient+i
+
+
         if line_count != 0:
             gaf_unstable.write("\n")
         gaf_unstable.write("%s\t%s\t%s\t%s\t%s\t%s\t%d\t%d\t%d" %(gaf_line_elements[0], gaf_line_elements[1], gaf_line_elements[2], 
