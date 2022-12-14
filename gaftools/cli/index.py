@@ -3,14 +3,11 @@ Index the GAF File
 """
 
 import logging
-import sys
-import platform
 import re
 
 from gaftools import __version__
 from gaftools.timer import StageTimer
 from gaftools.cli import log_memory_usage
-from gaftools.cli import CommandLineError
 
 class Node1:
     def __init__(self, node_id, start, end):
@@ -24,8 +21,10 @@ def run(gaf_path, reference, output=None, unstable=False):
     
     import gzip
     import copy
-    from gaftools.cli.sort_gfa import gfa_sort
+    from gaftools.cli.sort import gfa_sort
+    from gaftools.utils import is_file_gzipped
     import pickle
+    from pysam import libcbgzf
 
     timers = StageTimer()
     if output == None:
@@ -70,24 +69,34 @@ def run(gaf_path, reference, output=None, unstable=False):
             nodes[gfa_line[1]] = (gfa_line[1], contig_name, start_pos, end_pos)
     
     if is_file_gzipped(gaf_path):
-       open_gaf = gzip.open
+        logger.info("GAF file compression detected. BGZF compression needed for optimal performance. Generating appropriated index (using virtual offsets defined by the BGZF compression).")
+        gaf_file = libcbgzf.BGZFile(gaf_path,"rb")
     else:
-        open_gaf = open
+        logger.info("Uncompressed GAF file detected. Generating appropriate index (using offset values).")
+        gaf_file = open(gaf_path,"rt")
     out_dict = {}
     logger.info("Indexing the file")
-    with open_gaf(gaf_path, "rt") as gaf_file:
-        for line_count, mapping in enumerate(gaf_file):
+    offset = 0
+    while True:
+        offset = gaf_file.tell()
+        mapping = gaf_file.readline()
+        if not mapping:
+            break
+        try:
             val = mapping.rstrip().split('\t')
-            if not unstable:
-                with timers("convert_coord"):
-                    alignment = convert_coord(val, ref)
-            else:
-                alignment = list(re.split('>|<', val[5]))[1:]
-            for a in alignment:
-                try:
-                    out_dict[nodes[a]].append(line_count)
-                except KeyError:
-                    out_dict[nodes[a]] = [line_count]
+        except TypeError:
+            val = mapping.decode("utf-8").rstrip().split('\t')
+        if not unstable:
+            with timers("convert_coord"):
+                alignment = convert_coord(val, ref)
+        else:
+            alignment = list(re.split('>|<', val[5]))[1:]
+        for a in alignment:
+            try:
+                out_dict[nodes[a]].append(offset)
+            except KeyError:
+                out_dict[nodes[a]] = [offset]
+        
     with open(output, 'wb') as handle:
         with timers("write_file"):
             pickle.dump(out_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
@@ -136,11 +145,6 @@ def convert_coord(line, ref):
     
     return unstable_coord
 
-def is_file_gzipped(src):
-    with open(src, "rb") as inp:
-        return inp.read(2) == b'\x1f\x8b'
-
-
 # fmt: off
 def add_arguments(parser):
     arg = parser.add_argument
@@ -151,10 +155,7 @@ def add_arguments(parser):
     
     arg('--unstable', dest='unstable', default=False, action='store_true', help='Specify flag if GAF file has unstable coordinates')
     
-    
 # fmt: on
-
-
 def validate(args, parser):
     return True
 
