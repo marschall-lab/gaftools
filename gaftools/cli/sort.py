@@ -15,15 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 def run(gaf_file, gfa_file, output=sys.stdout):
-    if gaf_file and gfa_file:
-        print("Error: Please input only the GAF or the GFA file")
-        print()
-        return
-    elif not gaf_file and not gfa_file:
-        print("Error: Please input a GAF or a GFA file to be sorted")
-        print()
-        return
-
+    
     if (gaf_file):
         gaf_sort(gaf_file, output)
     else:
@@ -289,18 +281,21 @@ def is_file_gzipped(src):
     with open(src, "rb") as inp:
         return inp.read(2) == b'\x1f\x8b'
 
-
+# fmt: off
 def add_arguments(parser):
     arg = parser.add_argument
-
+    # Positional arguments
     arg('--gaf', dest = 'gaf_file', metavar='GAF', default = None, required = False, help='GAF File whose coordinates have to be changed')
-    arg('--gfa', dest = 'gfa_file', metavar='GFA', default = None, required = False, help='Input GFA file to conver the coordinates')
+    arg('--gfa', dest = 'gfa_file', metavar='GFA', default = None, required = False, help='Input GFA file to convert the coordinates')
     arg('-o', '--output', default=sys.stdout, help='Output GAF file. If omitted, use standard output.')
-
+# fmt: on
 
 def validate(args, parser):
-    return True
-
+    if args.gaf_file and args.gfa_file:
+        parser.error("Please input either a GAF or GFA file.")
+    if not args.gaf_file and not args.gfa_file:
+        parser.error("Please input a GAF or a GFA file to be sorted")
+        
 
 def main(args):
     run(**vars(args))

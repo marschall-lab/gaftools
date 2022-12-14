@@ -27,6 +27,7 @@ def run(gaf_path,
     from gaftools.utils import is_file_gzipped, search_intervals
     import gzip
     import pickle
+    import linecache
 
     timers = StageTimer()
     if output != sys.stdout:
@@ -35,7 +36,7 @@ def run(gaf_path,
         out = output
 
     if is_file_gzipped(gaf_path):
-       open_gaf = gzip.open
+        open_gaf = gzip.open
     else:
         open_gaf = open
     
@@ -59,20 +60,18 @@ def run(gaf_path,
             logger.info("Multiple node IDs recovered from the list of regions/nodes given. Output will contain entire alignment since --full-alignment flag has been given.")
         else:
             logger.info("INFO: Multiple node IDs recovered from the list of regions/nodes given. Output will contain parts of the alignment which from the first node given to the last node given.")
-        lines=ind[node[0]]
+        offs=ind[node[0]]
         for nd in node[1:]:
-            lines = list(set(lines) & set(ind[nd]))
-        lines.sort()
+            offs = list(set(offs) & set(ind[nd]))
+        offs.sort()
         c = 0
         with open_gaf(gaf_path, "rt") as gaf_file:
-            for line_count, mapping in enumerate(gaf_file):
-                if c == len(lines):
-                    break
-                if line_count != lines[c]:
-                    continue
-                c += 1
-                print(mapping)
-                
+            for o in offs:
+                with timers("seek"):
+                    gaf_file.seek(o)
+                with timers("reading"):
+                    mapping = gaf_file.readline()
+                print(mapping)      
         
     else:
         logger.info("No Nodes specified.")
@@ -95,6 +94,8 @@ def run(gaf_path,
     
     total_time = timers.total()
     log_memory_usage()
+    logger.info("Time spent seeking:                          %9.2f s", timers.elapsed("seek"))
+    logger.info("Time spent reading:                          %9.2f s", timers.elapsed("reading"))
     logger.info("Total time:                                  %9.2f s", total_time)
     logger.info("\n")
 
