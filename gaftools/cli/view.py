@@ -25,8 +25,8 @@ def run(gaf_path,
     ):
     
     from gaftools.utils import is_file_gzipped, search_intervals
-    import gzip
     import pickle
+    from pysam import libcbgzf
 
     timers = StageTimer()
     if output != sys.stdout:
@@ -35,9 +35,11 @@ def run(gaf_path,
         out = output
 
     if is_file_gzipped(gaf_path):
-       open_gaf = gzip.open
+        logger.info("Compressed GAF file detected. The index provided must have been built on the compressed file.")
+        gaf_file = libcbgzf.BGZFile(gaf_path,"rb")
     else:
-        open_gaf = open
+        logger.info("Uncompressed GAF file detected. The index provided must have been built on the uncompressed file.")
+        gaf_file = open(gaf_path,"rt")
     
     if len(node) != 0:
         if index == None:
@@ -59,47 +61,74 @@ def run(gaf_path,
             logger.info("Multiple node IDs recovered from the list of regions/nodes given. Output will contain entire alignment since --full-alignment flag has been given.")
         else:
             logger.info("INFO: Multiple node IDs recovered from the list of regions/nodes given. Output will contain parts of the alignment which from the first node given to the last node given.")
-        lines=ind[node[0]]
+        offsets=ind[node[0]]
         for nd in node[1:]:
-            lines = list(set(lines) & set(ind[nd]))
-        lines.sort()
+            offsets = list(set(offsets) & set(ind[nd]))
+        offsets.sort()
         c = 0
-        with open_gaf(gaf_path, "rt") as gaf_file:
-            for line_count, mapping in enumerate(gaf_file):
-                if c == len(lines):
-                    break
-                if line_count != lines[c]:
-                    continue
-                c += 1
-                print(mapping)
+        for ofs in offsets:
+            with timers("seek"):
+                gaf_file.seek(ofs)
+            with timers("readline"):
+                mapping = gaf_file.readline()
+            try:
+                val = mapping.rstrip().split('\t')
+            except TypeError:
+                val = mapping.decode("utf-8").rstrip().split('\t')
+            out_str = ""
+            if not remove_read_id:
+                out_str += "%s\t"%(val[0])
+            if only_alignment:
+                with timers("format"):
+                    result = change_format(val, show_node_id, node_id, ind_key, ind_dict, full_alignment, timers)
+                out_str += result+"\n"
+            else:
+                for n, fd in enumerate(val[1:]):
+                    if fd[:3] == "cg:" and remove_cigar:
+                        continue
+                    if n == 4:
+                        with timers("format"):
+                            fd = change_format(val, show_node_id, node_id, ind_key, ind_dict, full_alignment, timers)
+                    out_str += fd+"\t"
+                out_str = out_str.strip("\t")
+                out_str += "\n"
+            out.write(out_str)        
                 
         
     else:
         logger.info("No Nodes specified.")
-        with open_gaf(gaf_path, "rt") as gaf_file:
-            for line_count, mapping in enumerate(gaf_file):
-                val = mapping.rstrip().split('\t')
-                out_str = ""
-                for n,i in enumerate(val):
-                    if remove_read_id and n == 0:
-                        continue
-                    if i[:3] == "cg:" and remove_cigar:
-                        continue
-                    out_str += i+"\t"
-                out_str = out_str.strip("\t")
-                out_str += "\n"
-                out.write(out_str)
+        for ofs in offsets:
+            with timers("seek"):
+                gaf_file.seek(ofs)
+            with timers("readline"):
+                mapping = gaf_file.readline()
+            val = mapping.rstrip().split('\t')
+            out_str = ""
+            for n,i in enumerate(val):
+                if remove_read_id and n == 0:
+                    continue
+                if i[:3] == "cg:" and remove_cigar:
+                    continue
+                out_str += i+"\t"
+            out_str = out_str.strip("\t")
+            out_str += "\n"
+            out.write(out_str)
     
+    gaf_file.close()
     if output != sys.stdout:
         out.close()
     
-    total_time = timers.total()
+    #total_time = timers.total()
     log_memory_usage()
-    logger.info("Total time:                                  %9.2f s", total_time)
-    logger.info("\n")
+    #logger.info("Time for seek():                             %9.2f s", timers.elapsed("seek"))
+    #logger.info("Time for readline():                         %9.2f s", timers.elapsed("readline"))
+    #logger.info("Time for formatting:                         %9.2f s", timers.elapsed("format"))
+    #logger.info("Time for converting:                         %9.2f s", timers.elapsed("convert"))
+    #logger.info("Total time:                                  %9.2f s", total_time)
+    #logger.info("\n")
 
 
-def change_format(a, show_node_id, node_id, ind, ind_dict, fa):
+def change_format(a, show_node_id, node_id, ind, ind_dict, fa, timers):
     import re
     x = list(filter(None, re.split('(>)|(<)', a[5])))
     isStable = False
@@ -108,7 +137,8 @@ def change_format(a, show_node_id, node_id, ind, ind_dict, fa):
     elif ":" in x[1]:
         isStable = True
     if isStable:
-        x = convert_to_unstable(a, ind)
+        with timers("convert"):
+            x = convert_to_unstable(a, ind)
     tmp = None
     out_str = ""
     if len(node_id) == 1:
@@ -125,7 +155,7 @@ def change_format(a, show_node_id, node_id, ind, ind_dict, fa):
                     orient = nd
                     continue
                 n = ind_dict[nd]
-                if orient == x[-2] and n[1] == tmp[-1][1]:
+                if orient == tmp[-2] and n[1] == tmp[-1][1]:
                     if orient == ">" and n[2] == tmp[-1][3]:
                         tmp[-1][3] = n[3]
                         continue
@@ -153,52 +183,33 @@ def change_format(a, show_node_id, node_id, ind, ind_dict, fa):
                 continue
             if nd in node_id:
                 toStart=True
-                tmp.append([orient, ind_dict[nd], False])
+                tmp.extend([orient, list(ind_dict[nd])])
                 end = len(tmp)
                 continue
-            tmp.append([orient, ind_dict[nd], True])
-        tmp_start = None
-        tmp_end = None
-        tmp_contig = None
-        tmp_orient = None
-        for i,t in enumerate(tmp[:end]):
-            if show_node_id:
-                out_str += "%s%s"%(t[0],t[1][0])
+            tmp.extend([orient, list(ind_dict[nd])])
+        result = [tmp[0], tmp[1]]
+        orient=None
+        for i,nd in enumerate(tmp[:end]):
+            if i == 0 or i == 1:
+                continue 
+            if nd == ">" or nd == "<":
+                orient = nd
                 continue
-            if not t[2]:
-                out_str += "%s%s:%d-%d"%(t[0],t[1][1],t[1][2],t[1][3])
-                tmp_start = None
-                tmp_end = None
-                tmp_contig = None
-                tmp_orient = None
-                continue
-            if tmp_start == None:
-                tmp_orient = t[0]
-                tmp_contig = t[1][1]
-                tmp_start = t[1][2]
-                tmp_end = t[1][3]
-                if not tmp[i+1][2]:
-                    out_str += "%s%s:%d-%d"%(tmp_orient,tmp_contig,tmp_start,tmp_end)
-                continue
-            if tmp_orient == t[0] and tmp_contig == t[1][1]:
-                if tmp_orient == ">" and tmp_end == t[1][2]:
-                    tmp_end = t[1][3]
-                    if not tmp[i+1][2]:
-                        out_str += "%s%s:%d-%d"%(tmp_orient,tmp_contig,tmp_start,tmp_end)
+            n = nd
+            if orient == result[-2] and n[1] == result[-1][1]:
+                if orient == ">" and n[2] == result[-1][3]:
+                    result[-1][3] = n[3]
                     continue
-                if tmp_orient == "<" and tmp_start == t[1][3]:
-                    tmp_start = t[1][2]
-                    if not tmp[i+1][2]:
-                        out_str += "%s%s:%d-%d"%(tmp_orient,tmp_contig,tmp_start,tmp_end)
+                if orient == "<" and n[3] == result[-1][2]:
+                    result[-1][2] = n[2]
                     continue
-            out_str += "%s%s:%d-%d"%(tmp_orient,tmp_contig,tmp_start,tmp_end)
-            tmp_orient = t[0]
-            tmp_contig = t[1][1]
-            tmp_start = t[1][2]
-            tmp_end = t[1][3]
-            if not tmp[i+1][2]:
-                out_str += "%s%s:%d-%d"%(tmp_orient,tmp_contig,tmp_start,tmp_end)
-                continue
+            result.append(orient)
+            result.append(nd)
+        for nd in result:
+            if nd == ">" or nd == "<":
+                out_str += nd
+            else:
+                out_str += "%s:%d-%d"%(nd[1],nd[2],nd[3])
     else:
         if show_node_id:
             for nd in x:
@@ -212,7 +223,7 @@ def change_format(a, show_node_id, node_id, ind, ind_dict, fa):
                     orient = nd
                     continue
                 n = ind_dict[nd]
-                if orient == x[-2] and n[1] == tmp[-1][1]:
+                if orient == tmp[-2] and n[1] == tmp[-1][1]:
                     if orient == ">" and n[2] == tmp[-1][3]:
                         tmp[-1][3] = n[3]
                         continue

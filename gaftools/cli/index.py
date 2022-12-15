@@ -96,6 +96,8 @@ def run(gaf_path, reference, output=None, unstable=False):
                 out_dict[nodes[a]].append(offset)
             except KeyError:
                 out_dict[nodes[a]] = [offset]
+    
+    gaf_file.close()
         
     with open(output, 'wb') as handle:
         with timers("write_file"):
