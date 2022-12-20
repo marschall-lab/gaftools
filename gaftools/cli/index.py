@@ -17,7 +17,7 @@ class Node1:
 
 logger = logging.getLogger(__name__)
 
-def run(gaf_path, reference, output=None, unstable=False):
+def run(gaf_path, reference, output=None):
     
     import gzip
     import copy
@@ -29,9 +29,22 @@ def run(gaf_path, reference, output=None, unstable=False):
     timers = StageTimer()
     if output == None:
         output = gaf_path+".gai"
+    
+    #Detecting if GAF has stable or unstable coordinate
+    if is_file_gzipped(gaf_path):
+        gaf_file = libcbgzf.BGZFile(gaf_path,"rb")
+        line = gaf_file.readline().decode("utf-8")
+    else:
+        gaf_file = open(gaf_path,"rt")
+        line = gaf_file.readline()
+    unstable = detect_unstable(line)
+    gaf_file.close()
+    
     nodes = {}
     ref = {}
+    ref_contig = []
     if not unstable:
+        logger.info("Detected stable coordinates in the GAF file.")
         with timers("sort_gfa"):
             logger.info("Sorting GFA File")
             gfa_lines = gfa_sort(reference, None, True)
@@ -49,9 +62,21 @@ def run(gaf_path, reference, output=None, unstable=False):
                 start_pos = int([k for k in gfa_line if k.startswith("SO:i:")][0][5:])
                 end_pos = int([k for k in gfa_line if k.startswith("LN:i:")][0][5:]) + start_pos
                 tmp = Node1(gfa_line[1], start_pos, end_pos)
+                rank = int([k for k in gfa_line if k.startswith("SR:i:")][0][5:])
+                try:
+                    rank = int([k for k in gfa_line if k.startswith("SR:i:")][0][5:])
+                except IndexError:
+                    logger.error("ERROR: No Rank present in the reference GFA File. Input rGFA file should have SR field.")
+                    exit()
                 ref[contig_name].append(tmp)
                 nodes[gfa_line[1]] = (gfa_line[1], tmp_contig_name, start_pos, end_pos)
+                if tmp_contig_name not in ref_contig:
+                    if rank == 0:
+                        ref_contig.append(contig_name)
+                else:
+                    assert (rank == 0)
     else:
+        logger.info("Detected unstable coordinates in the GAF file.")
         gz_flag = reference[-2:] == "gz"
         if gz_flag:
             gfa_file = gzip.open(reference,"r")
@@ -66,7 +91,18 @@ def run(gaf_path, reference, output=None, unstable=False):
             contig_name = [k for k in gfa_line if k.startswith("SN:Z:")][0][5:]
             start_pos = int([k for k in gfa_line if k.startswith("SO:i:")][0][5:])
             end_pos = int([k for k in gfa_line if k.startswith("LN:i:")][0][5:]) + start_pos
+            rank = int([k for k in gfa_line if k.startswith("SR:i:")][0][5:])
+            try:
+                rank = int([k for k in gfa_line if k.startswith("SR:i:")][0][5:])
+            except IndexError:
+                logger.error("ERROR: No Rank present in the reference GFA File. Input rGFA file should have SR field.")
+                exit()
             nodes[gfa_line[1]] = (gfa_line[1], contig_name, start_pos, end_pos)
+            if contig_name not in ref_contig:
+                if rank == 0:
+                    ref_contig.append(contig_name)
+            else:
+                assert (rank == 0)
     
     if is_file_gzipped(gaf_path):
         logger.info("GAF file compression detected. BGZF compression needed for optimal performance. Generating appropriated index (using virtual offsets defined by the BGZF compression).")
@@ -96,6 +132,7 @@ def run(gaf_path, reference, output=None, unstable=False):
                 out_dict[nodes[a]].append(offset)
             except KeyError:
                 out_dict[nodes[a]] = [offset]
+    out_dict["ref_contig"] = ref_contig
     
     gaf_file.close()
         
@@ -147,15 +184,22 @@ def convert_coord(line, ref):
     
     return unstable_coord
 
+def detect_unstable(line):
+    a = line.rstrip().split('\t')[5]
+    g = list(filter(None, re.split('(>)|(<)', a)))
+    if len(g) == 1:
+        return False
+    if ":" in g[1]:
+        return False
+    return True
+
 # fmt: off
 def add_arguments(parser):
     arg = parser.add_argument
     # Positional arguments
     arg('gaf_path', metavar='GAF', help='Input GAF file (can be gzip-compressed)')
-    arg('reference', metavar='GFA', help='Reference GFA file has to be input.')
+    arg('reference', metavar='rGFA', help='Reference rGFA file has to be input.')
     arg('-o', '--output', default=None, help='Output Indexed GAF file. If omitted, use <GAF File>.gai.')
-    
-    arg('--unstable', dest='unstable', default=False, action='store_true', help='Specify flag if GAF file has unstable coordinates')
     
 # fmt: on
 def validate(args, parser):
