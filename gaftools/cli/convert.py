@@ -8,6 +8,7 @@ import sys
 from gaftools import __version__
 from gaftools.cli import log_memory_usage
 from gaftools.cli import CommandLineError
+from gaftools.timer import StageTimer
 
 
 logger = logging.getLogger(__name__)
@@ -34,11 +35,13 @@ def run(
     unstable=False,
     stable=False
 ):
+    timers = StageTimer()
     assert (unstable != stable)
     if (unstable):
         stable_to_unstable(gaf_file, gfa_file, output)
     else:
         unstable_to_stable(gaf_file, gfa_file, output)
+    log_memory_usage()
 
 
 def stable_to_unstable(gaf_path, gfa_path, out_path):
@@ -53,14 +56,14 @@ def stable_to_unstable(gaf_path, gfa_path, out_path):
     import itertools
     
     '''Needs to sort the gfa to use logn time binary search'''
-    print("Sorting the GFA file...")
+    logger.info("Sorting the GFA file...")
     gfa_lines = gfa_sort(gfa_path, None, True)
     
     '''We load the reference genome into memory for fast execution. The reference is not very large
     so it does not seem to be a big issue... This creates a dictionary where each element is a
     contig which keeps the list of start and end locations with node name(S).
     '''
-    #print("Loading the GFA file into memory")
+    logger.info("Loading the rGFA file into memory")
     reference = {}    
     contig_name = None
     for gfa_line in gfa_lines:
@@ -79,7 +82,7 @@ def stable_to_unstable(gaf_path, gfa_path, out_path):
     
     gaf_unstable = open(out_path, "w")
 
-    print("Reading and converting the alignments...")
+    logger.info("Reading and converting the alignments...")
     gz_flag = gaf_path[-2:] == "gz"
     if gz_flag:
         gaf_file = gzip.open(gaf_path,"r")
@@ -180,7 +183,7 @@ def stable_to_unstable(gaf_path, gfa_path, out_path):
 
     gaf_file.close()
     gaf_unstable.close()
-    print("Done...")
+    logger.info("Done...")
 
 
 def unstable_to_stable(gaf_path, gfa_path, out_path):
@@ -191,9 +194,10 @@ def unstable_to_stable(gaf_path, gfa_path, out_path):
     import re
     import gzip
     
-    print("Loading the GFA file into memory")
+    logger.info("Loading the rGFA file into memory")
     nodes = {}
     contig_len = {}
+    ref_contig = []
     contig_name = None
     gz_flag = gfa_path[-2:] == "gz"
     if gz_flag:
@@ -209,6 +213,17 @@ def unstable_to_stable(gaf_path, gfa_path, out_path):
         contig_name = [k for k in gfa_line if k.startswith("SN:Z:")][0][5:]
         start_pos = int([k for k in gfa_line if k.startswith("SO:i:")][0][5:])
         end_pos = int([k for k in gfa_line if k.startswith("LN:i:")][0][5:]) + start_pos
+        try:
+            rank = int([k for k in gfa_line if k.startswith("SR:i:")][0][5:])
+        except IndexError:
+            logger.error("ERROR: No Rank present in the reference GFA File. Input rGFA file should have SR field.")
+            exit()
+        if contig_name not in ref_contig:
+            if rank == 0:
+                ref_contig.append(contig_name)
+        else:
+            assert (rank == 0)
+
         tmp = Node2(contig_name, start_pos, end_pos)
         nodes[gfa_line[1]] = tmp
 
@@ -217,10 +232,10 @@ def unstable_to_stable(gaf_path, gfa_path, out_path):
         except KeyError:
             contig_len[contig_name] = end_pos-start_pos
     gfa_file.close()
-    
+    #exit()
     gaf_stable = open(out_path, "w")
 
-    print("Reading the alignments...")
+    logger.info("Reading the alignments and converting...")
     line_count = 0
     gz_flag = gaf_path[-2:] == "gz"
     if gz_flag:
@@ -231,6 +246,7 @@ def unstable_to_stable(gaf_path, gfa_path, out_path):
     new_total = None
     new_start = None
     for gaf_line in gaf_file:
+        reverse_flag = False
         if gz_flag:
             gaf_line_elements = gaf_line.decode("utf-8").rstrip().split('\t')
         else:
@@ -246,22 +262,30 @@ def unstable_to_stable(gaf_path, gfa_path, out_path):
             if not orient:
                 orient = ">"
             node_list.append([nodes[nd],orient])
+        out_node = [node_list[0]]
         for i in range(len(node_list)-1):
-            n1=node_list[i][0]
-            o1=node_list[i][1]
+            n1=out_node[-1][0]
+            o1=out_node[-1][1]
             n2=node_list[i+1][0]
             o2=node_list[i+1][1]
             node_merge=merge_nodes(n1,n2,o1,o2)
             if node_merge==False:
                 stable_coord += n1.to_string(o1)
+                out_node.append([n2,o2])
             else:
-                node_list[i+1]=node_merge
-        if len(node_list) == 1:
-            stable_coord = node_list[0][0].contig_id
+                out_node[-1]=node_merge
+        if len(out_node) == 1 and out_node[0][0].contig_id in ref_contig:
+            if out_node[0][1] == "<":
+                reverse_flag = True
+                gaf_line_elements[4] = "-"
+                new_start = out_node[0][0].start + int(gaf_line_elements[6]) - int(gaf_line_elements[8])
+            else:
+                new_start = out_node[0][0].start + int(gaf_line_elements[7])
+            stable_coord = out_node[0][0].contig_id
             new_total = contig_len[stable_coord]
-            new_start = node_list[0][0].start + int(gaf_line_elements[7])
+            
         else:
-            stable_coord += node_list[-1][0].to_string(node_list[-1][1])
+            stable_coord += out_node[-1][0].to_string(out_node[-1][1])
             new_start = int(gaf_line_elements[7])
             new_total = int(gaf_line_elements[6])
         
@@ -272,15 +296,28 @@ def unstable_to_stable(gaf_path, gfa_path, out_path):
                                                                     gaf_line_elements[4],
                                                                     stable_coord, new_total,
                                                                     new_start, new_start +
-                                                                    int(gaf_line_elements[9])))
+                                                                    int(gaf_line_elements[8])-int(gaf_line_elements[7])))
         line_count += 1
         for i in gaf_line_elements[9:len(gaf_line_elements)]:
+            if i[:5] == "cg:Z:" and reverse_flag:
+                i = reverse_cigar(i)
             gaf_stable.write("\t%s"%i)
-            
+        if line_count % 100000 == 0:
+            logger.info("Processed %d lines..." %(line_count))
+        
     gaf_file.close()
     gaf_stable.close()
     return True
 
+
+def reverse_cigar(cg):
+    import itertools
+    cg = cg[5:]
+    all_cigars = ["".join(x) for _, x in itertools.groupby(cg, key=str.isdigit)]
+    new_cigar = "cg:Z:"
+    for i in range(len(all_cigars), 0, -2):
+        new_cigar += str(all_cigars[i-2]) + str(all_cigars[i-1])
+    return new_cigar
 
 def search_intervals(intervals, query_start, query_end, start, end):
     '''Given the start-end coordinates in the GFA file for the given contig (SO, SO+LN), it
@@ -318,7 +355,7 @@ def add_arguments(parser):
     arg = parser.add_argument
     # Positional arguments
     arg('gaf_file', metavar='GAF', help='GAF File whose coordinates have to be changed')
-    arg('gfa_file', metavar='GFA', help='Input GFA file to conver the coordinates')
+    arg('gfa_file', metavar='rGFA', help='Input rGFA file to convert the coordinates')
     arg('-o', '--output', default=sys.stdout,
         help='Output GAF file. If omitted, use standard output.')
     arg('--unstable', dest='unstable', default=False, action='store_true',
