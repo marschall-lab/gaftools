@@ -1,3 +1,8 @@
+"""
+The code has been taken from WhatsHap.
+Link to WhatsHap: https://github.com/whatshap/whatshap
+"""
+
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
 import sys
 

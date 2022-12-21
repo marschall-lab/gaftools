@@ -1,3 +1,8 @@
+"""
+The code has been taken from WhatsHap.
+Link to WhatsHap: https://github.com/whatshap/whatshap
+"""
+
 import os
 from setuptools import setup, Extension
 from distutils.sysconfig import customize_compiler
@@ -42,8 +47,9 @@ else:
     cmdclass = {"build_ext": BuildExt}
     ext_modules = extensions
     install_requires = [
-        "pyfaidx>=0.5.5.2",
-        "networkx",
+        "pysam>=0.18.0",
+        "pickle"
+        
     ]
 
 setup(

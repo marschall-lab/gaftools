@@ -1,3 +1,8 @@
+"""
+The code has been taken from WhatsHap.
+Link to WhatsHap: https://github.com/whatshap/whatshap
+"""
+
 import sys
 import pkgutil
 import importlib
@@ -39,11 +44,11 @@ def setup_logging(debug):
 
 # Ensure all the versions here
 def ensure_version():
-    from pyfaidx import __version__ as pyfaidx_version
+    from pysam import __version__ as pysam_version
     from distutils.version import LooseVersion
 
-    if LooseVersion(pyfaidx_version) < LooseVersion("0.5.5.2"):
-        sys.exit("gaftools requires pyfaidx >= 0.5.5.2")
+    if LooseVersion(pysam_version) < LooseVersion("0.18.0"):
+        sys.exit("gaftools requires pysam >= 0.18.0")
 
 
 def main(argv=sys.argv[1:]):
