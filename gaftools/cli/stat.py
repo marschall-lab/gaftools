@@ -3,9 +3,19 @@ Statistics of a GAF File
 """
 
 import sys
+import logging
+from gaftools.cli import log_memory_usage
+from gaftools.timer import StageTimer
+
+logger = logging.getLogger(__name__)
 
 def run(gaf_path, cigar_stat, output=sys.stdout):
+    timers = StageTimer()
     gaf_stat(gaf_path, cigar_stat)
+    logger.info("\n== SUMMARY ==")
+    total_time = timers.total()
+    log_memory_usage()
+    logger.info("Total time:                                  %9.2f s", total_time)
 
 
 def gaf_stat(gaf_path, cigar_stat=False):
@@ -151,7 +161,7 @@ def add_arguments(parser):
     arg = parser.add_argument
     # Positional arguments
     arg('gaf_path', metavar='GAF', help='Input GAF file')
-    arg('--cigar', dest='cigar_stat', default=False, action='store_true', help='Outputs cigar related statistics (takes a long)')
+    arg('--cigar', dest='cigar_stat', default=False, action='store_true', help='Outputs cigar related statistics (takes a lot long)')
 
 
 def validate(args, parser):

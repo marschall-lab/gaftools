@@ -35,10 +35,10 @@ def run(gaf_path,
         out = output
 
     if is_file_gzipped(gaf_path):
-        logger.info("Compressed GAF file detected. The index provided must have been built on the compressed file.")
+        logger.info("INFO: Compressed GAF file detected. The index provided must have been built on the compressed file.")
         gaf_file = libcbgzf.BGZFile(gaf_path,"rb")
     else:
-        logger.info("Uncompressed GAF file detected. The index provided must have been built on the uncompressed file.")
+        logger.info("INFO: Uncompressed GAF file detected. The index provided must have been built on the uncompressed file.")
         gaf_file = open(gaf_path,"rt")
     
     if len(node) != 0:
@@ -58,7 +58,7 @@ def run(gaf_path,
         if (len(node_id)==1):
             logger.info("INFO: One node ID recovered from the list of regions/nodes given. Output will contain entire alignments which contain that node.")
         elif full_alignment:
-            logger.info("Multiple node IDs recovered from the list of regions/nodes given. Output will contain entire alignment since --full-alignment flag has been given.")
+            logger.info("INFO: Multiple node IDs recovered from the list of regions/nodes given. Output will contain entire alignment since --full-alignment flag has been given.")
         else:
             logger.info("INFO: Multiple node IDs recovered from the list of regions/nodes given. Output will contain parts of the alignment which from the first node given to the last node given.")
         offsets=ind[node[0]]
@@ -67,10 +67,8 @@ def run(gaf_path,
         offsets.sort()
         c = 0
         for ofs in offsets:
-            with timers("seek"):
-                gaf_file.seek(ofs)
-            with timers("readline"):
-                mapping = gaf_file.readline()
+            gaf_file.seek(ofs)
+            mapping = gaf_file.readline()
             try:
                 val = mapping.rstrip().split('\t')
             except TypeError:
@@ -79,16 +77,14 @@ def run(gaf_path,
             if not remove_read_id:
                 out_str += "%s\t"%(val[0])
             if only_alignment:
-                with timers("format"):
-                    result = change_format(val, show_node_id, node_id, ind_key, ind_dict, full_alignment, timers)
+                result = change_format(val, show_node_id, node_id, ind_key, ind_dict, full_alignment)
                 out_str += result+"\n"
             else:
                 for n, fd in enumerate(val[1:]):
                     if fd[:3] == "cg:" and remove_cigar:
                         continue
                     if n == 4:
-                        with timers("format"):
-                            fd = change_format(val, show_node_id, node_id, ind_key, ind_dict, full_alignment, timers)
+                        fd = change_format(val, show_node_id, node_id, ind_key, ind_dict, full_alignment)
                     out_str += fd+"\t"
                 out_str = out_str.strip("\t")
                 out_str += "\n"
@@ -96,12 +92,10 @@ def run(gaf_path,
                 
         
     else:
-        logger.info("No Nodes specified.")
+        logger.info("INFO: No Nodes specified.")
         for ofs in offsets:
-            with timers("seek"):
-                gaf_file.seek(ofs)
-            with timers("readline"):
-                mapping = gaf_file.readline()
+            gaf_file.seek(ofs)
+            mapping = gaf_file.readline()
             val = mapping.rstrip().split('\t')
             out_str = ""
             for n,i in enumerate(val):
@@ -118,17 +112,12 @@ def run(gaf_path,
     if output != sys.stdout:
         out.close()
     
-    #total_time = timers.total()
+    logger.info("\n== SUMMARY ==")
+    total_time = timers.total()
     log_memory_usage()
-    #logger.info("Time for seek():                             %9.2f s", timers.elapsed("seek"))
-    #logger.info("Time for readline():                         %9.2f s", timers.elapsed("readline"))
-    #logger.info("Time for formatting:                         %9.2f s", timers.elapsed("format"))
-    #logger.info("Time for converting:                         %9.2f s", timers.elapsed("convert"))
-    #logger.info("Total time:                                  %9.2f s", total_time)
-    #logger.info("\n")
+    logger.info("Total time:                                  %9.2f s", total_time)
 
-
-def change_format(a, show_node_id, node_id, ind, ind_dict, fa, timers):
+def change_format(a, show_node_id, node_id, ind, ind_dict, fa):
     import re
     x = list(filter(None, re.split('(>)|(<)', a[5])))
     isStable = False
@@ -137,8 +126,7 @@ def change_format(a, show_node_id, node_id, ind, ind_dict, fa, timers):
     elif ":" in x[1]:
         isStable = True
     if isStable:
-        with timers("convert"):
-            x = convert_to_unstable(a, ind)
+        x = convert_to_unstable(a, ind)
     tmp = None
     out_str = ""
     if len(node_id) == 1:
@@ -334,9 +322,9 @@ def get_unstable(nodes, index):
         
         node = search([contig[n], start[n], end[n]], node_list)
         if len(node) > 1:
-            logger.info("Region %s spans multiple nodes.\nThe nodes are:"%(nodes[n]))
+            logger.info("INFO: Region %s spans multiple nodes.\nThe nodes are:"%(nodes[n]))
             for n in node:
-                logger.info("%s\t%s\t%d\t%d"%(n[0],n[1],n[2],n[3]))
+                logger.info("INFO: %s\t%s\t%d\t%d"%(n[0],n[1],n[2],n[3]))
         
         result.extend(node)
     

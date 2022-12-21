@@ -7,7 +7,7 @@ import re
 
 from gaftools import __version__
 from gaftools.timer import StageTimer
-from gaftools.cli import log_memory_usage
+from gaftools.cli import log_memory_usage, CommandLineError
 
 class Node1:
     def __init__(self, node_id, start, end):
@@ -44,13 +44,13 @@ def run(gaf_path, reference, output=None):
     ref = {}
     ref_contig = []
     if not unstable:
-        logger.info("Detected stable coordinates in the GAF file.")
+        logger.info("INFO: Detected stable coordinates in the GAF file.")
         with timers("sort_gfa"):
-            logger.info("Sorting GFA File")
+            logger.info("INFO: Sorting GFA File")
             gfa_lines = gfa_sort(reference, None, True)
         contig_name = None
         with timers("store_contig_info"):
-            logger.info("Storing Contig Informationa")
+            logger.info("INFO: Storing Contig Informationa")
             for gfa_line in gfa_lines:
                 tmp_contig_name = [k for k in gfa_line if k.startswith("SN:Z:")][0][5:]
                 
@@ -66,7 +66,7 @@ def run(gaf_path, reference, output=None):
                 try:
                     rank = int([k for k in gfa_line if k.startswith("SR:i:")][0][5:])
                 except IndexError:
-                    logger.error("ERROR: No Rank present in the reference GFA File. Input rGFA file should have SR field.")
+                    logger.error("No Rank present in the reference GFA File. Input rGFA file should have SR field.")
                     exit()
                 ref[contig_name].append(tmp)
                 nodes[gfa_line[1]] = (gfa_line[1], tmp_contig_name, start_pos, end_pos)
@@ -76,7 +76,7 @@ def run(gaf_path, reference, output=None):
                 else:
                     assert (rank == 0)
     else:
-        logger.info("Detected unstable coordinates in the GAF file.")
+        logger.info("INFO: Detected unstable coordinates in the GAF file.")
         gz_flag = reference[-2:] == "gz"
         if gz_flag:
             gfa_file = gzip.open(reference,"r")
@@ -95,8 +95,7 @@ def run(gaf_path, reference, output=None):
             try:
                 rank = int([k for k in gfa_line if k.startswith("SR:i:")][0][5:])
             except IndexError:
-                logger.error("ERROR: No Rank present in the reference GFA File. Input rGFA file should have SR field.")
-                exit()
+                raise CommandLineError("ERROR: No Rank present in the reference GFA File. Input rGFA file should have SR field.")
             nodes[gfa_line[1]] = (gfa_line[1], contig_name, start_pos, end_pos)
             if contig_name not in ref_contig:
                 if rank == 0:
@@ -105,13 +104,13 @@ def run(gaf_path, reference, output=None):
                 assert (rank == 0)
     
     if is_file_gzipped(gaf_path):
-        logger.info("GAF file compression detected. BGZF compression needed for optimal performance. Generating appropriated index (using virtual offsets defined by the BGZF compression).")
+        logger.info("INFO: GAF file compression detected. BGZF compression needed for optimal performance. Generating appropriated index (using virtual offsets defined by the BGZF compression).")
         gaf_file = libcbgzf.BGZFile(gaf_path,"rb")
     else:
-        logger.info("Uncompressed GAF file detected. Generating appropriate index (using offset values).")
+        logger.info("INFO: Uncompressed GAF file detected. Generating appropriate index (using offset values).")
         gaf_file = open(gaf_path,"rt")
     out_dict = {}
-    logger.info("Indexing the file")
+    logger.info("INFO: Indexing the file")
     offset = 0
     while True:
         offset = gaf_file.tell()
@@ -143,9 +142,6 @@ def run(gaf_path, reference, output=None):
     logger.info("\n== SUMMARY ==")
     total_time = timers.total()
     log_memory_usage()
-    logger.info("Time spent sorting GFA:                      %9.2f s", timers.elapsed("sort_gfa"))
-    logger.info("Time spent storing contigs:                  %9.2f s", timers.elapsed("store_contig_info"))
-    logger.info("Time spent converting coordinates:           %9.2f s", timers.elapsed("convert_coord"))
     logger.info("Total time:                                  %9.2f s", total_time)
 
 def convert_coord(line, ref):

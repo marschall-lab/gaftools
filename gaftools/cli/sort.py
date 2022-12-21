@@ -4,22 +4,27 @@ Sorting GAF and GFA files
 
 import logging
 import sys
-import platform
 
 from gaftools import __version__
 from gaftools.cli import log_memory_usage
-from gaftools.cli import CommandLineError
-
+from gaftools.timer import StageTimer
 
 logger = logging.getLogger(__name__)
 
 
 def run(gaf_file, gfa_file, output=sys.stdout):
     
+    timers = StageTimer()
     if (gaf_file):
         gaf_sort(gaf_file, output)
     else:
         gfa_sort(gfa_file, output)
+    
+    logger.info("\n== SUMMARY ==")
+    total_time = timers.total()
+    log_memory_usage()
+    logger.info("Total time:                                  %9.2f s", total_time)
+
 
 
 def gfa_sort(gfa_path, out_path = None, return_list = True):
@@ -60,7 +65,7 @@ def gfa_sort(gfa_path, out_path = None, return_list = True):
                 for line_count, line in enumerate(gfa_lines):
                     f_out.write('\t'.join(line) + '\n') 
             
-                print('Splitting', chunk_id)
+                logger.info('INFO: Splitting', chunk_id)
                 f_out.close()
                 gfa_lines = []
                 chunk_id += 1
@@ -68,7 +73,7 @@ def gfa_sort(gfa_path, out_path = None, return_list = True):
 
 
         if gfa_lines:
-            print('Splitting', chunk_id)
+            logger.info('INFO: Splitting', chunk_id)
             gfa_lines.sort(key=functools.cmp_to_key(compare_gfa))
             for line_count, line in enumerate(gfa_lines):
                 f_out.write('\t'.join(line) + '\n') 
@@ -139,7 +144,7 @@ def gaf_sort(gaf_path, out_path = None):
                 for line_count, line in enumerate(gaf_lines):
                     f_out.write('\t'.join(line) + '\n') 
             
-                print('Splitting', chunk_id)
+                logger.info('INFO: Splitting', chunk_id)
                 f_out.close()
                 gaf_lines = []
                 chunk_id += 1
@@ -147,7 +152,7 @@ def gaf_sort(gaf_path, out_path = None):
 
 
         if gaf_lines:
-            print('Splitting', chunk_id)
+            logger.info('INFO: Splitting', chunk_id)
             gaf_lines.sort(key=functools.cmp_to_key(compare_gaf))
             for line_count, line in enumerate(gaf_lines):
                 f_out.write('\t'.join(line) + '\n') 
