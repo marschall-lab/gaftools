@@ -92,7 +92,7 @@ def add_phase_info(gaf_path, tsv_path, out_path):
                                                phase[gaf_line_elements[0]].phase_set))
             phased +=1
         else:
-            gaf_out.write("ps:none\t")
+            gaf_out.write("ps:none")
 
         for i in gaf_line_elements[cigar_pos:]:
             gaf_out.write("\t%s"%i)
