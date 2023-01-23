@@ -31,7 +31,7 @@ def run(gaf_file, tsv_file, output=sys.stdout):
 
 def add_phase_info(gaf_path, tsv_path, out_path):
     '''This function adds phasing information to the gaf file using .tsv file of the WhatsHap
-    Haplotag... The information is added as a column before the cigar string in "ps:" format
+    Haplotag... The information is added as two tags ("ps:Z" and "ht:Z") before the cigar string
     '''
 
     import gzip
@@ -87,17 +87,16 @@ def add_phase_info(gaf_path, tsv_path, out_path):
             in_tsv = False
         
         if in_tsv and phase[gaf_line_elements[0]].haplotype != "none":
-            gaf_out.write("ps:%s:%s:%s\t" % (phase[gaf_line_elements[0]].chr_name,
-                                             phase[gaf_line_elements[0]].haplotype,
-                                               phase[gaf_line_elements[0]].phase_set))
+            gaf_out.write("ps:Z:%s-%s\tht:Z:%s\t" % (phase[gaf_line_elements[0]].chr_name,
+                                               phase[gaf_line_elements[0]].phase_set, phase[gaf_line_elements[0]].haplotype))
             phased +=1
         else:
-            gaf_out.write("ps:none")
+            gaf_out.write("ps:Z:none\tht:Z:none")
 
         for i in gaf_line_elements[cigar_pos:]:
             gaf_out.write("\t%s"%i)
     
-    logger.info("INFO: Added phasing info (ps:) for %d reads out of %d GAF lines - (%d reads are missing in .tsv)" %(phased, line_count, missing_in_tsv))
+    logger.info("INFO: Added phasing info (ps:Z and ht:Z) for %d reads out of %d GAF lines - (%d reads are missing in .tsv)" %(phased, line_count, missing_in_tsv))
 
     gaf_file.close()
     gaf_out.close()
