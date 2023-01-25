@@ -65,7 +65,7 @@ def gfa_sort(gfa_path, out_path = None, return_list = True):
                 for line_count, line in enumerate(gfa_lines):
                     f_out.write('\t'.join(line) + '\n') 
             
-                logger.info('INFO: Splitting', chunk_id)
+                logger.info('INFO: Splitting %d' %chunk_id)
                 f_out.close()
                 gfa_lines = []
                 chunk_id += 1
@@ -73,7 +73,7 @@ def gfa_sort(gfa_path, out_path = None, return_list = True):
 
 
         if gfa_lines:
-            logger.info('INFO: Splitting', chunk_id)
+            logger.info('INFO: Splitting %d' %chunk_id)
             gfa_lines.sort(key=functools.cmp_to_key(compare_gfa))
             for line_count, line in enumerate(gfa_lines):
                 f_out.write('\t'.join(line) + '\n') 
@@ -96,7 +96,7 @@ def gfa_sort(gfa_path, out_path = None, return_list = True):
         for part_file in glob.glob(path):
             if os.path.isfile(part_file):
                 os.remove(part_file)
-        
+
         return gfa_s
 
     with open(out_path, 'w') as f_out:
