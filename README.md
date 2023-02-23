@@ -9,9 +9,9 @@ General purpose utility related to GAF files
 Follow these instructions to install gaftools.
 
 ```sh
-$ git clone git@github.com:marschall-lab/gaftools.git
-$ cd gaftools
-$ pip install -e .
+git clone git@github.com:marschall-lab/gaftools.git
+cd gaftools
+pip install -e .
 ```
 
 ### Developer Installation
@@ -19,11 +19,11 @@ $ pip install -e .
 Using these steps you can install gaftools in a virtual environment.
 
 ```sh
-$ git clone git@github.com:marschall-lab/gaftools.git
-$ cd gaftools
-$ python -m venv venv
-$ source venv/bin/activate
-$ pip install -e .
+git clone git@github.com:marschall-lab/gaftools.git
+cd gaftools
+python -m venv venv
+source venv/bin/activate
+pip install -e .
 ```
 
 In order to use gaftools, the virtual environment has to be activated with `source venv/bin/activate`.
