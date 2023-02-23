@@ -48,8 +48,6 @@ else:
     ext_modules = extensions
     install_requires = [
         "pysam>=0.18.0",
-        "pickle"
-        
     ]
 
 setup(
