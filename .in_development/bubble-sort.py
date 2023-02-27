@@ -20,9 +20,9 @@ def main():
     
     parser = argparse.ArgumentParser()
     parser.add_argument("--debug", action="store_true", default=False, help="Print debug messages")
-    parser.add_argument("--gfa", required=True, help="GFA file with the sort keys (SK tagged)")
-    parser.add_argument("--gaf", required=True, help="Input VCF file (output of the GFA-to-VCF conversion pipeline)")
-    parser.add_argument("--output", default=None, help="Output GFA File path (Default: sys.stdout)")
+    parser.add_argument("--gfa", required=True, help="GFA file with the sort keys (BO and NO tagged)")
+    parser.add_argument("--gaf", required=True, help="Input GAF File")
+    parser.add_argument("--output", default=None, help="Output GAF File path (Default: sys.stdout)")
     parser.add_argument("--bgzip", action='store_true', help="Flag to bgzip the output. Can only be given with --output.")
     
     options = parser.parse_args()
@@ -39,10 +39,13 @@ def main():
 
 def bubble_sort(options):
     """
-    Adding the bubble tags to the nodes in the GFA file.
-    Sort Keys will be added to the GFA S-lines. Based on the level of the bubble the variant is a part of, the value and the number of values will differ.
-    Odd sort keys will represent the backbone while the bubbles will have even sort keys. This is true for all levels of variant bubbles.
-    If the sort keys for a node is 62, 3 then we can say that it is in Bubble 31 on the main backbone and there is a level 1 bubble before it and it is not part of the level 1 bubble.
+    The sorting algorithm follows this general principle:
+    1. Parse the alignment and check the overall orientation of the alignment (is it forward with respect to the underlying graph).
+       This I check using the scaffold node orientation. I have an extra check to see if the scaffold node I am checking is part of the sample bubble or not.
+    2. After checking the orientation, the first node of the alignment is determined. If it is reversed, then the first node is the last node of the given path.
+    3. Extract the BO tag, NO tag, start position (in corrected orientation) and the offset of the GAF alignment line. This is stored as a namedtuple
+    4. The sorting happens using these 4 values in the priority BO > NO > start > offset. The sorting is done in the list using functools.
+    5. The sorted GAF is written using the offset values extracted from the original file.
     """
     
     if options.output == None:
@@ -60,7 +63,7 @@ def bubble_sort(options):
 
 def sort(gaf, nodes, writer):
     
-    logger.info("\n##### Parsing GFA file and adding sort keys #####")
+    logger.info("\n##### Parsing GAF file and sorting it #####")
     if is_file_gzipped(gaf):
         reader = gzip.open(gaf, 'rt')
     else:
@@ -70,19 +73,22 @@ def sort(gaf, nodes, writer):
     gaf_alignments = []
 
     # First pass: Store all the alignment lines as minimally. Just storing line offset and alignment string.
+    logger.debug("Processing and Storing GAF Alignments...")
     while True:
         offset = reader.tell()
         line = reader.readline()
         if not line:
             break
         line = line.split('\t')
-        bo, no, start = process_alignment(line, nodes)
+        bo, no, start = process_alignment(line, nodes, offset)
         gaf_alignments.append(Alignment(offset=offset, BO=bo, NO=no, start=start))
     
     # Sorting the alignments based on BO and NO tag
+    logger.debug("Sorting the alignments...")
     gaf_alignments.sort(key=functools.cmp_to_key(compare))
     
     # Writing the sorted file
+    logger.debug("Writing Output File...")
     for alignment in gaf_alignments:
         off = alignment.offset
         reader.seek(off)
@@ -106,8 +112,6 @@ def read_gfa(gfa, node):
         if line[0] != 'S':
             continue
         total_nodes += 1
-        if total_nodes == 100000:
-            break
         fields = line.split("\t")
         for f in fields:
             if f.startswith("BO:i:"):
@@ -117,13 +121,15 @@ def read_gfa(gfa, node):
                 node[fields[1]][1] = int(f[5:])
             
     logger.info("Total Nodes Processed: %d"%(total_nodes))
-    logger.info("Nodes with SK tag: %d"%(tagged_nodes))
+    logger.info("Nodes with tags: %d"%(tagged_nodes))
     reader.close()
 
 
-def process_alignment(line, nodes):
-    path = list(filter(None, re.split('(>)|(<)', line[7])))
+def process_alignment(line, nodes, offset):
+    path = list(filter(None, re.split('(>)|(<)', line[5])))
     orient = None
+    # If there is no scaffold node present in the alignment, then assuming that it is in the correct orientation.
+    # TODO: Need to find a way to deal with such alignments.
     rv = False
     bo = None
     no = None
@@ -133,7 +139,10 @@ def process_alignment(line, nodes):
             orient = n
             continue
         if nodes[n][0] == -1 or nodes[n][1] == -1:
-            raise RuntimeError("Found a node which was not in VCF.")
+            logger.debug("[0]\tOF:i:%d\tND:Z:%s"%(offset,n), file = sys.stderr)
+            #raise RuntimeError("Found a node which was not in VCF.")
+            #These nodes exist.
+            continue
         if nodes[n][0]%2 == 1 and nodes[n][1] == 0:
             # Here we assume that the orientation of the first scaffold node found is the orientation for all the scaffold nodes. (Here we will have to keep in mind that some scaffold nodes are inside the bubbles also and their orientation can be anything there.)
             # TODO: Have to check for these scaffold nodes that can be present inside bubbles (Cannot trust them)
@@ -143,6 +152,9 @@ def process_alignment(line, nodes):
             else:
                 rv = True
                 break
+    # TODO: What to do when the start node that we have is an untagged node?
+    # One argument is to just sort them to the end and completely ignore them since they dont belong to any vcf bubble.
+    # That works for my tools but not ideal for general purpose.
     if rv:
         l = int(line[6])
         e = int(line[8])
@@ -161,6 +173,17 @@ def process_alignment(line, nodes):
 
 def compare(al1, al2):
     # Since we are sorting in ascending order, al1 is above al2 if it comes before al2.
+    # Have to consider the case when the start node is untagged and has BO and NO has -1. These should be sorted to the end and not the start
+    if al1.BO == -1 and al2.BO == -1:
+        if al1.offset < al2.offset:
+            return 1
+        else:
+            return 0
+    elif al1.BO == -1:
+        return -1
+    elif al2.BO == -1:
+        return 1
+
     # Comparing BO tags
     if al1.BO < al2.BO:
         return 1
@@ -201,7 +224,6 @@ def is_file_gzipped(src):
 def validate_arguments(options):
     if options.bgzip and not options.output:
         raise RuntimeError("--bgzip flag has been specified but not output path has been defined. Please define the output path.")
-
 
 
 if __name__ == "__main__":
