@@ -1,0 +1,6 @@
+Cython==0.29.34
+networkx==2.8.8
+pyfaidx==0.7.1
+pysam==0.20.0
+pywfa==0.4.1
+six==1.16.0

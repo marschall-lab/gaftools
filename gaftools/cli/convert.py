@@ -61,7 +61,7 @@ def stable_to_unstable(gaf_path, gfa_path, out_path):
     '''Needs to sort the gfa to use logn time binary search'''
     logger.info("INFO: Sorting the GFA file...")
     gfa_lines = gfa_sort(gfa_path, None, True)
-    
+   
     '''We load the reference genome into memory for fast execution. The reference is not very large
     so it does not seem to be a big issue... This creates a dictionary where each element is a
     contig which keeps the list of start and end locations with node name(S).
@@ -104,6 +104,7 @@ def stable_to_unstable(gaf_path, gfa_path, out_path):
 
         new_start = -1
         new_total = 0
+        #print("Here", gaf_contigs)
         for nd in gaf_contigs:
             if nd == ">" or nd == "<":
                 orient = nd
@@ -125,8 +126,10 @@ def stable_to_unstable(gaf_path, gfa_path, out_path):
                     orient = "<"
 
             #print(orient, query_contig_name, query_start, query_end)
+            #print(reference[query_contig_name])
             '''Find the matching nodes from the reference genome here'''
             start, end = search_intervals(reference[query_contig_name], int(query_start), int(query_end), 0, len(reference[query_contig_name]))
+            #print(start, end)
             
             nodes_tmp = []
             for i in reference[query_contig_name][start:end+1]:
@@ -323,7 +326,7 @@ def search_intervals(intervals, query_start, query_end, start, end):
     and end location of a mapping in the gaf file.
     '''
 
-    if start <= end:    
+    if start <= end:
         mid = start + (end - start) // 2
         if query_end <= intervals[mid].start:
             return search_intervals(intervals, query_start, query_end, start, mid - 1)
