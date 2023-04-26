@@ -69,7 +69,7 @@ def parse_gfa(gfa_filename, with_sequence=False):
             if with_sequence and (fields[2] != '*'):
                 sequence = fields[2]
             nodes[name] = Node(name,tags,sequence)
-        elif fields[0] == 'L':
+        """elif fields[0] == 'L':
             from_node = fields[1]
             from_dir = fields[2]
             to_node = fields[3]
@@ -77,12 +77,12 @@ def parse_gfa(gfa_filename, with_sequence=False):
             overlap = fields[5]
             tags = dict(parse_tag(s) for s in fields[6:])
             e = Edge(from_node,from_dir,to_node,to_dir,overlap, tags)
-            edges[(from_node,to_node)].append(e)
+            edges[(from_node,to_node)].append(e)"""
 
     return nodes, edges
 
 
-GafLine = namedtuple("GafLine", "query_name query_length query_start query_end strand path path_length path_start path_end residue_matches alignment_block_length mapping_quality is_primary cigar")
+GafLine = namedtuple("GafLine", "query_name query_length query_start query_end strand path path_length path_start path_end residue_matches alignment_block_length mapping_quality is_primary")
 
 def parse_gaf(filename):
     for line in open(filename):
@@ -103,7 +103,7 @@ def parse_gaf(filename):
             alignment_block_length = int(fields[10]),
             mapping_quality = int(fields[11]),
             is_primary = [k for k in fields if k.startswith("tp:A:") or None],
-            cigar = [k for k in fields if k.startswith("cg:Z:")][0][5:].strip()
+            #cigar = [k for k in fields if k.startswith("cg:Z:")][0][5:].strip()
         )
     return
 
@@ -161,10 +161,10 @@ def realign_gaf(gaf, graph, fasta, output):
             f.write("\t%s" %gaf_line.is_primary[0])
         f.write("\tcg:Z:%s\n" %cigar)
         
-        """if cnt == 10000:
+        """if cnt == 1000:
             print(cnt)
-            break"""
-    
+            break
+        """
     f.close()
     fastafile.close()
 
@@ -179,14 +179,5 @@ def add_arguments(parser):
     arg('-o', '--output', default=sys.stdout,
         help='Output GFA file. If omitted, use standard output.')
  
-# fmt: on
-def validate(args, parser):
-    """if not args.gaf:
-        parser.error("GAF file has to be provided")
-    if args.graph:
-        parser.error("Graph file (GFA) has to be provided")
-    if args.fasta:
-        parser.error("FASTA file has to be provided")
-    """
 def main(args):
     run(**vars(args))
