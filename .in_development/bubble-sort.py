@@ -7,9 +7,10 @@ import gzip
 import re
 from pysam import libcbgzf
 import resource
+from whatshap.timer import StageTimer
 
 logger = logging.getLogger(__name__)
-
+timers = StageTimer()
 def setup_logging(debug):
     handler = logging.StreamHandler()
     root = logging.getLogger()
@@ -33,8 +34,14 @@ def main():
     bubble_sort(options)
 
     memory_kb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-    logger.info("\n##### Memory Information #####")
-    logger.info("Maximum memory usage: %.3f GB", memory_kb / 1e6)
+    logger.info("\nMemory Information")
+    logger.info("  Maximum memory usage: %.3f GB", memory_kb / 1e6)
+    logger.info("\nTime Summary:")
+    logger.info("  Time to parse GFA file: %.3f%", timers.elapsed("read_gfa"))
+    logger.info("  Total time to sort GAF file: %.3f%", timers.elapsed("total_sort"))
+    logger.info("    Time to parse GAF file: %.3f%", timers.elapsed("read_gaf"))
+    logger.info("    Time to sort GAF file: %.3f%", timers.elapsed("sort_gaf"))
+    logger.info("    Time to write GAF file: %.3f%", timers.elapsed("write_gaf"))
     
 
 def bubble_sort(options):
@@ -56,8 +63,10 @@ def bubble_sort(options):
         else:
             writer = open(options.output, "w")
     nodes = defaultdict(lambda: [-1,-1])
-    read_gfa(options.gfa, nodes)
-    sort(options.gaf, nodes, writer)
+    with timers("read_gfa"):
+        read_gfa(options.gfa, nodes)
+    with timers("total_sort"):
+        sort(options.gaf, nodes, writer)
     writer.close()
     
 
@@ -73,27 +82,32 @@ def sort(gaf, nodes, writer):
     gaf_alignments = []
 
     # First pass: Store all the alignment lines as minimally. Just storing line offset and alignment string.
-    logger.debug("Processing and Storing GAF Alignments...")
-    while True:
-        offset = reader.tell()
-        line = reader.readline()
-        if not line:
-            break
-        line = line.split('\t')
-        bo, no, start = process_alignment(line, nodes, offset)
-        gaf_alignments.append(Alignment(offset=offset, BO=bo, NO=no, start=start))
+    with timers("read_gaf"):
+        logger.debug("Processing and Storing GAF Alignments...")
+        while True:
+            offset = reader.tell()
+            line = reader.readline()
+            if not line:
+                break
+            line = line.split('\t')
+            bo, no, start = process_alignment(line, nodes, offset)
+            gaf_alignments.append(Alignment(offset=offset, BO=bo, NO=no, start=start))
     
     # Sorting the alignments based on BO and NO tag
-    logger.debug("Sorting the alignments...")
-    gaf_alignments.sort(key=functools.cmp_to_key(compare))
+    with timers("sort_gaf"):
+        logger.debug("Sorting the alignments...")
+        gaf_alignments.sort(key=functools.cmp_to_key(compare_gaf))
     
     # Writing the sorted file
-    logger.debug("Writing Output File...")
-    for alignment in gaf_alignments:
-        off = alignment.offset
-        reader.seek(off)
-        line = reader.readline()
-        write_to_file(line, writer)
+    with timers("write_gaf"):
+        logger.debug("Writing Output File...")
+        for alignment in gaf_alignments:
+            off = alignment.offset
+            reader.seek(off)
+            line = reader.readline()
+            write_to_file(line, writer)
+    
+    reader.close()
 
 def read_gfa(gfa, node):
     
@@ -139,7 +153,7 @@ def process_alignment(line, nodes, offset):
             orient = n
             continue
         if nodes[n][0] == -1 or nodes[n][1] == -1:
-            logger.debug("[0]\tOF:i:%d\tND:Z:%s"%(offset,n), file = sys.stderr)
+            logger.debug("[ERR]\tOF:i:%d\tND:Z:%s"%(offset,n))
             #raise RuntimeError("Found a node which was not in VCF.")
             #These nodes exist.
             continue
@@ -167,46 +181,46 @@ def process_alignment(line, nodes, offset):
         n = path[1]
         bo = nodes[n][0]
         no = nodes[n][1]
-
+    print(bo, no, start, sep='\t')
     return bo, no, start
 
 
-def compare(al1, al2):
+def compare_gaf(al1, al2):
     # Since we are sorting in ascending order, al1 is above al2 if it comes before al2.
     # Have to consider the case when the start node is untagged and has BO and NO has -1. These should be sorted to the end and not the start
     if al1.BO == -1 and al2.BO == -1:
         if al1.offset < al2.offset:
-            return 1
+            return -1
         else:
-            return 0
+            return 1
     elif al1.BO == -1:
-        return -1
+        return 1
     elif al2.BO == -1:
         return 1
 
     # Comparing BO tags
     if al1.BO < al2.BO:
-        return 1
-    if al1.BO > al2.BO:
         return -1
+    if al1.BO > al2.BO:
+        return 1
     
     # Comparing NO tags
     if al1.NO < al2.NO:
-        return 1
-    if al1.BO > al2.BO:
         return -1
+    if al1.BO > al2.BO:
+        return 1
     
     # Comparing start position in node
     if al1.start < al2.start:
-        return 1
-    if al1.start > al2.start:
         return -1
+    if al1.start > al2.start:
+        return 1
     
     # This will be execulted only when two reads start at the exact same position at the same node. Then we use offset values. So the read which comes first in the GAF file will come higher up.
     if al1.offset < al2.offset:
-        return 1
-    if al1.offset > al2.offset:
         return -1
+    if al1.offset > al2.offset:
+        return 1
 
 
 def write_to_file(line, writer):
