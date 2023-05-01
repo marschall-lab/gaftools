@@ -17,10 +17,10 @@ from collections import namedtuple, defaultdict
 logger = logging.getLogger(__name__)
 
 
-def run(gaf, graph, fasta, output=sys.stdout):
+def run(gaf, graph, fasta):
     timers = StageTimer()
     
-    realign_gaf(gaf, graph, fasta, output)
+    realign_gaf(gaf, graph, fasta)
     logger.info("\n== SUMMARY ==")
     total_time = timers.total()
     log_memory_usage()
@@ -122,50 +122,65 @@ def get_path(nodes, path):
     return ''.join(l)
 
 
-def realign_gaf(gaf, graph, fasta, output):
-    """
-        Uses pyWFA (https://github.com/kcleal/pywfa)
-    """
-    
-    #print('Reading', graph)
-    fastafile = pysam.FastaFile(fasta)
-    nodes, edges = parse_gfa(graph, with_sequence=True)
-    
-    f = open(output, "w")
-    
-    for cnt, gaf_line in enumerate(parse_gaf(gaf)):
-        #print('RESULT GAF', gaf_line.query_name, gaf_line.query_start, gaf_line.query_end, gaf_line.path, gaf_line.strand)
+def wfa_alignment(args):
 
-        path_sequence = get_path(nodes, gaf_line.path)
-        ref = path_sequence[gaf_line.path_start:gaf_line.path_end]
-        query = fastafile.fetch(gaf_line.query_name, gaf_line.query_start, gaf_line.query_end)
+    gaf_line, ref, query = args[0], args[1], args[2]
+
+    match_new = 0
+    cigar_len_new = 0
+    
+    aligner = WavefrontAligner(ref)
+    res = aligner(query, clip_cigar=False)
+    
+    #0 = match
+    for op_type, op_len in res.cigartuples:
+        if op_type == 0:
+            match_new += op_len
+        cigar_len_new += op_len
         
-        aligner = WavefrontAligner(ref)
-        res = aligner(query, clip_cigar=False)
+    cigar = aligner.cigarstring.replace("M", "=")
         
-        match_new = 0
-        cigar_len_new = 0
-        for op_type, op_len in res.cigartuples:
-            if op_type == 0:
-                match_new += op_len
-            cigar_len_new += op_len
-        
-        cigar = aligner.cigarstring.replace("M", "=")
-        
-        #Write the alignment back to the GAF
-        f.write("%s\t%d\t%d\t%d\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d" %(gaf_line.query_name, gaf_line.query_length, 
+    #Write the alignment back to the GAF
+    sys.stdout.write("%s\t%d\t%d\t%d\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d" %(gaf_line.query_name, gaf_line.query_length, 
                      gaf_line.query_start, gaf_line.query_end, gaf_line.strand, gaf_line.path, gaf_line.path_length, 
                      gaf_line.path_start, gaf_line.path_end, match_new, cigar_len_new, gaf_line.mapping_quality))
         
-        if gaf_line.is_primary:
-            f.write("\t%s" %gaf_line.is_primary[0])
-        f.write("\tcg:Z:%s\n" %cigar)
+    if gaf_line.is_primary:
+        sys.stdout.write("\t%s" %gaf_line.is_primary[0])
+    sys.stdout.write("\tcg:Z:%s\n" %cigar)
+    
+
+
+def realign_gaf(gaf, graph, fasta):
+    """
+        Uses pyWFA (https://github.com/kcleal/pywfa)
+    """
+    import multiprocessing
+
+    fastafile = pysam.FastaFile(fasta)
+    nodes, edges = parse_gfa(graph, with_sequence=True)
+
+    #p = Pool(processes=16)
+    #n_cores = multiprocessing.cpu_count()
+    #print("CORES = ",n_cores)
+    p = multiprocessing.Pool()
+    
+    gaf_lines = []
+    for cnt, gaf_line in enumerate(parse_gaf(gaf)):
+        #if cnt == 10000:
+            #print(cnt)
+            #break
+        gaf_lines.append(gaf_line)
+    
+    
+    for line in gaf_lines:
+        path_sequence = get_path(nodes, line.path)
+        ref = path_sequence[line.path_start:line.path_end]
+        query = fastafile.fetch(line.query_name, line.query_start, line.query_end)
         
-        """if cnt == 1000:
-            print(cnt)
-            break
-        """
-    f.close()
+        p.imap_unordered(wfa_alignment, [ [line, ref, query] ])
+        #p.map(wfa_alignment, [ [line, ref, query] ])
+    
     fastafile.close()
 
 
@@ -176,8 +191,8 @@ def add_arguments(parser):
     arg('gaf', metavar='GAF', help='GAF File')
     arg('graph', metavar='GFA', help='Input GFA file')
     arg('fasta', metavar='FASTA', help='Input FASTA file')
-    arg('-o', '--output', default=sys.stdout,
-        help='Output GFA file. If omitted, use standard output.')
+    #arg('-o', '--output', default=sys.stdout,
+    #    help='Output GFA file. If omitted, use standard output.')
  
 def main(args):
     run(**vars(args))
