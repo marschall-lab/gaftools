@@ -1,3 +1,9 @@
+'''
+This uses the BO and NO tags defined by Samarendra Pani through processing the bubbles in the VCF produced by Glenn Hickey for the MC graph. The script to add these BO and NO tags are in add-bubble-info.py in this directory.
+
+Here since the bubbles are already defined, there is no need to process the entire alignment to find orientation of alignment since inversions are already taken into consideration.
+'''
+
 import sys
 import argparse
 import logging
@@ -37,23 +43,14 @@ def main():
     logger.info("\nMemory Information")
     logger.info("  Maximum memory usage: %.3f GB", memory_kb / 1e6)
     logger.info("\nTime Summary:")
-    logger.info("  Time to parse GFA file: %.3f%", timers.elapsed("read_gfa"))
-    logger.info("  Total time to sort GAF file: %.3f%", timers.elapsed("total_sort"))
-    logger.info("    Time to parse GAF file: %.3f%", timers.elapsed("read_gaf"))
-    logger.info("    Time to sort GAF file: %.3f%", timers.elapsed("sort_gaf"))
-    logger.info("    Time to write GAF file: %.3f%", timers.elapsed("write_gaf"))
+    logger.info("  Time to parse GFA file: %.3f"%(timers.elapsed("read_gfa")))
+    logger.info("  Total time to sort GAF file: %.3f"%(timers.elapsed("total_sort")))
+    logger.info("    Time to parse GAF file: %.3f"%(timers.elapsed("read_gaf")))
+    logger.info("    Time to sort GAF file: %.3f"%(timers.elapsed("sort_gaf")))
+    logger.info("    Time to write GAF file: %.3f"%(timers.elapsed("write_gaf")))
     
 
 def bubble_sort(options):
-    """
-    The sorting algorithm follows this general principle:
-    1. Parse the alignment and check the overall orientation of the alignment (is it forward with respect to the underlying graph).
-       This I check using the scaffold node orientation. I have an extra check to see if the scaffold node I am checking is part of the sample bubble or not.
-    2. After checking the orientation, the first node of the alignment is determined. If it is reversed, then the first node is the last node of the given path.
-    3. Extract the BO tag, NO tag, start position (in corrected orientation) and the offset of the GAF alignment line. This is stored as a namedtuple
-    4. The sorting happens using these 4 values in the priority BO > NO > start > offset. The sorting is done in the list using functools.
-    5. The sorted GAF is written using the offset values extracted from the original file.
-    """
     
     if options.output == None:
         writer = sys.stdout
@@ -181,7 +178,7 @@ def process_alignment(line, nodes, offset):
         n = path[1]
         bo = nodes[n][0]
         no = nodes[n][1]
-    print(bo, no, start, sep='\t')
+    #print(bo, no, start, sep='\t')
     return bo, no, start
 
 
