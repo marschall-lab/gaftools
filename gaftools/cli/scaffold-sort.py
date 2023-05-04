@@ -31,29 +31,30 @@ from gaftools.timer import StageTimer
 
 logger = logging.getLogger(__name__)
 timers = StageTimer()
-def setup_logging(debug):
-    handler = logging.StreamHandler()
-    root = logging.getLogger()
-    root.addHandler(handler)
-    root.setLevel(logging.DEBUG if debug else logging.INFO)
 
-def main():
+def run(gfa, gaf, outgaf=None, outind=None, bgzip=False):
     
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--debug", action="store_true", default=False, help="Print debug messages")
-    parser.add_argument("--gfa", required=True, help="GFA file with the sort keys (BO and NO tagged)")
-    parser.add_argument("--gaf", required=True, help="Input GAF File")
-    parser.add_argument("--outgaf", default=None, help="Output GAF File path (Default: sys.stdout)")
-    parser.add_argument("--outind", default=None, help="Output Index File path for the GAF file. (When --outgaf is not given, no index is created. If it is given and --outind is not specified, it will have same file name with .gai extension)")
-    parser.add_argument("--bgzip", action='store_true', help="Flag to bgzip the output. Can only be given with --output.")
+    if outgaf == None:
+        writer = sys.stdout
+        index_file = None
+    else:
+        if bgzip:
+            writer = libcbgzf.BGZFile(outgaf, 'wb')
+        else:
+            writer = open(outgaf, "w")
+        if outind:
+            index_file = outind
+        else:
+            index_file = outgaf+".gai"
+    nodes = defaultdict(lambda: [-1,-1,-1,-1])
+    index_dict = defaultdict(lambda: [None, None])
+    with timers("read_gfa"):
+        read_gfa(gfa, nodes)
+    with timers("total_sort"):
+        sort(gaf, nodes, writer, index_dict, index_file)
+    writer.close()
     
-    options = parser.parse_args()
-    setup_logging(options.debug)
     
-    validate_arguments(options)
-    
-    bubble_sort(options)
-
     memory_kb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
     logger.info("\nMemory Information")
     logger.info("  Maximum memory usage: %.3f GB", memory_kb / 1e6)
@@ -65,34 +66,7 @@ def main():
     logger.info("    Time to write GAF file: %.3f"%(timers.elapsed("write_gaf")))
     
 
-def bubble_sort(options):
-    
-    if options.outgaf == None:
-        writer = sys.stdout
-        index_file = None
-    else:
-        if options.bgzip:
-            writer = libcbgzf.BGZFile(options.outgaf, 'wb')
-        else:
-            writer = open(options.outgaf, "w")
-        if options.outind:
-            index_file = options.outind
-        else:
-            index_file = options.outgaf+".gai"
-    nodes = defaultdict(lambda: [-1,-1,-1,-1])
-    index_dict = defaultdict(lambda: [None, None])
-    with timers("read_gfa"):
-        read_gfa(options.gfa, nodes)
-    with timers("total_sort"):
-        sort(options.gaf, nodes, writer, index_dict)
-    writer.close()
-    index_dict = dict(index_dict)
-    with open(index_file, "wb") as ind:
-        pkl.dump(index_dict, ind)
-    
-    
-
-def sort(gaf, nodes, writer, index_dict):
+def sort(gaf, nodes, writer, index_dict, index_file):
     
     logger.info("Parsing GAF file and sorting it")
     if is_file_gzipped(gaf):
@@ -130,14 +104,19 @@ def sort(gaf, nodes, writer, index_dict):
             reader.seek(off)
             line = reader.readline().rstrip()
             line += "\tbo:i:%d\tsn:Z:%s\tiv:i:%d\n"%(alignment.BO, alignment.sn, alignment.inv)
-            out_off = writer.tell()
-            if index_dict[alignment.sn][0] == None:
-                index_dict[alignment.sn][0] = out_off
-                index_dict[alignment.sn][1] = out_off
-            else:
-                index_dict[alignment.sn][1] = out_off
+            if index_file != None:
+                out_off = writer.tell()
+                if index_dict[alignment.sn][0] == None:
+                    index_dict[alignment.sn][0] = out_off
+                    index_dict[alignment.sn][1] = out_off
+                else:
+                    index_dict[alignment.sn][1] = out_off
             write_to_file(line, writer)
-    index_dict.pop('unknown')
+    if index_file != None:
+        index_dict.pop('unknown')
+        index_dict = dict(index_dict)
+        with open(index_file, "wb") as ind:
+            pkl.dump(index_dict, ind)
     reader.close()
 
 def read_gfa(gfa, node):
@@ -278,12 +257,23 @@ def is_file_gzipped(src):
         return inp.read(2) == b'\x1f\x8b'
 
 
-def validate_arguments(options):
-    if options.bgzip and not options.outgaf:
-        raise RuntimeError("--bgzip flag has been specified but not output path has been defined. Please define the output path.")
-    if options.outind and not options.outgaf:
-        raise RuntimeError("index path specified but no output gaf path. Please provide an output path.")
-
-
-if __name__ == "__main__":
-    main()
+# fmt: off
+def add_arguments(parser):
+    arg = parser.add_argument
+    # Positional arguments
+    arg("gaf", metavar='GAF', help="Input GAF File")
+    arg("gfa", metavar='GFA', help="GFA file with the sort keys (BO and NO tagged)")
+    
+    arg("--outgaf", default=None, help="Output GAF File path (Default: sys.stdout)")
+    arg("--outind", default=None, help="Output Index File path for the GAF file. (When --outgaf is not given, no index is created. If it is given and --outind is not specified, it will have same file name with .gai extension)")
+    arg("--bgzip", action='store_true', help="Flag to bgzip the output. Can only be given with --output.")
+    
+# fmt: on
+def validate(args, parser):
+    if args.bgzip and not args.outgaf:
+        parser.error("--bgzip flag has been specified but not output path has been defined. Please define the output path.")
+    if args.outind and not args.outgaf:
+        parser.error("index path specified but no output gaf path. Please provide an output path.")
+    
+def main(args):
+    run(**vars(args))
