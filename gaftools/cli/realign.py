@@ -29,7 +29,7 @@ def run(gaf, graph, fasta):
 
 complement = str.maketrans('ACGT', 'TGCA')
 
-class Node:
+"""class Node:
     def __init__(self, name, tags, sequence=None):
         self.name = name
         self.tags = tags
@@ -43,7 +43,7 @@ class Edge:
         self.to_dir = to_dir
         self.overlap = overlap
         self.tags = tags
-
+"""
 
 def parse_tag(s):
     name, type_id, value = s.split(':')
@@ -58,28 +58,18 @@ def parse_tag(s):
 
 def parse_gfa(gfa_filename, with_sequence=False):
     nodes = {}
-    edges = defaultdict(list)
 
     for nr, line in enumerate(open(gfa_filename)):
         fields = line.split('\t')
         if fields[0] == 'S':
             name = fields[1]
-            tags = dict(parse_tag(s) for s in fields[3:])
+            #tags = dict(parse_tag(s) for s in fields[3:])
             sequence = None
             if with_sequence and (fields[2] != '*'):
                 sequence = fields[2]
-            nodes[name] = Node(name,tags,sequence)
-        """elif fields[0] == 'L':
-            from_node = fields[1]
-            from_dir = fields[2]
-            to_node = fields[3]
-            to_dir = fields[4]
-            overlap = fields[5]
-            tags = dict(parse_tag(s) for s in fields[6:])
-            e = Edge(from_node,from_dir,to_node,to_dir,overlap, tags)
-            edges[(from_node,to_node)].append(e)"""
-
-    return nodes, edges
+            #nodes[name] = Node(name,tags,sequence)
+            nodes[name] = sequence
+    return nodes
 
 
 GafLine = namedtuple("GafLine", "query_name query_length query_start query_end strand path path_length path_start path_end residue_matches alignment_block_length mapping_quality is_primary")
@@ -90,7 +80,7 @@ def parse_gaf(filename):
  
         yield GafLine(
             #If the query name has spaces (e.g., GraphAligner), we get rid of the segment after the space
-            query_name = fields[0].split(' ')[0], 
+            query_name = fields[0].split(' ')[0],
             query_length = int(fields[1]),
             query_start = int(fields[2]),
             query_end = int(fields[3]),
@@ -111,23 +101,21 @@ def parse_gaf(filename):
 def get_path(nodes, path):
     l = []
     for s in re.findall('[><][^><]+', path):
-        node = nodes[s[1:]]
+        node_seq = nodes[s[1:]]
         #print(node.name, len(node.sequence))
         if s[0] == '>':
-            l.append(node.sequence)
+            l.append(node_seq)
         elif s[0] == '<':
-            l.append(node.sequence[::-1].translate(complement))
+            l.append(node_seq[::-1].translate(complement))
         else:
             assert False
     return ''.join(l)
 
 
-def wfa_alignment(args):
+def wfa_alignment(gaf_line, ref, query):
 
-    gaf_line, ref, query = args[0], args[1], args[2]
-
-    match_new = 0
-    cigar_len_new = 0
+    match = 0
+    cigar_len = 0
     
     aligner = WavefrontAligner(ref)
     res = aligner(query, clip_cigar=False)
@@ -135,15 +123,15 @@ def wfa_alignment(args):
     #0 = match
     for op_type, op_len in res.cigartuples:
         if op_type == 0:
-            match_new += op_len
-        cigar_len_new += op_len
+            match += op_len
+        cigar_len += op_len
         
     cigar = aligner.cigarstring.replace("M", "=")
         
     #Write the alignment back to the GAF
     sys.stdout.write("%s\t%d\t%d\t%d\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d" %(gaf_line.query_name, gaf_line.query_length, 
                      gaf_line.query_start, gaf_line.query_end, gaf_line.strand, gaf_line.path, gaf_line.path_length, 
-                     gaf_line.path_start, gaf_line.path_end, match_new, cigar_len_new, gaf_line.mapping_quality))
+                     gaf_line.path_start, gaf_line.path_end, match, cigar_len, gaf_line.mapping_quality))
         
     if gaf_line.is_primary:
         sys.stdout.write("\t%s" %gaf_line.is_primary[0])
@@ -155,32 +143,31 @@ def realign_gaf(gaf, graph, fasta):
     """
         Uses pyWFA (https://github.com/kcleal/pywfa)
     """
-    import multiprocessing
 
     fastafile = pysam.FastaFile(fasta)
-    nodes, edges = parse_gfa(graph, with_sequence=True)
+    nodes = parse_gfa(graph, with_sequence=True)
 
-    #p = Pool(processes=16)
-    #n_cores = multiprocessing.cpu_count()
-    #print("CORES = ",n_cores)
-    p = multiprocessing.Pool()
-    
-    gaf_lines = []
-    for cnt, gaf_line in enumerate(parse_gaf(gaf)):
-        #if cnt == 10000:
-            #print(cnt)
-            #break
-        gaf_lines.append(gaf_line)
-    
-    
-    for line in gaf_lines:
+
+    #gaf_lines = []
+    for cnt, line in enumerate(parse_gaf(gaf)):
         path_sequence = get_path(nodes, line.path)
         ref = path_sequence[line.path_start:line.path_end]
         query = fastafile.fetch(line.query_name, line.query_start, line.query_end)
-        
-        p.imap_unordered(wfa_alignment, [ [line, ref, query] ])
-        #p.map(wfa_alignment, [ [line, ref, query] ])
+        wfa_alignment(line, ref, query)
+
+        #if cnt == 1000:
+        #    print(cnt)
+        #    break
+        #gaf_lines.append(line)
     
+    
+    """for line in gaf_lines:
+        path_sequence = get_path(nodes, line.path)
+        ref = path_sequence[line.path_start:line.path_end]
+        query = fastafile.fetch(line.query_name, line.query_start, line.query_end)
+
+        wfa_alignment(line, ref, query)"""
+
     fastafile.close()
 
 
