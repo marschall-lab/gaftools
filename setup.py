@@ -47,7 +47,11 @@ else:
     cmdclass = {"build_ext": BuildExt}
     ext_modules = extensions
     install_requires = [
-        "pysam>=0.18.0",
+        "networkx",
+        "pyfaidx",
+        "pysam",
+        "pywfa",
+        "six"
     ]
 
 setup(
