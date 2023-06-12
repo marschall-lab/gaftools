@@ -1,4 +1,7 @@
 '''
+Sorting GAF alignments using BO and NO tags of the corresponding graph
+'''
+'''
 Scaffold Sort:
 
 The basis of the script is the BO and NO tags defined by Tobias Marschall in his order_gfa.py script. The script defines scaffold nodes as nodes whose removal increases total number of connected components.

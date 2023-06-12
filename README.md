@@ -18,11 +18,21 @@ pip install -e .
 
 Using these steps you can install gaftools in a virtual environment.
 
+#### Using Python Virtual Environment
+
 ```sh
 git clone git@github.com:marschall-lab/gaftools.git
 cd gaftools
 python -m venv venv
 source venv/bin/activate
+pip install -e .
+```
+
+#### Using Conda Environment
+
+```sh
+conda create -n gaftools-dev python=3.10
+conda activate gaftools-dev
 pip install -e .
 ```
 
@@ -56,11 +66,15 @@ The following subcommands are currently available:
 
 2. [index](#index): This command indexes the GAF file which is required for viewing. Currently, an inverted search list is being used to access parts of the GAF file which contain particular nodes.
 
-3. [sort](#sort): This command sorts the GAF file. There is also an option of sorting GAF file.
+3. [phase](#phase): This command adds WhatsHap-generated phase tags to the GAF.
 
-4. [stat](#stat): This command produces certain stats for the GAF file.
+3. [realign](#realign): This command realigns the GAF alignments using wavefront alignment algorithm.
 
-5. [view](#view): This command allows users to view the GAF under different filters. The user can give nodes/regions in the genome and command lists out the alignments that involve those nodes/regions. There are many viewing formats that can specified to tailor the output. By default, the viewing output shows the nodes in a human readable form (instead of node IDs, it shows the contig, start and end position associated with the node). But note that this human readable format is not the stable coordinate system.
+4. [sort](#sort): This command sorts the GAF file based on the BO and NO tagging scheme.
+
+5. [stat](#stat): This command produces certain stats for the GAF file.
+
+6. [view](#view): This command allows users to view the GAF under different filters. The user can give nodes/regions in the genome and command lists out the alignments that involve those nodes/regions. There are many viewing formats that can specified to tailor the output. By default, the viewing output shows the nodes in a human readable form (instead of node IDs, it shows the contig, start and end position associated with the node). But note that this human readable format is not the stable coordinate system.
 
 ### <a id="convert"></a> Subcommand: convert
 
@@ -111,20 +125,59 @@ optional arguments:
 
 The `index` command produces a file which has information of the positions of nodes in the GAF file. The same index file should work for both the stable and unstable GAF files.
 
+### <a id="phase"></a> Subcommand: phase
+
+```sh
+$ gaftools phase --help
+usage: gaftools phase [-h] [-o OUTPUT] GAF phase
+
+Add phasing information to the bam file
+
+positional arguments:
+  GAF                   GAF File
+  phase                 WhatsHap Haplotag file (.tsv)
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -o OUTPUT, --output OUTPUT
+                        Output GAF file. If omitted, use standard output.
+```
+
+### <a id="realign"></a> Subcommand: realign
+
+```sh
+$ gaftools realign --help
+usage: gaftools realign [-h] GAF GFA FASTA
+
+Realign GAF file using wavefront alignment algorithm (WFA)
+
+positional arguments:
+  GAF         GAF File
+  GFA         Input GFA file
+  FASTA       Input FASTA file
+
+optional arguments:
+  -h, --help  show this help message and exit
+```
+
 ### <a id="sort"></a> Subcommand: sort
 
 ```sh
 $ gaftools sort --help
-usage: gaftools sort [-h] [--gaf GAF] [--gfa GFA] [-o OUTPUT]
+usage: gaftools sort [-h] [--outgaf OUTGAF] [--outind OUTIND] [--bgzip] GAF GFA
 
-Sorting GAF and GFA files
+Sorting GAF alignments using BO and NO tags of the corresponding graph
+
+positional arguments:
+  GAF              Input GAF File
+  GFA              GFA file with the sort keys (BO and NO tagged)
 
 optional arguments:
-  -h, --help            show this help message and exit
-  --gaf GAF             GAF File whose coordinates have to be changed
-  --gfa GFA             Input GFA file to convert the coordinates
-  -o OUTPUT, --output OUTPUT
-                        Output GAF file. If omitted, use standard output.
+  -h, --help       show this help message and exit
+  --outgaf OUTGAF  Output GAF File path (Default: sys.stdout)
+  --outind OUTIND  Output Index File path for the GAF file. (When --outgaf is not given, no index is created. If it is given and --outind is not specified, it will have same file name with
+                   .gai extension)
+  --bgzip          Flag to bgzip the output. Can only be given with --output.
 ```
 
 ### <a id="stat"></a> Subcommand: stat
