@@ -44,13 +44,16 @@ gaftools has a command-line interface which can be accessed after installed. The
 
 ```sh
 $ gaftools --help
-usage: gaftools [-h] [--version] [--debug] {convert,index,sort,stat,view} ...
+usage: gaftools [-h] [--version] [--debug] {convert,index,order_gfa,phase,realign,sort,stat,view} ...
 
 positional arguments:
-  {convert,index,sort,stat,view}
+  {convert,index,order_gfa,phase,realign,sort,stat,view}
     convert             Convert Coordinate Systems between the stable system and unstable system
     index               Index the GAF File
-    sort                Sorting GAF and GFA files
+    order_gfa           Adds BO and NO tags to GFA
+    phase               Add phasing information to the bam file
+    realign             Realign GAF file using wavefront alignment algorithm (WFA)
+    sort                Sorting GAF alignments using BO and NO tags of the corresponding graph
     stat                Statistics of a GAF File
     view                View the GAF File based on parameters
 
@@ -66,15 +69,17 @@ The following subcommands are currently available:
 
 2. [index](#index): This command indexes the GAF file which is required for viewing. Currently, an inverted search list is being used to access parts of the GAF file which contain particular nodes.
 
-3. [phase](#phase): This command adds WhatsHap-generated phase tags to the GAF.
+3. [order_gfa](#order_gfa): This commands tags the GFA using the BO and NO notations required for sorting.
 
-3. [realign](#realign): This command realigns the GAF alignments using wavefront alignment algorithm.
+4. [phase](#phase): This command adds WhatsHap-generated phase tags to the GAF.
 
-4. [sort](#sort): This command sorts the GAF file based on the BO and NO tagging scheme.
+5. [realign](#realign): This command realigns the GAF alignments using wavefront alignment algorithm.
 
-5. [stat](#stat): This command produces certain stats for the GAF file.
+6. [sort](#sort): This command sorts the GAF file based on the BO and NO tagging scheme.
 
-6. [view](#view): This command allows users to view the GAF under different filters. The user can give nodes/regions in the genome and command lists out the alignments that involve those nodes/regions. There are many viewing formats that can specified to tailor the output. By default, the viewing output shows the nodes in a human readable form (instead of node IDs, it shows the contig, start and end position associated with the node). But note that this human readable format is not the stable coordinate system.
+7. [stat](#stat): This command produces certain stats for the GAF file.
+
+8. [view](#view): This command allows users to view the GAF under different filters. The user can give nodes/regions in the genome and command lists out the alignments that involve those nodes/regions. There are many viewing formats that can specified to tailor the output. By default, the viewing output shows the nodes in a human readable form (instead of node IDs, it shows the contig, start and end position associated with the node). But note that this human readable format is not the stable coordinate system.
 
 ### <a id="convert"></a> Subcommand: convert
 
@@ -124,6 +129,25 @@ optional arguments:
 ```
 
 The `index` command produces a file which has information of the positions of nodes in the GAF file. The same index file should work for both the stable and unstable GAF files.
+
+### <a id="order_gfa"></a> Subcommand: order_gfa
+
+```sh
+$ gaftools order_gfa --help
+usage: gaftools order_gfa [-h] [--chromosome_order CHROMOSOME_ORDER] [--with-sequence] [--outdir OUTDIR] GRAPH
+
+Adds BO and NO tags to GFA
+
+positional arguments:
+  GRAPH                 Input GFA file
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --chromosome_order CHROMOSOME_ORDER
+                        Order in which to arrange chromosomes in terms of BO sorting. Expecting comma-separated list. Default: chr1,...,chr22,chrX,chrY,chrM
+  --with-sequence       Retain sequences in output (default is to strip sequences)
+  --outdir OUTDIR       Output Directory to store all the GFA and CSV files. Default location is a "out" folder from the directory of execution.
+```
 
 ### <a id="phase"></a> Subcommand: phase
 
