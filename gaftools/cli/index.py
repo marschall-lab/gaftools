@@ -21,7 +21,7 @@ def run(gaf_path, reference, output=None):
     
     import gzip
     import copy
-    from gaftools.cli.sort import gfa_sort
+    from gaftools.sort import gfa_sort
     from gaftools.utils import is_file_gzipped
     import pickle
     from pysam import libcbgzf
