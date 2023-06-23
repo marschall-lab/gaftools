@@ -139,6 +139,7 @@ def wfa_alignment(gaf_line, ref, query):
     
 
 
+
 def realign_gaf(gaf, graph, fasta):
     """
         Uses pyWFA (https://github.com/kcleal/pywfa)

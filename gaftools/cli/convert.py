@@ -19,6 +19,7 @@ class Node1:
         self.start = start
         self.end = end
 
+
 class Node2:
     def __init__(self, contig_id, start, end):
         self.contig_id = contig_id
@@ -28,13 +29,9 @@ class Node2:
     def to_string(self, orient):
         return "%s%s:%d-%d"%(orient,self.contig_id,self.start,self.end)
 
-def run(
-    gaf_file,
-    gfa_file,
-    output=sys.stdout,
-    unstable=False,
-    stable=False
-):
+
+def run(gaf_file, gfa_file, output=sys.stdout, unstable=False, stable=False):
+
     timers = StageTimer()
     assert (unstable != stable)
     if (unstable):
@@ -48,13 +45,13 @@ def run(
 
 
 def stable_to_unstable(gaf_path, gfa_path, out_path):
-    '''This function converts a gaf file (mappings to a pangenome graph). It does not expect sorted
-    input however it strictly assumes that SO, LN and SN tags are available...
+    '''This function converts a GAF file (mappings to a pangenome graph) into unstable coordinate. It does not expect sorted
+    input however it strictly assumes that SO, LN and SN tags are available in the rGFA...
     '''
 
     import re
     import copy
-    from gaftools.cli.sort import gfa_sort
+    from gaftools.sort import gfa_sort
     import gzip
     import itertools
     
@@ -62,9 +59,9 @@ def stable_to_unstable(gaf_path, gfa_path, out_path):
     logger.info("INFO: Sorting the GFA file...")
     gfa_lines = gfa_sort(gfa_path, None, True)
    
-    '''We load the reference genome into memory for fast execution. The reference is not very large
+    '''We load the GFA into memory for fast execution. GFA is not very large
     so it does not seem to be a big issue... This creates a dictionary where each element is a
-    contig which keeps the list of start and end locations with node name(S).
+    contig that keeps the list of start and end locations with node name(S).
     '''
     logger.info("INFO: Loading the rGFA file into memory...")
     reference = {}    
@@ -81,7 +78,6 @@ def stable_to_unstable(gaf_path, gfa_path, out_path):
         end_pos = int([k for k in gfa_line if k.startswith("LN:i:")][0][5:]) + start_pos
         tmp = Node1(gfa_line[1], start_pos, end_pos)
         reference[contig_name].append(tmp)
-    #print()
     
     gaf_unstable = open(out_path, "w")
 
@@ -98,13 +94,15 @@ def stable_to_unstable(gaf_path, gfa_path, out_path):
             gaf_line_elements = gaf_line.decode("utf-8").rstrip().split('\t')
         else:
             gaf_line_elements = gaf_line.rstrip().split('\t')
+        
         gaf_contigs = list(filter(None, re.split('(>)|(<)', gaf_line_elements[5])))
+        assert len(gaf_contigs) >= 1
+
         unstable_coord = ""
         orient = None
 
         new_start = -1
         new_total = 0
-        #print("Here", gaf_contigs)
         for nd in gaf_contigs:
             if nd == ">" or nd == "<":
                 orient = nd
@@ -124,8 +122,7 @@ def stable_to_unstable(gaf_path, gfa_path, out_path):
                     orient = ">"
                 else:
                     orient = "<"
-
-            #print(orient, query_contig_name, query_start, query_end)
+            
             #print(reference[query_contig_name])
             '''Find the matching nodes from the reference genome here'''
             start, end = search_intervals(reference[query_contig_name], int(query_start), int(query_end), 0, len(reference[query_contig_name]))
@@ -320,6 +317,7 @@ def reverse_cigar(cg):
         new_cigar += str(all_cigars[i-2]) + str(all_cigars[i-1])
     return new_cigar
 
+
 def search_intervals(intervals, query_start, query_end, start, end):
     '''Given the start-end coordinates in the GFA file for the given contig (SO, SO+LN), it
     searches for the given (query_start, query_end) matches. (query_start, query_end) is the start
@@ -337,6 +335,7 @@ def search_intervals(intervals, query_start, query_end, start, end):
 
     return -1, -1
 
+
 def merge_nodes(node1, node2, orient1, orient2):
     
     if (node1.contig_id != node2.contig_id) or (orient1 != orient2):
@@ -351,6 +350,7 @@ def merge_nodes(node1, node2, orient1, orient2):
         node = Node2(node1.contig_id, node1.start, node2.end)
     return [node, orient1]
 
+
 # fmt: off
 def add_arguments(parser):
     arg = parser.add_argument
@@ -363,13 +363,15 @@ def add_arguments(parser):
         help='Convert to Unstable Coordinates')
     arg('--stable', dest='stable', default=False, action='store_true',
         help='Convert to Stable Coordinates')
-    
+
+
 # fmt: on
 def validate(args, parser):
     if not args.unstable and not args.stable:
-        parser.error("Either one of --unstable or --stable has to be provided")
+        parser.error("Either --unstable or --stable has to be provided")
     if args.unstable and args.stable:
-        parser.error("Specify one of --unstable or --stable. Both cannot be provided")
+        parser.error("Specify --unstable or --stable; both cannot be provided")
+
 
 def main(args):
     run(**vars(args))
