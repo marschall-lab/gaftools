@@ -17,10 +17,10 @@ from collections import namedtuple, defaultdict
 logger = logging.getLogger(__name__)
 
 
-def run(gaf, graph, fasta, extended):
+def run(gaf, graph, fasta, ext):
     timers = StageTimer()
     
-    realign_gaf(gaf, graph, fasta, extended)
+    realign_gaf(gaf, graph, fasta, ext)
     logger.info("\n== SUMMARY ==")
     total_time = timers.total()
     log_memory_usage()
@@ -323,8 +323,8 @@ def realign_gaf(gaf, graph, fasta, extended):
         #if line.query_name == "beda39f4-2976-4c0b-9cb2-9bf4ebdf0129":
 
 
-        if cnt == 2000:
-            break
+        #if cnt == 2000:
+            #break
 
     fastafile.close()
 
@@ -340,7 +340,7 @@ def add_arguments(parser):
     arg('gaf', metavar='GAF', help='GAF File')
     arg('graph', metavar='GFA', help='Input GFA file')
     arg('fasta', metavar='FASTA', help='Input FASTA file')
-    arg("--extended", action='store_true', help="Realign the whole read instead of the alignment only\'o.")
+    arg("--ext", action='store_true', help="Extend the aligned path (use for Minigraph alignments).")
     #arg('-o', '--output', default=sys.stdout,
     #    help='Output GFA file. If omitted, use standard output.')
  
