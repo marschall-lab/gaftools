@@ -177,7 +177,7 @@ def filter_duplicates(aln):
                 sim = overlap_ratio(line.query_start, line.query_end, line2.query_start, line2.query_end)
                 
                 #print("-", line2.query_start, line2.query_end, line2.score, "sim =", sim) 
-                if sim > 0.8:
+                if sim > 0.75:
                     if(line.score > line2.score):
                         mappings[cnt2].duplicate = True
                         #print("......Duplicate")
@@ -215,7 +215,7 @@ def wfa_alignment(aln, gaf_line, ref, query, path_start, extended):
     else:
         res = aligner(query, clip_cigar = False)
     
-
+   
     match, mismatch, cigar_len, ins, deletion, soft_clip = 0, 0, 0, 0, 0, 0
     cigar = ""
     
@@ -248,12 +248,14 @@ def wfa_alignment(aln, gaf_line, ref, query, path_start, extended):
     print("Reference start-end = ", res.pattern_start, res.pattern_end)
     print("Score = ", res.score)
     print("Cigar len = ", cigar_len, " Match = ", match)
-    #print(cigar)
+    print(cigar)
     print()
     """
     
 
     if extended:
+        if match < 30:
+            return
         if gaf_line.query_name in aln:
             aln[gaf_line.query_name].append(Alignment(gaf_line.query_length, res.text_start,
                                                res.text_end, gaf_line.strand, gaf_line.path,
@@ -293,18 +295,28 @@ def realign_gaf(gaf, graph, fasta, extended):
 
     aln = {}
     for cnt, line in enumerate(parse_gaf(gaf)):
-        if not line.is_primary:
+        print(line.is_primary)
+        if line.is_primary and line.is_primary == "tp:A:P":
             continue
-
+        print("here")
         path_sequence = get_path(nodes, line.path)
 
-        if extended: 
+        if extended:
             extension_start = line.query_start
             extension_end = line.query_length - line.query_end
 
+            # Also add 10% of the extension to each side
+            if extension_start > 0:
+                extension_start += extension_start // 10
+            if extension_end > 0:
+                extension_end += extension_end // 10
+
+            #if line.query_name != "C1_H1_35505":
+            #    continue
+
             path_start = line.path_start - extension_start
             path_end = line.path_end + extension_end
-
+            
             if path_start < 0:
                 path_start = 0
             if path_end > line.path_length:
