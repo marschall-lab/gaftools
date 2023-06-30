@@ -295,10 +295,10 @@ def realign_gaf(gaf, graph, fasta, extended):
 
     aln = {}
     for cnt, line in enumerate(parse_gaf(gaf)):
-        print(line.is_primary)
+        #print(line.is_primary)
         if line.is_primary and line.is_primary == "tp:A:P":
             continue
-        print("here")
+        #print("here")
         path_sequence = get_path(nodes, line.path)
 
         if extended:
