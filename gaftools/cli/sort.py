@@ -73,7 +73,7 @@ def sort(gaf, nodes, writer, index_dict, index_file):
     
     logger.info("Parsing GAF file and sorting it")
     if is_file_gzipped(gaf):
-        reader = gzip.open(gaf, 'rt')
+        reader = libcbgzf.BGZFile(gaf, 'rb')
     else:
         reader = open(gaf, 'r')
     
@@ -87,7 +87,10 @@ def sort(gaf, nodes, writer, index_dict, index_file):
             line = reader.readline()
             if not line:
                 break
-            line = line.split('\t')
+            try:
+                line = line.rstrip().split("\t")
+            except TypeError:
+                line = line.decode('utf8').rstrip().split("\t")
             bo, no, start, inv, sn = process_alignment(line, nodes, offset)
             if inv == 1:
                 count_inverse += 1
@@ -96,7 +99,7 @@ def sort(gaf, nodes, writer, index_dict, index_file):
     logger.info("\tNumber of alignments with invertions: %d"%(count_inverse))
     # Sorting the alignments based on BO and NO tag
     with timers("sort_gaf"):
-        logger.debug("Sorting the alignments...")
+        logger.info("\tSorting the alignments...")
         gaf_alignments.sort(key=functools.cmp_to_key(compare_gaf))
     
     # Writing the sorted file
@@ -264,7 +267,7 @@ def is_file_gzipped(src):
 def add_arguments(parser):
     arg = parser.add_argument
     # Positional arguments
-    arg("gaf", metavar='GAF', help="Input GAF File")
+    arg("gaf", metavar='GAF', help="Input GAF File (can be bgzipped)")
     arg("gfa", metavar='GFA', help="GFA file with the sort keys (BO and NO tagged)")
     
     arg("--outgaf", default=None, help="Output GAF File path (Default: sys.stdout)")
