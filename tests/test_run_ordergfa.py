@@ -3,12 +3,12 @@ Tests for 'gaftools order_gfa'
 """
 
 from collections import namedtuple
-from gaftools.cli.order_gfa import run_ordergfa
+from gaftools.cli.order_gfa import run_order_gfa
 
 
-def test_ordergfa(tmp_path):
+def test_order_gfa(tmp_path):
     input_gfa = 'tests/data/smallgraph.gfa'
-    run_ordergfa(
+    run_order_gfa(
         gfa_filename = 'tests/data/smallgraph.gfa',
         outdir = str(tmp_path),
         chromosome_order='chr1',
