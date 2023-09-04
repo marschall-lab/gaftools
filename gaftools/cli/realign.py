@@ -4,15 +4,14 @@ Realign GAF file using wavefront alignment algorithm (WFA)
 
 import logging
 import sys
-import re
 import pysam
+import gaftools.gaf_main as gaf_main
 
 from gaftools import __version__
 from gaftools.cli import log_memory_usage
 from gaftools.cli import CommandLineError
 from gaftools.timer import StageTimer
 from pywfa.align import (WavefrontAligner, cigartuples_to_str)
-from collections import namedtuple, defaultdict
 
 logger = logging.getLogger(__name__)
 
@@ -27,53 +26,6 @@ def run(gaf, graph, fasta, ext):
     logger.info("Total time:                                  %9.2f s", total_time)
 
 
-complement = str.maketrans('ACGT', 'TGCA')
-
-"""class Node:
-    def __init__(self, name, tags, sequence=None):
-        self.name = name
-        self.tags = tags
-        self.sequence = sequence
-
-class Edge:
-    def __init__(self, from_node, from_dir, to_node, to_dir, overlap, tags):
-        self.from_node = from_node
-        self.from_dir = from_dir
-        self.to_node = to_node
-        self.to_dir = to_dir
-        self.overlap = overlap
-        self.tags = tags
-"""
-
-class Alignment:
-    def __init__(self, query_length, query_start, query_end, strand, path, path_length, path_start,
-                 path_end, residue_matches, cigar_length, score, cigar):
-        self.query_length = query_length
-        self.query_start = query_start
-        self.query_end = query_end
-        self.strand = strand
-        self.path = path
-        self.path_length = path_length
-        self.path_start = path_start
-        self.path_end = path_end
-        self.residue_matches = residue_matches
-        self.cigar_length = cigar_length
-        self.score = score
-        self.cigar = cigar
-        self.duplicate = False
-
-
-def parse_tag(s):
-    name, type_id, value = s.split(':')
-    assert len(name) == 2
-    if type_id == 'i':
-        return name, int(value)
-    elif type_id == 'Z':
-        return name, value
-    else:
-        assert False
-
-
 def compare_aln(ln1, ln2):
 
     if ln1.query_start < ln2.query_start:
@@ -85,63 +37,6 @@ def compare_aln(ln1, ln2):
             return -1
     else:
         return 1
-
-
-def parse_gfa(gfa_filename, with_sequence=False):
-    nodes = {}
-
-    for nr, line in enumerate(open(gfa_filename)):
-        fields = line.split('\t')
-        if fields[0] == 'S':
-            name = fields[1]
-            #tags = dict(parse_tag(s) for s in fields[3:])
-            sequence = None
-            if with_sequence and (fields[2] != '*'):
-                sequence = fields[2]
-            #nodes[name] = Node(name,tags,sequence)
-            nodes[name] = sequence
-    return nodes
-
-
-GafLine = namedtuple("GafLine", "query_name query_length query_start query_end strand path path_length path_start path_end residue_matches alignment_block_length mapping_quality is_primary")
-
-def parse_gaf(filename):
-    for line in open(filename):
-        fields = line.split('\t')
- 
-        yield GafLine(
-            #If the query name has spaces (e.g., GraphAligner), we get rid of the segment after the space
-            query_name = fields[0].split(' ')[0],
-            query_length = int(fields[1]),
-            query_start = int(fields[2]),
-            query_end = int(fields[3]),
-            strand = fields[4],
-            path = fields[5],
-            path_length = int(fields[6]),
-            path_start = int(fields[7]),
-            path_end = int(fields[8]),
-            residue_matches = int(fields[9]),
-            alignment_block_length = int(fields[10]),
-            mapping_quality = int(fields[11]),
-            is_primary = [k for k in fields if k.startswith("tp:A:") or None],
-            #cigar = [k for k in fields if k.startswith("cg:Z:")][0][5:].strip()
-        )
-    return
-
-
-def get_path(nodes, path):
-    l = []
-    for s in re.findall('[><][^><]+', path):
-        node_seq = nodes[s[1:]]
-        #print(node.name, len(node.sequence))
-        if s[0] == '>':
-            l.append(node_seq)
-        elif s[0] == '<':
-            l.append(node_seq[::-1].translate(complement))
-        else:
-            assert False
-    return ''.join(l)
-
 
 
 
@@ -286,20 +181,17 @@ def realign_gaf(gaf, graph, fasta, extended):
         Uses pyWFA (https://github.com/kcleal/pywfa)
     """
     
-
-    fastafile = pysam.FastaFile(fasta)
-    nodes = parse_gfa(graph, with_sequence=True)
     
+    fastafile = pysam.FastaFile(fasta)
+    nodes = gaf_main.parse_gfa(graph, with_sequence=True)
     #ref = "TCTTTACTCGCGCGTTGGAGAAATACAATAGT"
     #query = "ACCCTCGCAAGCGTTGGAGAATG"
 
     aln = {}
-    for cnt, line in enumerate(parse_gaf(gaf)):
-        #print(line.is_primary)
+    for cnt, line in enumerate(gaf_main.parse_gaf(gaf)):
         if line.is_primary and line.is_primary == "tp:A:P":
             continue
-        #print("here")
-        path_sequence = get_path(nodes, line.path)
+        path_sequence = gaf_main.get_path(nodes, line.path)
 
         if extended:
             extension_start = line.query_start
@@ -331,12 +223,9 @@ def realign_gaf(gaf, graph, fasta, extended):
             query = fastafile.fetch(line.query_name, line.query_start, line.query_end)
             wfa_alignment([], line, ref, query, 0, False)
 
-        #if line.query_name == "bf9a7d6b-5595-4bf5-a48a-d93f28e195e1":
-        #if line.query_name == "beda39f4-2976-4c0b-9cb2-9bf4ebdf0129":
-
 
         #if cnt == 2000:
-            #break
+        #    break
 
     fastafile.close()
 
