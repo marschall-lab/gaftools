@@ -43,6 +43,9 @@ def parse_gaf(filename):
         else:
             fields = line.decode("utf-8").rstrip().split('\t')
 
+    for line in open(filename):
+        fields = line.split('\t')
+        
         yield GafLine(
             #If the query name has spaces (e.g., GraphAligner), we get rid of the segment after the space
             query_name = fields[0].split(' ')[0],
@@ -83,7 +86,6 @@ def get_path(nodes, path):
     l = []
     for s in re.findall('[><][^><]+', path):
         node_seq = nodes[s[1:]]
-        #print(node.name, len(node.sequence))
         if s[0] == '>':
             l.append(node_seq)
         elif s[0] == '<':
