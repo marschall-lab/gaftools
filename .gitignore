@@ -1,4 +1,5 @@
 build/
+test_files/
 venv/
 *.pyc
 *~
