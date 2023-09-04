@@ -125,6 +125,7 @@ def sort(gaf, nodes, writer, index_dict, index_file):
             pkl.dump(index_dict, ind)
     reader.close()
 
+
 def read_gfa(gfa, node):
     
     logger.info("Parsing GFA file and reading sort key information")

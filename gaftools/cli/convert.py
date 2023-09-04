@@ -51,14 +51,15 @@ def stable_to_unstable(gaf_path, gfa_path, out_path):
 
     import re
     import copy
-    from gaftools.sort import gfa_sort
+    from gaftools.gaf import gfa_sort_basic
     import gzip
     import itertools
     
     '''Needs to sort the gfa to use logn time binary search'''
     logger.info("INFO: Sorting the GFA file...")
-    gfa_lines = gfa_sort(gfa_path, None, True)
-   
+    gfa_lines = gfa_sort_basic(gfa_path)
+    print("Done")  
+
     '''We load the GFA into memory for fast execution. GFA is not very large
     so it does not seem to be a big issue... This creates a dictionary where each element is a
     contig that keeps the list of start and end locations with node name(S).
