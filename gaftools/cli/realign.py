@@ -49,7 +49,6 @@ def overlap_ratio(x_start,x_end, y_start, y_end):
 def filter_duplicates(aln):
     import functools
 
-    #print("Filtering...")
     for k in aln.keys():
         aln[k].sort(key=functools.cmp_to_key(gaftools.gaf.compare_aln))
      
@@ -59,14 +58,12 @@ def filter_duplicates(aln):
         for cnt, line in enumerate(mappings):
             if line.duplicate == True:
                 continue
-            #print("Query", line.query_start, line.query_end, line.score)
             for cnt2, line2 in enumerate(mappings):
                 if cnt == cnt2 or line2.duplicate == True:
                     continue
                 
                 sim = overlap_ratio(line.query_start, line.query_end, line2.query_start, line2.query_end)
                 
-                #print("-", line2.query_start, line2.query_end, line2.score, "sim =", sim) 
                 if sim > 0.75:
                     if(line.score > line2.score):
                         mappings[cnt2].duplicate = True
@@ -75,11 +72,6 @@ def filter_duplicates(aln):
                         mappings[cnt].duplicate = True
                         #print("......Duplicate, breaking")
                         break
-        """print()
-        for line in mappings:
-            print(line.query_start, line.query_end, line.duplicate)
-                    
-        print()"""
 
 
 def write_alignments(aln, output):
@@ -125,8 +117,7 @@ def wfa_alignment(aln, gaf_line, ref, query, path_start, output, extended):
             mismatch += op_len
             cigar += str(op_len) + "X"
         else:
-            print("ERRRORRR")
-            print(op_type, op_len)
+            assert False
         cigar_len += op_len
  
 
@@ -161,13 +152,11 @@ def wfa_alignment(aln, gaf_line, ref, query, path_start, output, extended):
 
 def realign_gaf(gaf, graph, fasta, output, extended):
     """
-        Uses pyWFA (https://github.com/kcleal/pywfa)
+    Uses pyWFA (https://github.com/kcleal/pywfa)
     """
 
     fastafile = pysam.FastaFile(fasta)
     nodes = gaftools.gaf.parse_gfa(graph, with_sequence=True)
-    #ref = "TCTTTACTCGCGCGTTGGAGAAATACAATAGT"
-    #query = "ACCCTCGCAAGCGTTGGAGAATG"
 
     aln = {}
     for cnt, line in enumerate(gaftools.gaf.parse_gaf(gaf)):
@@ -202,10 +191,6 @@ def realign_gaf(gaf, graph, fasta, output, extended):
             query = fastafile.fetch(line.query_name, line.query_start, line.query_end)
             wfa_alignment([], line, ref, query, 0, output, False)
 
-
-        #if cnt == 2000:
-        #    break
-
     fastafile.close()
 
     if extended:
@@ -222,8 +207,6 @@ def add_arguments(parser):
     arg('fasta', metavar='FASTA', help='Input FASTA file')
     arg('-o', '--output', default=None, help='Output file. If omitted, use standard output.')
     arg("--ext", action='store_true', help="Extend the aligned path (use for Minigraph alignments).")
-    #arg('-o', '--output', default=sys.stdout,
-    #    help='Output GFA file. If omitted, use standard output.')
  
 def main(args):
     run_realign(**vars(args))
