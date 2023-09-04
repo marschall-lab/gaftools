@@ -5,7 +5,7 @@ Realign GAF file using wavefront alignment algorithm (WFA)
 import logging
 import sys
 import pysam
-import gaftools.gaf_main as gaf_main
+import gaftools.gaf
 
 from gaftools import __version__
 from gaftools.cli import log_memory_usage
@@ -26,20 +26,6 @@ def run(gaf, graph, fasta, ext):
     logger.info("Total time:                                  %9.2f s", total_time)
 
 
-def compare_aln(ln1, ln2):
-
-    if ln1.query_start < ln2.query_start:
-        return -1
-    elif ln1.query_start == ln2.query_start:
-        if ln1.query_end < ln2.query_end:
-            return 1
-        else:
-            return -1
-    else:
-        return 1
-
-
-
 def overlap_ratio(x_start,x_end, y_start, y_end):
 
     overlap = max(0, min(x_end, y_end) - max(x_start, y_start))
@@ -55,12 +41,11 @@ def filter_duplicates(aln):
 
     #print("Filtering...")
     for k in aln.keys():
-        aln[k].sort(key=functools.cmp_to_key(compare_aln))
+        aln[k].sort(key=functools.cmp_to_key(gaftools.gaf.compare_aln))
      
     for read_name, mappings in aln.items():
         if len(mappings) == 1:
             continue
-        #print(read_name)
         for cnt, line in enumerate(mappings):
             if line.duplicate == True:
                 continue
@@ -133,20 +118,7 @@ def wfa_alignment(aln, gaf_line, ref, query, path_start, extended):
             print("ERRRORRR")
             print(op_type, op_len)
         cigar_len += op_len
-    
-    """print("Match = ", match, " ins = ", ins, " del = ", deletion, " mismatch ", mismatch, " soft-clip = ", soft_clip)
-    print("Query check: ", match + ins + soft_clip + mismatch)
-    #print(cigartuples_to_str(res.cigartuples))
-    #print(res.cigartuples)
-    
-    print("Query start-end = ", res.text_start, res.text_end)
-    print("Reference start-end = ", res.pattern_start, res.pattern_end)
-    print("Score = ", res.score)
-    print("Cigar len = ", cigar_len, " Match = ", match)
-    print(cigar)
-    print()
-    """
-    
+ 
 
     if extended:
         if match < 30:
@@ -167,9 +139,10 @@ def wfa_alignment(aln, gaf_line, ref, query, path_start, extended):
         cigar = aligner.cigarstring.replace("M", "=")
 
         #Write the alignment back to the GAF
-        sys.stdout.write("%s\t%d\t%d\t%d\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d" %(gaf_line.query_name, gaf_line.query_length, 
-                     gaf_line.query_start, gaf_line.query_end, gaf_line.strand, gaf_line.path, gaf_line.path_length, 
-                     gaf_line.path_start, gaf_line.path_end, match, cigar_len, gaf_line.mapping_quality))
+        sys.stdout.write("%s\t%d\t%d\t%d\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d" %(gaf_line.query_name,
+                        gaf_line.query_length, gaf_line.query_start, gaf_line.query_end, gaf_line.strand, 
+                        gaf_line.path, gaf_line.path_length, gaf_line.path_start, gaf_line.path_end, 
+                        match, cigar_len, gaf_line.mapping_quality))
 
         if gaf_line.is_primary:
             sys.stdout.write("\t%s" %gaf_line.is_primary[0])
@@ -180,18 +153,17 @@ def realign_gaf(gaf, graph, fasta, extended):
     """
         Uses pyWFA (https://github.com/kcleal/pywfa)
     """
-    
-    
+
     fastafile = pysam.FastaFile(fasta)
-    nodes = gaf_main.parse_gfa(graph, with_sequence=True)
+    nodes = gaftools.gaf.parse_gfa(graph, with_sequence=True)
     #ref = "TCTTTACTCGCGCGTTGGAGAAATACAATAGT"
     #query = "ACCCTCGCAAGCGTTGGAGAATG"
 
     aln = {}
-    for cnt, line in enumerate(gaf_main.parse_gaf(gaf)):
+    for cnt, line in enumerate(gaftools.gaf.parse_gaf(gaf)):
         if line.is_primary and line.is_primary == "tp:A:P":
             continue
-        path_sequence = gaf_main.get_path(nodes, line.path)
+        path_sequence = gaftools.gaf.get_path(nodes, line.path)
 
         if extended:
             extension_start = line.query_start
@@ -202,9 +174,6 @@ def realign_gaf(gaf, graph, fasta, extended):
                 extension_start += extension_start // 10
             if extension_end > 0:
                 extension_end += extension_end // 10
-
-            #if line.query_name != "C1_H1_35505":
-            #    continue
 
             path_start = line.path_start - extension_start
             path_end = line.path_end + extension_end
