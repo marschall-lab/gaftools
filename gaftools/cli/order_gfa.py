@@ -2,7 +2,6 @@
 Adds BO and NO tags to GFA
 """
 
-#!/usr/bin/env python
 import sys
 import logging
 from collections import namedtuple, defaultdict
