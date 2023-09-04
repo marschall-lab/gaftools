@@ -13,49 +13,49 @@ from argparse import ArgumentParser
 default_chromosome_order = 'chr1,chr2,chr3,chr4,chr5,chr6,chr7,chr8,chr9,chr10,chr11,chr12,chr13,chr14,chr15,chr16,chr17,chr18,chr19,chr20,chr21,chr22,chrX,chrY,chrM'
 logger = logging.getLogger(__name__)
 
-def main():
-    parser = ArgumentParser()
-    add_arguments(parser)
-    args = parser.parse_args()
+def run_order_gfa(
+    gfa_filename,
+    outdir,
+    chromosome_order=None,
+    with_sequence=False,
+):
 
-    chromosome_order = args.chromosome_order.split(sep=',')
-    gfa_filename = args.graph
-    out_dir = args.outdir
+    chromosome_order = chromosome_order.split(sep=',')
 
-    logger.info('Reading', gfa_filename)
+    logger.info('Reading %s', gfa_filename)
 
-    nodes, edges = parse_gfa(gfa_filename, args.with_sequence)
+    nodes, edges = parse_gfa(gfa_filename, with_sequence)
 
-    logger.info('Nodes:', len(nodes))
-    logger.info('Edges:', len(edges))
+    logger.info('Nodes: %d', len(nodes))
+    logger.info('Edges: %d', len(edges))
 
     cf = ComponentFinder(nodes.keys())
     for (from_node,to_node),e in edges.items():
         cf.merge(from_node,to_node)
 
     connected_components = set((cf.find(node) for node in nodes.keys()))
-    logger.info('Connected components:', len(connected_components))
+    logger.info('Connected components: %d', len(connected_components))
 
 
-    name_to_component = dict((name,component) for (component,name) in component_names(nodes, connected_components).items())
+    name_to_component = dict((name,component) for (component,name) in component_names(cf, nodes, connected_components).items())
     if set(name_to_component.keys()) == set(chromosome_order):
         logger.info('Found one connected component per expected chromosome.')
     else:
         logger.info('Chromsome set mismatch:')
-        logger.info('  Expected:', ','.join(chromosome_order))
-        logger.info('  Found:', ','.join(sorted(name_to_component.keys())))
+        logger.info('  Expected: %s', ','.join(chromosome_order))
+        logger.info('  Found: %s', ','.join(sorted(name_to_component.keys())))
         sys.exit(1)
 
     # running index for the bubble index (BO) already used
     bo = 0
     total_bubbles = 0
     for chromosome in chromosome_order:
-        logger.info('Processing', chromosome)
+        logger.info('Processing %s', chromosome)
         representative_node = name_to_component[chromosome]
 
         # Initialize files
-        f_gfa = open(out_dir+'/'+gfa_filename.split("/")[-1][:-4]+'-'+chromosome+'.gfa', 'w')
-        f_colors = open(out_dir+'/'+gfa_filename.split("/")[-1][:-4]+'-'+chromosome+'.csv', 'w')
+        f_gfa = open(outdir+'/'+gfa_filename.split("/")[-1][:-4]+'-'+chromosome+'.gfa', 'w')
+        f_colors = open(outdir+'/'+gfa_filename.split("/")[-1][:-4]+'-'+chromosome+'.csv', 'w')
         f_colors.write('Name,Color,SN,SO,BO,NO\n')
 
         component_nodes = set()
@@ -90,7 +90,7 @@ def main():
         f_gfa.close()
         f_colors.close()
 
-    logger.info('Total bubbles:', total_bubbles)
+    logger.info('Total bubbles: %d', total_bubbles)
 
 
 def tag_to_str(tag):
@@ -158,7 +158,7 @@ def parse_gfa(gfa_filename, with_sequence=False):
 
 
 def decompose_and_order(nodes, edges, node_subset, bubble_order_start=0):
-    logger.info('  Input graph: {} nodes'.format(len(node_subset)))
+    logger.info('  Input graph: %d nodes', len(node_subset))
     if len(node_subset) == 1:
         node = list(node_subset)[0]
         scaffold_nodes = set([node])
@@ -196,8 +196,8 @@ def decompose_and_order(nodes, edges, node_subset, bubble_order_start=0):
             bubbles.append(bc_inside_nodes)
             for end_node in bc_end_nodes:
                 scaffold_graph.add_edge(('s',end_node), ('b',bubble_index))
-    logger.info('  Bubbles:', len(bubbles))
-    logger.info('  Scaffold graph: {} nodes'.format(len(scaffold_graph.nodes)))
+    logger.info('  Bubbles: %d', len(bubbles))
+    logger.info('  Scaffold graph: %d nodes', len(scaffold_graph.nodes))
 
     # Find start/end points of the line by looking for nodes with degree 1
     degree_one = list(node for node in scaffold_graph.nodes if scaffold_graph.degree(node) == 1)
@@ -239,7 +239,7 @@ def decompose_and_order(nodes, edges, node_subset, bubble_order_start=0):
     return scaffold_nodes, inside_nodes, node_order, bo, len(bubbles)
 
 
-def component_names(nodes, connected_components):
+def component_names(cf, nodes, connected_components):
     """
     Returns dictionary mapping names of representative nodes to
     names in SN tags occuring most often in that component.
@@ -254,6 +254,7 @@ def component_names(nodes, connected_components):
         d[representative_node] = component_name
     return d
 
+
 def add_arguments(parser):
     arg = parser.add_argument
     arg('--chromosome_order', default=default_chromosome_order,
@@ -261,9 +262,9 @@ def add_arguments(parser):
         'Expecting comma-separated list. Default: chr1,...,chr22,chrX,chrY,chrM')
     arg('--with-sequence', default=False, action='store_true',
         help='Retain sequences in output (default is to strip sequences)')
-    arg('graph', metavar='GRAPH', help='Input GFA file')
+    arg('gfa_filename', metavar='GRAPH', help='Input GFA file')
     arg('--outdir', default="./out", help='Output Directory to store all the GFA and CSV files. Default location is a "out" folder from the directory of execution.')
 
-if __name__ == "__main__":
-    main()
-    
+
+def main(args):
+    run_order_gfa(**vars(args))

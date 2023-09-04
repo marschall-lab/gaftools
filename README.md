@@ -38,6 +38,9 @@ pip install -e .
 
 In order to use gaftools, the virtual environment has to be activated with `source venv/bin/activate`.
 
+#### Executing Test Cases
+To execute all the tests (collected in `tests`) run `pytest`.
+
 ## Usage
 
 gaftools has a command-line interface which can be accessed after installed. There are multiple subcommands that are available for the user. Below, the help window is shown.
