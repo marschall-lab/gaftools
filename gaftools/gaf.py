@@ -32,7 +32,6 @@ GafLine = namedtuple("GafLine", "query_name query_length query_start query_end s
 def parse_gaf(filename):
     for line in open(filename):
         fields = line.split('\t')
-        print(line)
         yield GafLine(
             #If the query name has spaces (e.g., GraphAligner), we get rid of the segment after the space
             query_name = fields[0].split(' ')[0],
@@ -73,7 +72,6 @@ def get_path(nodes, path):
     l = []
     for s in re.findall('[><][^><]+', path):
         node_seq = nodes[s[1:]]
-        #print(node.name, len(node.sequence))
         if s[0] == '>':
             l.append(node_seq)
         elif s[0] == '<':
