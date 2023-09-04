@@ -16,7 +16,7 @@ from pywfa.align import (WavefrontAligner, cigartuples_to_str)
 logger = logging.getLogger(__name__)
 
 
-def run(gaf, graph, fasta, ext):
+def run_realign(gaf, graph, fasta, ext=False):
     timers = StageTimer()
     
     realign_gaf(gaf, graph, fasta, ext)
@@ -215,4 +215,4 @@ def add_arguments(parser):
     #    help='Output GFA file. If omitted, use standard output.')
  
 def main(args):
-    run(**vars(args))
+    run_realign(**vars(args))
