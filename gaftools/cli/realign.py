@@ -16,10 +16,20 @@ from pywfa.align import (WavefrontAligner, cigartuples_to_str)
 logger = logging.getLogger(__name__)
 
 
-def run_realign(gaf, graph, fasta, ext=False):
+def run_realign(
+    gaf,
+    graph,
+    fasta,
+    output=None,
+    ext=False
+):
     timers = StageTimer()
     
-    realign_gaf(gaf, graph, fasta, ext)
+    if output is None:
+        output = sys.stdout
+    else:
+        output = open(output, 'w')
+    realign_gaf(gaf, graph, fasta, output, ext)
     logger.info("\n== SUMMARY ==")
     total_time = timers.total()
     log_memory_usage()
@@ -72,22 +82,22 @@ def filter_duplicates(aln):
         print()"""
 
 
-def write_alignments(aln):
+def write_alignments(aln, output):
     
     #Write the alignment back to the GAF
     for read_name, mappings in aln.items():
         for gaf_line in mappings:
             if not gaf_line.duplicate:
-                sys.stdout.write("%s\t%d\t%d\t%d\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d" %(read_name, gaf_line.query_length, 
+                output.write("%s\t%d\t%d\t%d\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d" %(read_name, gaf_line.query_length,
                      gaf_line.query_start, gaf_line.query_end, gaf_line.strand, gaf_line.path, gaf_line.path_length, 
                      gaf_line.path_start, gaf_line.path_end, gaf_line.residue_matches, gaf_line.cigar_length, 60))
         
                 #if gaf_line.is_primary:
                 #    sys.stdout.write("\t%s" %gaf_line.is_primary[0])
-                sys.stdout.write("\tcg:Z:%s\n" %gaf_line.cigar)
+                output.write("\tcg:Z:%s\n" %gaf_line.cigar)
 
 
-def wfa_alignment(aln, gaf_line, ref, query, path_start, extended):
+def wfa_alignment(aln, gaf_line, ref, query, path_start, output, extended):
 
     aligner = WavefrontAligner(ref)
     if extended:
@@ -139,17 +149,17 @@ def wfa_alignment(aln, gaf_line, ref, query, path_start, extended):
         cigar = aligner.cigarstring.replace("M", "=")
 
         #Write the alignment back to the GAF
-        sys.stdout.write("%s\t%d\t%d\t%d\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d" %(gaf_line.query_name,
-                        gaf_line.query_length, gaf_line.query_start, gaf_line.query_end, gaf_line.strand, 
-                        gaf_line.path, gaf_line.path_length, gaf_line.path_start, gaf_line.path_end, 
+        output.write("%s\t%d\t%d\t%d\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d" %(gaf_line.query_name,
+                        gaf_line.query_length, gaf_line.query_start, gaf_line.query_end, gaf_line.strand,
+                        gaf_line.path, gaf_line.path_length, gaf_line.path_start, gaf_line.path_end,
                         match, cigar_len, gaf_line.mapping_quality))
 
         if gaf_line.is_primary:
-            sys.stdout.write("\t%s" %gaf_line.is_primary[0])
-        sys.stdout.write("\tcg:Z:%s\n" %cigar)
+            output.write("\t%s" %gaf_line.is_primary[0])
+        output.write("\tcg:Z:%s\n" %cigar)
 
 
-def realign_gaf(gaf, graph, fasta, extended):
+def realign_gaf(gaf, graph, fasta, output, extended):
     """
         Uses pyWFA (https://github.com/kcleal/pywfa)
     """
@@ -185,12 +195,12 @@ def realign_gaf(gaf, graph, fasta, extended):
 
             ref = path_sequence[path_start:path_end]
             query = fastafile.fetch(line.query_name)
-            wfa_alignment(aln, line, ref, query, path_start, extended)
+            wfa_alignment(aln, line, ref, query, path_start, output, extended)
 
         else:
             ref = path_sequence[line.path_start:line.path_end]
             query = fastafile.fetch(line.query_name, line.query_start, line.query_end)
-            wfa_alignment([], line, ref, query, 0, False)
+            wfa_alignment([], line, ref, query, 0, output, False)
 
 
         #if cnt == 2000:
@@ -200,7 +210,7 @@ def realign_gaf(gaf, graph, fasta, extended):
 
     if extended:
         filter_duplicates(aln)
-        write_alignments(aln)
+        write_alignments(aln, output)
 
 
 # fmt: off
@@ -210,6 +220,7 @@ def add_arguments(parser):
     arg('gaf', metavar='GAF', help='GAF File')
     arg('graph', metavar='GFA', help='Input GFA file')
     arg('fasta', metavar='FASTA', help='Input FASTA file')
+    arg('-o', '--output', default=None, help='Output file. If omitted, use standard output.')
     arg("--ext", action='store_true', help="Extend the aligned path (use for Minigraph alignments).")
     #arg('-o', '--output', default=sys.stdout,
     #    help='Output GFA file. If omitted, use standard output.')
