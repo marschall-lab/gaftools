@@ -51,9 +51,11 @@ def stable_to_unstable(gaf_path, gfa_path, out_path):
 
     import re
     import copy
-    from gaftools.gaf import gfa_sort_basic
     import gzip
     import itertools
+    import gaftools.utils as utils
+    import gaftools.gaf
+    from gaftools.cli.sort import gfa_sort_basic
     
     '''Needs to sort the gfa to use logn time binary search'''
     logger.info("INFO: Sorting the GFA file...")
@@ -83,20 +85,12 @@ def stable_to_unstable(gaf_path, gfa_path, out_path):
     gaf_unstable = open(out_path, "w")
 
     logger.info("INFO: Reading and converting the alignments...")
-    gz_flag = gaf_path[-2:] == "gz"
-    if gz_flag:
-        gaf_file = gzip.open(gaf_path,"r")
-    else:
-        gaf_file = open(gaf_path,"r")
-    
+     
     line_count = 0
-    for gaf_line in gaf_file:
-        if gz_flag:
-            gaf_line_elements = gaf_line.decode("utf-8").rstrip().split('\t')
-        else:
-            gaf_line_elements = gaf_line.rstrip().split('\t')
+
+    for gaf_line in gaftools.gaf.parse_gaf(gaf_path):
         
-        gaf_contigs = list(filter(None, re.split('(>)|(<)', gaf_line_elements[5])))
+        gaf_contigs = list(filter(None, re.split('(>)|(<)', gaf_line.path)))
         assert len(gaf_contigs) >= 1
 
         unstable_coord = ""
@@ -114,12 +108,12 @@ def stable_to_unstable(gaf_path, gfa_path, out_path):
                 (query_start, query_end) = tmp[1].rstrip().split('-')
                 split_contig = True
             else:
-                query_start = gaf_line_elements[7]
-                query_end = gaf_line_elements[8] 
+                query_start = gaf_line.path_start
+                query_end = gaf_line.path_end
                 query_contig_name = nd
                 split_contig = False
             if not orient:
-                if gaf_line_elements[4] == "+":
+                if gaf_line.strand == "+":
                     orient = ">"
                 else:
                     orient = "<"
@@ -160,30 +154,31 @@ def stable_to_unstable(gaf_path, gfa_path, out_path):
         if line_count != 0:
             gaf_unstable.write("\n")
         
-        if gaf_line_elements[4] == "-":
+        if gaf_line.strand == "-":
             new_end = new_total - new_start
-            new_start = new_end - (int(gaf_line_elements[8]) - int(gaf_line_elements[7]))
+            new_start = new_end - (int(gaf_line.path_end) - int(gaf_line.path_start))
         else:
-            new_end = new_start + (int(gaf_line_elements[8]) - int(gaf_line_elements[7]))
+            new_end = new_start + (int(gaf_line.path_end) - int(gaf_line.path_start))
 
-        gaf_unstable.write("%s\t%s\t%s\t%s\t+\t%s\t%d\t%d\t%d" %(gaf_line_elements[0], gaf_line_elements[1], gaf_line_elements[2], 
-                                                                    gaf_line_elements[3],
-                                                                    unstable_coord, new_total,
-                                                                    new_start, new_end))
-        line_count += 1
+        gaf_unstable.write("%s\t%s\t%s\t%s\t+\t%s\t%d\t%d\t%d\t%d\t%d\t%s\t%s"
+                           %(gaf_line.query_name, gaf_line.query_length, gaf_line.query_start, gaf_line.query_end,
+                            unstable_coord, new_total, new_start, new_end, gaf_line.residue_matches,
+                            gaf_line.alignment_block_length, gaf_line.mapping_quality,
+                             gaf_line.is_primary[0]))
+        """line_count += 1
         for i in gaf_line_elements[9:len(gaf_line_elements)-1]:
-            gaf_unstable.write("\t%s"%i)
+            gaf_unstable.write("\t%s"%i)"""
         
         #Add cigar in reverse 
-        if gaf_line_elements[4] == "-":
-            cigar = gaf_line_elements[-1][5:]
+        if gaf_line.strand == "-":
+            cigar = gaf_line.cigar[5:]
             all_cigars = ["".join(x) for _, x in itertools.groupby(cigar, key=str.isdigit)]
             new_cigar = "cg:Z:"
             for i in range(len(all_cigars), 0, -2):
                 new_cigar += str(all_cigars[i-2]) + str(all_cigars[i-1])
             gaf_unstable.write("\t%s"%new_cigar)
         else:
-            gaf_unstable.write("\t%s"%gaf_line_elements[-1])
+            gaf_unstable.write("\t%s"%gaf_line.cigar)
 
     gaf_file.close()
     gaf_unstable.close()
