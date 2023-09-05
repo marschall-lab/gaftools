@@ -145,8 +145,9 @@ def wfa_alignment(aln, gaf_line, ref, query, path_start, output, extended):
                         gaf_line.path, gaf_line.path_length, gaf_line.path_start, gaf_line.path_end,
                         match, cigar_len, gaf_line.mapping_quality))
 
-        if gaf_line.is_primary:
-            output.write("\t%s" %gaf_line.is_primary[0])
+        for k in gaf_line.tags.keys():
+            output.write("\t%s:%s"%(k,gaf_line.tags[k]))
+ 
         output.write("\tcg:Z:%s\n" %cigar)
 
 
