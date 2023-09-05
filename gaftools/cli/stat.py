@@ -4,28 +4,25 @@ Statistics of a GAF File
 
 import sys
 import logging
+import gzip
+import itertools
 from gaftools.cli import log_memory_usage
 from gaftools.timer import StageTimer
 
 logger = logging.getLogger(__name__)
 
-def run(gaf_path, cigar_stat, output=sys.stdout):
-    timers = StageTimer()
-    gaf_stat(gaf_path, cigar_stat)
-    logger.info("\n== SUMMARY ==")
-    total_time = timers.total()
-    log_memory_usage()
-    logger.info("Total time:                                  %9.2f s", total_time)
 
-
-def gaf_stat(gaf_path, cigar_stat=False):
+def run_stat(
+    gaf_path,
+    cigar_stat=False,
+    output=sys.stdout,
+):
     '''This function outputs some statistics of a GAF file. If you run with "--cigar" option, then
     cigar related statistics are also output. This increases the running time more than 10 folds
     because I need to iterate through the cigar of each alignment making it run in O(n^2)
     '''
 
-    import gzip
-    import itertools
+    timers = StageTimer()
 
     gaf_lines = []
     
@@ -94,45 +91,6 @@ def gaf_stat(gaf_path, cigar_stat=False):
                             total_match_large += 1
     
 
-
-    #print("Done reading")
-    '''for line_count, val in enumerate(gaf_lines):
-        hashed_readname = hash(val[0])
-        read_names.add(hashed_readname)
-        total_aligned_bases += int(val[9])
-        total_mapq += int(val[11])
-        is_primary = [k for k in val if k.startswith("tp:A:")][0][5:]
-        if is_primary != "P":
-            total_secondary += 1
-        else:
-            total_primary += 1
-        
-        if cigar_stat:
-            #Cigar string analysis
-            cigar = [k for k in val if k.startswith("cg:Z:")][0][5:]
-            all_cigars = ["".join(x) for _, x in itertools.groupby(cigar, key=str.isdigit)]
-            if len(all_cigars) == 2:
-                total_perfect += 1
-            #print(all_cigars)
-            for cnt in range(0, len(all_cigars)-1, 2):
-                if all_cigars[cnt+1] == "D":
-                    total_del += 1
-                    if int(all_cigars[cnt]) >= 50:
-                        total_del_large += 1
-                elif all_cigars[cnt+1] == "I":
-                    total_ins += 1
-                    if int(all_cigars[cnt]) >= 50:
-                        total_ins_large += 1
-                elif all_cigars[cnt+1] == "X":
-                    total_x += 1
-                    if int(all_cigars[cnt]) >= 50:
-                        total_x_large += 1
-                elif all_cigars[cnt+1] == "=":
-                    total_match += 1
-                    if int(all_cigars[cnt]) >= 50:
-                         total_match_large += 1
-    '''
-    print()
     print("Total alignments:", alignment_count)
     print("\tPrimary:", total_primary)
     print("\tSecondary:", total_secondary)
@@ -148,8 +106,11 @@ def gaf_stat(gaf_path, cigar_stat=False):
         print("Total perfect alignments (exact match):", total_perfect)
     
     print()
-    
-    return True
+
+    logger.info("\n== SUMMARY ==")
+    total_time = timers.total()
+    log_memory_usage()
+    logger.info("Total time:                                  %9.2f s", total_time)
 
 
 def is_file_gzipped(src):
@@ -169,6 +130,6 @@ def validate(args, parser):
 
 
 def main(args):
-    run(**vars(args))
+    run_stat(**vars(args))
 
 
