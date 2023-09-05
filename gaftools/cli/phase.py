@@ -9,6 +9,7 @@ from gaftools import __version__
 from gaftools.cli import log_memory_usage
 from gaftools.cli import CommandLineError
 from gaftools.timer import StageTimer
+from gaftools.gaf import parse_gaf
 
 class Node:
     def __init__(self, chr_name, haplotype, phase_set):
@@ -34,7 +35,6 @@ def add_phase_info(gaf_path, tsv_path, out_path):
     Haplotag... The information is added as two tags ("ps:Z" and "ht:Z") before the cigar string
     '''
 
-    import gzip
     import itertools
     
     logger.info("INFO: Adding phasing information...")
@@ -48,53 +48,41 @@ def add_phase_info(gaf_path, tsv_path, out_path):
         if line_elements[0] not in phase:
             tmp = Node(line_elements[3], line_elements[1], line_elements[2])
             phase[line_elements[0]] = tmp
-    
-
-    gz_flag = gaf_path[-2:] == "gz"
-    if gz_flag:
-        gaf_file = gzip.open(gaf_path,"r")
-    else:
-        gaf_file = open(gaf_path,"r")
-    
+     
     gaf_out = open(out_path, "w")
     
     line_count = 0
     missing_in_tsv = 0
     phased = 0
-    for gaf_line in gaf_file:
-        if gz_flag:
-            gaf_line_elements = gaf_line.decode("utf-8").rstrip().split('\t')
-        else:
-            gaf_line_elements = gaf_line.rstrip().split('\t')
-        
-        cigar_pos = -1
-        for cnt, k in enumerate(gaf_line_elements):
-            if k.startswith("cg:Z:"):
-                cigar_pos = cnt
-
+    for gaf_line in parse_gaf(gaf_path):
         
         if line_count != 0:
             gaf_out.write("\n")
         
         line_count += 1
-        for i in gaf_line_elements[:cigar_pos]:
-            gaf_out.write("%s\t"%i)
+        
+        gaf_out.write("%s\t%s\t%s\t%s\t+\t%s\t%d\t%d\t%d\t%d\t%d\t%d"
+                           %(gaf_line.query_name, gaf_line.query_length, gaf_line.query_start, gaf_line.query_end,
+                            gaf_line.path, gaf_line.path_length, gaf_line.path_start, gaf_line.path_end, 
+                            gaf_line.residue_matches, gaf_line.alignment_block_length, gaf_line.mapping_quality))
         
         in_tsv = True
-        if gaf_line_elements[0] not in phase:
-            #print("%s not in .tsv file" %gaf_line_elements[0])
+        if gaf_line.query_name not in phase:
             missing_in_tsv += 1
             in_tsv = False
         
-        if in_tsv and phase[gaf_line_elements[0]].haplotype != "none":
-            gaf_out.write("ps:Z:%s-%s\tht:Z:%s\t" % (phase[gaf_line_elements[0]].chr_name,
-                                               phase[gaf_line_elements[0]].phase_set, phase[gaf_line_elements[0]].haplotype))
+        if in_tsv and phase[gaf_line.query_name].haplotype != "none":
+            gaf_out.write("ps:Z:%s-%s\tht:Z:%s\t" % (phase[gaf_line.query_name].chr_name,
+                                        phase[gaf_line.query_name].phase_set, phase[gaf_line.query_name].haplotype))
             phased +=1
         else:
             gaf_out.write("ps:Z:none\tht:Z:none")
+        
 
-        for i in gaf_line_elements[cigar_pos:]:
-            gaf_out.write("\t%s"%i)
+        for k in gaf_line.tags.keys():
+            gaf_out.write("\t%s:%s"%(k,gaf_line.tags[k]))
+        
+        gaf_out.write("\t%s"%gafline.cigar)
     
     logger.info("INFO: Added phasing info (ps:Z and ht:Z) for %d reads out of %d GAF lines - (%d reads are missing in .tsv)" %(phased, line_count, missing_in_tsv))
 
