@@ -6,11 +6,11 @@ import logging
 import sys
 import pysam
 import gaftools.gaf
-
 from gaftools import __version__
 from gaftools.cli import log_memory_usage
 from gaftools.cli import CommandLineError
 from gaftools.timer import StageTimer
+from gaftools.GFA import GFA
 from pywfa.align import (WavefrontAligner, cigartuples_to_str)
 
 logger = logging.getLogger(__name__)
@@ -157,13 +157,13 @@ def realign_gaf(gaf, graph, fasta, output, extended):
     """
 
     fastafile = pysam.FastaFile(fasta)
-    nodes = gaftools.gaf.parse_gfa(graph, with_sequence=True)
+    graph_obj = GFA(graph)
 
     aln = {}
     for cnt, line in enumerate(gaftools.gaf.parse_gaf(gaf)):
         if line.is_primary and line.is_primary == "tp:A:P":
             continue
-        path_sequence = gaftools.gaf.get_path(nodes, line.path)
+        path_sequence = graph_obj.extract_path(line.path)
 
         if extended:
             extension_start = line.query_start
