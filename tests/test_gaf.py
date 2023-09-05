@@ -8,7 +8,7 @@ from gaftools.gaf import parse_gaf, GafLine
 
 def test_parse_gaf():
     #gaftools realign alignments.gaf smallgraph.gfa reads.fa
-    gaf_lines = list(parse_gaf('tests/data/alignments.gaf'))
+    gaf_lines = list(parse_gaf('tests/data/alignments-graphaligner.gaf'))
     assert len(gaf_lines) == 2
     for gaf_line in gaf_lines:
         assert isinstance(gaf_line, GafLine)

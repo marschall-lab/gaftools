@@ -8,7 +8,7 @@ from gaftools.cli.realign import run_realign
 
 def test_order_gfa(tmp_path):
     #gaftools realign alignments.gaf smallgraph.gfa reads.fa
-    input_gaf = 'tests/data/alignments.gaf'
+    input_gaf = 'tests/data/alignments-graphaligner.gaf'
     output_gaf = str(tmp_path) + '/output.gaf'
     run_realign(
         gaf  = input_gaf,
