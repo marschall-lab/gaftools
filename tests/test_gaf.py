@@ -3,7 +3,7 @@ Tests for gaf.py.
 """
 
 from collections import namedtuple
-from gaftools.gaf import parse_gaf, GafLine
+from gaftools.gaf import parse_gaf, Alignment
 
 
 def test_parse_gaf():
@@ -11,7 +11,7 @@ def test_parse_gaf():
     gaf_lines = list(parse_gaf('tests/data/alignments-graphaligner.gaf'))
     assert len(gaf_lines) == 2
     for gaf_line in gaf_lines:
-        assert isinstance(gaf_line, GafLine)
+        assert isinstance(gaf_line, Alignment)
 
     assert gaf_lines[0].query_name == 'read_s8_s9'
     assert gaf_lines[0].query_length == 398
