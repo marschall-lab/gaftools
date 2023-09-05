@@ -5,6 +5,7 @@ Hopefully used then by all scripts in gaftools
 """
 import sys
 import logging
+import gzip
 import re
 import os
 
@@ -18,7 +19,7 @@ class Node:
         self.start = set()
         self.end = set()
         self.visited = False
-        self.optional = ""
+        self.optional = []
 
     def __sizeof__(self):
         """
@@ -103,7 +104,7 @@ class GFA:
                 logging.error("graph file {} does not exist".format(graph_file))
                 sys.exit()
             # loading nodes from file
-            self.nodes = read_gfa(gfa_file_path=graph_file, low_memory=no_seq)
+            self.nodes = self.read_gfa(gfa_file_path=graph_file, low_memory=no_seq)
 
         else:
             self.nodes = dict()
@@ -247,29 +248,36 @@ class GFA:
 
         # nodes = dict()
         edges = []
+        if gfa_file_path.endswith(".gz"):
+            open_file = gzip.open(gfa_file_path, "rt")
+        elif gfa_file_path.endswith(".gfa"):
+            open_file = open(gfa_file_path, "r")
+        else:
+            raise FileNotFoundError
 
-        with open(gfa_file_path, "r") as lines:
-            for line in lines:
-                if line.startswith("S"):
-                    line = line.split()
-                    n_id = str(line[1])
-                    n_len = len(line[2])
-                    nodes[n_id] = Node(n_id)
+        for line in open_file:
+            if line.startswith("S"):
+                line = line.split()
+                assert len(line) >= 3  # must be at least "S id seq"
+                n_id = str(line[1])
+                n_len = len(line[2])
+                nodes[n_id] = Node(n_id)
 
-                    self.nodes[n_id].seq_len = n_len
-                    if not low_memory:  # don't load the sequence
-                        self.nodes[n_id].seq = str(line[2]).strip()
-                    # adding the extra tags if any to the node object
-                    if len(line) > 3:
-                        self.nodes[n_id].optional = "\t".join(line[3:])
+                self.nodes[n_id].seq_len = n_len
+                if not low_memory:  # don't load the sequence
+                    self.nodes[n_id].seq = str(line[2]).strip()
+                # adding the extra tags if any to the node object
+                if len(line) > 3:
+                    for tag in line[3:]:
+                        self.nodes[n_id].optional.append(tag)
+                    # self.nodes[n_id].optional = "\t".join(line[3:])
 
-                elif line.startswith("L"):
-                    edges.append(line)
+            elif line.startswith("L"):
+                edges.append(line)
+        open_file.close()
 
         for e in edges:
             line = e.split()
-
-            # I take the overlap in 5 and see if there are any more tags and make a dict out of them
             k = line[1]
             if k not in self.nodes:  # if the edge is there but not the node
                 continue
@@ -280,15 +288,12 @@ class GFA:
             if neighbor not in nodes:
                 continue
 
+            from_start = False
+            to_end = False
             if line[2] == "-":
                 from_start = True
-            else:
-                from_start = False
-
             if line[4] == "-":
                 to_end = True
-            else:
-                to_end = False
 
             if from_start and to_end:  # from start to end L x - y -
                 if (neighbor, 1, overlap) not in self.nodes[k].start:
@@ -349,7 +354,7 @@ class GFA:
 
             # else:
             if nodes[n1].optional:  # if there are extra tags, write them as is
-                line = str("\t".join(["S", str(n1), nodes[n1].seq, nodes[n1].optional]))
+                line = str("\t".join(["S", str(n1), nodes[n1].seq, "\t".join(nodes[n1].optional)]))
                 # line = str("\t".join(("S", str(n1), nodes[n1].seq, nodes[n1].optional)))
             else:
                 line = str("\t".join(["S", str(n1), nodes[n1].seq + "\n"]))
