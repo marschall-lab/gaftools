@@ -34,10 +34,12 @@ def reverse_cigar(cg):
 
 
 def is_unstable(line):
-    a = line.rstrip().split('\t')[5]
-    g = list(filter(None, re.split('(>)|(<)', a)))
+    g = list(filter(None, re.split('(>)|(<)', line.rstrip().split('\t')[5])))
+    
     if len(g) == 1:
         return False
+    
     if ":" in g[1]:
         return False
+    
     return True
