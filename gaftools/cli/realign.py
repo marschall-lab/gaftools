@@ -29,6 +29,7 @@ def run_realign(
         output = sys.stdout
     else:
         output = open(output, 'w')
+    
     realign_gaf(gaf, graph, fasta, output, ext)
     logger.info("\n== SUMMARY ==")
     total_time = timers.total()

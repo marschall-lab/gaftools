@@ -26,6 +26,7 @@ def run(gaf_path,
     
     import gzip
     import copy
+    import re
     from gaftools.cli.sort import gfa_sort_basic
     import pickle
     from pysam import libcbgzf

@@ -73,10 +73,12 @@ def run(gaf_path,
         for ofs in offsets:
             gaf_file.seek(ofs)
             mapping = gaf_file.readline()
+
             try:
                 val = mapping.rstrip().split('\t')
             except TypeError:
                 val = mapping.decode("utf-8").rstrip().split('\t')
+
             out_str = ""
             if not remove_read_id:
                 out_str += "%s\t"%(val[0])
@@ -92,8 +94,7 @@ def run(gaf_path,
                     out_str += fd+"\t"
                 out_str = out_str.strip("\t")
                 out_str += "\n"
-            out.write(out_str)        
- 
+            out.write(out_str)         
     else:
         logger.info("INFO: No Nodes specified.")
         for ofs in offsets:
@@ -120,8 +121,12 @@ def run(gaf_path,
     log_memory_usage()
     logger.info("Total time:                                  %9.2f s", total_time)
 
+
 def change_format(a, show_node_id, node_id, ind, ind_dict, fa):
     import re
+    
+    #if utils.is_unstable(a):
+    #    convert_to_unstable(a,ind)
     x = list(filter(None, re.split('(>)|(<)', a[5])))
     isStable = False
     if len(x) == 1:
@@ -130,6 +135,7 @@ def change_format(a, show_node_id, node_id, ind, ind_dict, fa):
         isStable = True
     if isStable:
         x = convert_to_unstable(a, ind)
+    
     tmp = None
     out_str = ""
     if len(node_id) == 1:
