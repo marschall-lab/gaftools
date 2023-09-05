@@ -46,6 +46,12 @@ def test_load_gfa():
     assert '4' in graph['3'].children(0)
 
 
+def test_node_tags():
+    graph = GFA("tests/data/test_GFA_class.gfa")
+    assert 'SG:Z' in graph['1'].optional
+    assert graph['1'].optional['SG:Z'] == "testing_tags"
+    assert len(graph['2'].optional) == 2
+
 def test_delete_node():
     graph = GFA("tests/data/test_GFA_class.gfa")
     del graph['1']

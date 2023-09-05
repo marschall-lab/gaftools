@@ -1,5 +1,5 @@
-S	1	AGGTCG
-S	2	T
+S	1	AGGTCG	SG:Z:testing_tags
+S	2	T	IG:i:234	SG:Z:some_tag_value
 S	3	G
 S	4	TGGC
 L	1	+	2	+	0M

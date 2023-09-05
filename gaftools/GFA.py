@@ -15,6 +15,24 @@ import re
 import os
 
 
+def is_correct_tag(tag):
+    # first check if tag follows the scheme two_letters:{AifZHB}:value
+    tag_regex = r"^[A-Za-z][A-Za-z][:][AifZHB][:][ !-~]*$"
+    if not re.match(tag_regex, tag):
+        return False
+    types_regex = {
+    "A": r"^[!-~]$",
+    "i": r"^[-+]?[0-9]+$",
+    "f": r"^[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?$",
+    "Z": r"^[ !-~]*$",
+    "H": r"^([0-9A-F][0-9A-F])*$",
+    "B": r"^[cCsSiIf](,[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?)*$"
+    }
+    name, tag_type, value = tag.split(":")
+    if not re.match(types_regex[tag_type], value):
+        return False
+    return True
+
 class Node:
     __slots__ = ('id', 'seq', 'seq_len', 'start', 'end', 'visited', 'optional')
     def __init__(self, identifier):
@@ -24,7 +42,7 @@ class Node:
         self.start = set()
         self.end = set()
         self.visited = False
-        self.optional = []
+        self.optional = dict()
 
     def __sizeof__(self):
         """
@@ -290,7 +308,7 @@ class GFA:
 
         for line in open_file:
             if line.startswith("S"):
-                line = line.split()
+                line = line.strip().split("\t")
                 assert len(line) >= 3  # must be at least "S id seq"
                 n_id = str(line[1])
                 self.nodes[n_id] = Node(n_id)
@@ -301,7 +319,12 @@ class GFA:
                 # adding the extra tags if any to the node object
                 if len(line) > 3:
                     for tag in line[3:]:
-                        self.nodes[n_id].optional.append(tag)
+                        if not is_correct_tag(tag):
+                            raise ValueError(f"The tag {tag} did not match the specifications, check sam specification on tags")
+                        tag = tag.split(":")
+                        # I am adding the tags as key:value, key is tag_name:type and value is the value at the end
+                        self[n_id].optional[f"{tag[0]}:{tag[1]}"] = tag[2]
+                        # self.nodes[n_id].optional.append(tag)
                     # self.nodes[n_id].optional = "\t".join(line[3:])
 
             elif line.startswith("L"):
@@ -365,7 +388,7 @@ class GFA:
         :param output_file: path to output file
         :param append: if I want to append to a file instead of rewriting it
         """
-        nodes = self.nodes
+        # nodes = self.nodes
 
         if set_of_nodes is None:
             set_of_nodes = self.nodes.keys()
@@ -380,24 +403,26 @@ class GFA:
                                 "creating an output file")
                 f = open(output_file, "w+")
         for n1 in set_of_nodes:
-            if n1 not in nodes:
+            if n1 not in self.nodes:
                 logging.warning("Node {} does not exist in the graph, skipped in output".format(n1))
                 continue
 
-            # else:
-            if nodes[n1].optional:  # if there are extra tags, write them as is
-                line = str("\t".join(["S", str(n1), nodes[n1].seq, "\t".join(nodes[n1].optional)]))
+            if self.nodes[n1].optional:
+                tags = []
+                for tag_name, value in self.nodes[n1].optional.items():
+                    tags.append(f"{tag_name}:{value}")
+                line = str("\t".join(["S", str(n1), self.nodes[n1].seq, "\t".join(tags)]))
                 # line = str("\t".join(("S", str(n1), nodes[n1].seq, nodes[n1].optional)))
             else:
-                line = str("\t".join(["S", str(n1), nodes[n1].seq + "\n"]))
+                line = str("\t".join(["S", str(n1), self.nodes[n1].seq + "\n"]))
 
-            f.write(line)
+            f.write(line+"\n")
 
             # writing edges
             edges = []
             # overlap = str(graph.k - 1) + "M\n"
 
-            for n in nodes[n1].start:
+            for n in self.nodes[n1].start:
                 overlap = str(n[2]) + "M\n"
 
                 if n[0] in set_of_nodes:
@@ -408,7 +433,7 @@ class GFA:
                         edge = str("\t".join(("L", str(n1), "-", str(n[0]), "-", overlap)))
                         edges.append(edge)
 
-            for n in nodes[n1].end:
+            for n in self.nodes[n1].end:
                 overlap = str(n[2]) + "M\n"
 
                 if n[0] in set_of_nodes:
