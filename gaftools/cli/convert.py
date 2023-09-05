@@ -11,6 +11,7 @@ from gaftools import __version__
 from gaftools.cli import log_memory_usage
 from gaftools.cli import CommandLineError
 from gaftools.timer import StageTimer
+from gaftools.gaf import parse_gaf
 
 
 logger = logging.getLogger(__name__)
@@ -64,6 +65,21 @@ def search_intervals(intervals, query_start, query_end, start, end):
     return -1, -1
 
 
+def merge_nodes(node1, node2, orient1, orient2):
+    
+    if (node1.contig_id != node2.contig_id) or (orient1 != orient2):
+        return False
+    if (orient1 == ">") and (node1.end != node2.start):
+        return False
+    if (orient1 == "<") and (node1.start != node2.end):
+        return False
+    if (orient1 == "<"):
+        node = Node2(node1.contig_id, node2.start, node1.end)
+    else:
+        node = Node2(node1.contig_id, node1.start, node2.end)
+    return [node, orient1]
+
+
 def stable_to_unstable(gaf_path, gfa_path, out_path):
     '''This function converts a GAF file (mappings to a pangenome graph) into unstable coordinate. It does not expect sorted
     input however it strictly assumes that SO, LN and SN tags are available in the rGFA...
@@ -107,7 +123,7 @@ def stable_to_unstable(gaf_path, gfa_path, out_path):
      
     line_count = 0
 
-    for gaf_line in gaftools.gaf.parse_gaf(gaf_path):
+    for gaf_line in parse_gaf(gaf_path):
         
         gaf_contigs = list(filter(None, re.split('(>)|(<)', gaf_line.path)))
         assert len(gaf_contigs) >= 1
@@ -138,7 +154,7 @@ def stable_to_unstable(gaf_path, gfa_path, out_path):
                     orient = "<"
  
             '''Find the matching nodes from the reference genome here'''
-            start, end = search_intervals(reference[query_contig_name], int(query_start), int(query_end), 0, len(reference[query_contig_name]))
+            start, end = search_intervals(reference[query_contig_name], query_start, query_end, 0, len(reference[query_contig_name]))
  
             nodes_tmp = []
             for i in reference[query_contig_name][start:end+1]:
@@ -157,7 +173,6 @@ def stable_to_unstable(gaf_path, gfa_path, out_path):
                 
                 if cases != -1:
                     nodes_tmp.append(i.node_id)
-                    #unstable_coord += orient+i.node_id
                     new_total += (i.end - i.start)
             
             if orient == "<":
@@ -173,9 +188,9 @@ def stable_to_unstable(gaf_path, gfa_path, out_path):
         
         if gaf_line.strand == "-":
             new_end = new_total - new_start
-            new_start = new_end - (int(gaf_line.path_end) - int(gaf_line.path_start))
+            new_start = new_end - (gaf_line.path_end - gaf_line.path_start)
         else:
-            new_end = new_start + (int(gaf_line.path_end) - int(gaf_line.path_start))
+            new_end = new_start + (gaf_line.path_end - gaf_line.path_start)
 
         gaf_unstable.write("%s\t%s\t%s\t%s\t+\t%s\t%d\t%d\t%d\t%d\t%d\t%d"
                            %(gaf_line.query_name, gaf_line.query_length, gaf_line.query_start, gaf_line.query_end,
@@ -245,7 +260,7 @@ def unstable_to_stable(gaf_path, gfa_path, out_path):
         nodes[gfa_line[1]] = tmp
 
         try:
-            contig_len[contig_name] += end_pos-start_pos
+            contig_len[contig_name] += end_pos - start_pos
         except KeyError:
             contig_len[contig_name] = end_pos-start_pos
     gfa_file.close()
@@ -257,31 +272,33 @@ def unstable_to_stable(gaf_path, gfa_path, out_path):
     
     new_total = None
     new_start = None
-    for gaf_line in gaftools.gaf.parse_gaf(gaf_path):
+    for gaf_line in parse_gaf(gaf_path):
         reverse_flag = False
         gaf_nodes = list(filter(None, re.split('(>)|(<)', gaf_line.path)))
         node_list = []
         stable_coord = ""
         orient = None
+        
         for nd in gaf_nodes:
             if nd == ">" or nd == "<":
                 orient = nd
                 continue
             if not orient:
                 orient = ">"
-            node_list.append([nodes[nd],orient])
+            node_list.append([nodes[nd], orient])
         out_node = [node_list[0]]
+
         for i in range(len(node_list)-1):
-            n1=out_node[-1][0]
-            o1=out_node[-1][1]
-            n2=node_list[i+1][0]
-            o2=node_list[i+1][1]
-            node_merge=merge_nodes(n1,n2,o1,o2)
-            if node_merge==False:
+            n1 = out_node[-1][0]
+            o1 = out_node[-1][1]
+            n2 = node_list[i+1][0]
+            o2 = node_list[i+1][1]
+            node_merge = merge_nodes(n1, n2, o1, o2)
+            if node_merge == False:
                 stable_coord += n1.to_string(o1)
-                out_node.append([n2,o2])
+                out_node.append([n2, o2])
             else:
-                out_node[-1]=node_merge
+                out_node[-1] = node_merge
         if len(out_node) == 1 and out_node[0][0].contig_id in ref_contig:
             if out_node[0][1] == "<":
                 reverse_flag = True
@@ -291,14 +308,14 @@ def unstable_to_stable(gaf_path, gfa_path, out_path):
                 new_start = out_node[0][0].start + gaf_line.path_start
             stable_coord = out_node[0][0].contig_id
             new_total = contig_len[stable_coord]
-            
         else:
             stable_coord += out_node[-1][0].to_string(out_node[-1][1])
             new_start = gaf_line.path_start
             new_total = gaf_line.path_length
-        
+
         if line_count != 0:
             gaf_stable.write("\n")
+
         gaf_stable.write("%s\t%s\t%s\t%s\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d" %(gaf_line.query_name, 
                         gaf_line.query_length, gaf_line.query_start, gaf_line.query_end, gaf_line.strand, 
                         stable_coord, new_total, new_start, new_start + gaf_line.path_start - gaf_line.path_end, 
@@ -319,22 +336,6 @@ def unstable_to_stable(gaf_path, gfa_path, out_path):
     gaf_file.close()
     gaf_stable.close()
     return True
-
-
-def merge_nodes(node1, node2, orient1, orient2):
-    
-    if (node1.contig_id != node2.contig_id) or (orient1 != orient2):
-        return False
-    if (orient1 == ">") and (node1.end != node2.start):
-        return False
-    if (orient1 == "<") and (node1.start != node2.end):
-        return False
-    if (orient1 == "<"):
-        node = Node2(node1.contig_id, node2.start, node1.end)
-    else:
-        node = Node2(node1.contig_id, node1.start, node2.end)
-    return [node, orient1]
-
 
 # fmt: off
 def add_arguments(parser):
