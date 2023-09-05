@@ -41,12 +41,14 @@ In order to use gaftools, the virtual environment has to be activated with `sour
 #### Executing Test Cases
 To execute all the tests (collected in `tests`) run
 
-```pytest
+```sh
+pytest
 ```
 
 To generate an html report on the test coverage:
 
-```coverage run -m pytest
+```sh
+coverage run -m pytest
 coverage report -m
 coverage html
 firefox  htmlcov/index.html
