@@ -120,9 +120,11 @@ class GFA:
     """
     Graph object containing the important information about the graph
     """
-    __slots__ = ['nodes', 'low_memory']
+    __slots__ = ['nodes', 'low_memory', 'disc_time', 'bicc_count']
 
     def __init__(self, graph_file=None, no_seq=False):
+        self.disc_time = 0
+        self.bicc_count = 0
         self.nodes = dict()
         self.low_memory = no_seq
         if graph_file:
@@ -171,13 +173,6 @@ class GFA:
         overloading deleting item, which removes node and all its edges safely
         """
         self.remove_node(key)
-
-    def reset_visited(self):
-        """
-        resets all nodes.visited to false
-        """
-        for n in self.nodes.values():
-            n.visited = False
 
     def remove_node(self, n_id):
         """
@@ -434,7 +429,7 @@ class GFA:
 
     def bfs(self, start_id, size, reset_visited=True):
         if reset_visited:
-            self.reset_visited()
+            self.set_visited(reset_visited)
 
         if len(self.nodes[start_id].neighbors()) == 0:
             return {start_id}
@@ -456,10 +451,6 @@ class GFA:
     def find_component(self, start_node):
         """
         Find component in the graph starting from given node
-
-        :param graph: is a graph object from class Graph
-        :param start_node: The start node of BFS search.
-        :return: a list of node ids for the component
         """
         queue = []
         cc = set()
@@ -493,9 +484,6 @@ class GFA:
     def all_components(self):
         """
         find all connected components in the graph
-
-        :params graph: is a graph object from class Graph
-        :return: list of set of components
         """
         connected_comp = []
         # visited = set()
@@ -503,9 +491,11 @@ class GFA:
             if not graph.nodes[n].visited:
                 connected_comp.append(find_component(self, n))
                 # visited = visited.union(connected_comp[-1])
+        # resetting the visited to false, in case I'm going to use some other algorithm later
+        self.set_visited(False)
         return connected_comp
 
-    def reset_visited(self, visited=False):
+    def set_visited(self, visited=False):
         """
         Resets all nodes to given boolean
         """
@@ -518,8 +508,6 @@ class GFA:
         I am assuming that the list of node given as ordered_path taken from the GAF alignment is ordered
         i.e. node 1 parent of node 2, node 2 parent of node 3 and so on
         """
-        print("wkjdf")
-
         # might be hacky, will think of a better way later
         ordered_path = path.replace(">", ",").replace("<", ",").split(",")
         if ordered_path[0] == "":
@@ -530,9 +518,9 @@ class GFA:
             previous_node = ordered_path[i-1]
             if current_node in self.nodes[previous_node].neighbors():
                 continue
-            else:
-                logging.error(f"in path {ordered_path}, node {current_node} is not a neighbor of {previous_node}, "
-                              "no continuous walk through the path")
+            else:  # some node is not connected to another node in the path
+                # logging.error(f"in path {ordered_path}, node {current_node} is not a neighbor of {previous_node}, "
+                #               "no continuous walk through the path")
                 # print("The path is not a valid path")
                 return False
         return True
@@ -561,3 +549,86 @@ class GFA:
                 return ""
 
         return "".join(seq)
+
+    def bi_cc_rec(self, n_id, parent, low, disc, stack, node_ids, all_bi_cc):
+        # Count of children in current node
+        u = node_ids[n_id]
+        children = 0
+        # Initialize discovery time and low value
+        disc[u] = self.disc_time
+        low[u] = self.disc_time
+        self.disc_time += 1
+ 
+        # Recur for all the vertices adjacent to this vertex
+        for neighbor_id in self.nodes[n_id].neighbors():
+            v = node_ids[neighbor_id]
+            # If v is not visited yet, then make it a child of u
+            # in DFS tree and recur for it
+            if disc[v] == -1 :
+                parent[v] = n_id
+                children += 1
+                stack.append((n_id, neighbor_id)) # store the edge in stack
+                self.bi_cc_rec(neighbor_id, parent, low, disc, stack, node_ids, all_bi_cc)
+ 
+                # Check if the subtree rooted with v has a connection to
+                # one of the ancestors of u
+                # Case 1 -- per Strongly Connected Components Article
+                low[u] = min(low[u], low[v])
+ 
+                # If u is an articulation point, pop
+                # all edges from stack until (u, v)
+                if parent[u] == -1 and children > 1 or parent[u] != -1 and low[v] >= disc[u]:
+                    self.bicc_count += 1 # increment count
+                    w = -1
+                    one_bi_cc = set()
+                    while w != (n_id, neighbor_id):
+                        w = stack.pop()
+                        for n in w:
+                            one_bi_cc.add(n)
+                    all_bi_cc.append(one_bi_cc)
+             
+            elif neighbor_id != parent[u] and low[u] > disc[v]:
+                '''Update low value of 'u' only of 'v' is still in stack
+                (i.e. it's a back edge, not cross edge).
+                Case 2
+                -- per Strongly Connected Components Article'''
+                low[u] = min(low [u], disc[v])
+                stack.append((n_id, neighbor_id))
+
+    def bi_cc(self):
+        """
+        find biconnected components and returns a list of these components in terms of node ids
+        Mostly taken from https://www.geeksforgeeks.org/biconnected-components/
+        """
+        # because later in the algorithm I need easily map a node id to an int to check the 
+        # different vectors. Otherwise I have to add the disc, low, parent information to the node class itself and its messy
+        all_bi_cc = list()
+        node_ids = dict()
+        # node_ids_list = [0] * len(self)
+        for idx, n_id in enumerate(list(self.nodes.keys())):
+            node_ids[n_id] = idx
+            # node_ids_list[idx] = n_id
+
+        # Initialize disc and low, and parent arrays
+        n_vertices = len(self)
+        disc = [-1] * n_vertices
+        low = [-1] * n_vertices
+        parent = [-1] * n_vertices
+        stack = []
+        # Call the recursive helper function to
+        # find articulation points
+        # in DFS tree rooted with vertex 'i'
+        for n_id in self.nodes.keys():
+            i = node_ids[n_id]
+            if disc[i] == -1:
+                self.bi_cc_rec(n_id, parent, low, disc, stack, node_ids, all_bi_cc)
+            # If stack is not empty, pop all edges from stack
+            if stack:
+                self.bicc_count = self.bicc_count + 1
+                one_bi_cc = set()
+                while stack:
+                    w = stack.pop()
+                    for n in w:
+                        one_bi_cc.add(n)
+                all_bi_cc.append(one_bi_cc)
+        return all_bi_cc
