@@ -6,7 +6,6 @@ import logging
 import sys
 import pysam
 import gaftools.gaf
-
 from gaftools import __version__
 from gaftools.cli import log_memory_usage
 from gaftools.cli import CommandLineError

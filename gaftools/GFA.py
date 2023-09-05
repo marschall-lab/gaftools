@@ -2,6 +2,11 @@
 Adding a GFA class which will include GFA parsers, graph building, graph functions, graph editing, graph writing and so on
 
 Hopefully used then by all scripts in gaftools
+
+TODO:
+1- Now that I have implement add node and add edge, I should change the read graph to start using those functions
+2- implement biconnected components so I can get rid of the usage of networkx and keep everything in the GFA class
+3- 
 """
 import sys
 import logging
@@ -40,6 +45,9 @@ class Node:
                 size += sys.getsizeof(i)
         return size
 
+    def __len__(self):
+        return self.seq_len
+
     def neighbors(self):
         """
         Returns all adjacent nodes' ids to self
@@ -55,10 +63,12 @@ class Node:
             if node in [x[0] for x in self.start]:
                 return True
             return False
-        else:
+        elif direction == 1:
             if node in [x[0] for x in self.end]:
                 return True
             return False
+        else:
+            raise ValueError(f"Trying to access a wrong direction in node {self.id}, give 0 for start or 1 for end")
 
     def children(self, direction):
         """
@@ -69,12 +79,13 @@ class Node:
         elif direction == 1:
             return [x[0] for x in self.end]
         else:
-            raise Exception(f"Trying to access a wrong direction in node {self.id}")
+            raise ValueError(f"Trying to access a wrong direction in node {self.id}, give 0 for start or 1 for end")
 
     def remove_from_start(self, neighbor, side, overlap):
         """
         remove the neighbor edge from the start going to side in neighbor
         """
+        assert side in {1, 0}
         try:
             self.start.remove((neighbor, side, overlap))
         except KeyError:
@@ -84,31 +95,39 @@ class Node:
         """
         remove the neighbor edge from the end going to side in neighbor
         """
+        assert side in {1, 0}
         try:
             self.end.remove((neighbor, side, overlap))
         except KeyError:
             logging.warning(f"Could not remove edge {(neighbor, side, overlap)} from {self.id}'s end as it does not exist")
 
+    def add_from_start(self, neighbor, side, overlap):
+        """
+        add edge between self.start and neighbor
+        """
+        assert side in {1, 0}
+        self.start.add((neighbor, side, overlap))
+
+    def add_from_end(self, neighbor, side, overlap):
+        """
+        add edge between self.end and neighbor
+        """
+        assert side in {1, 0}
+        self.end.add((neighbor, side, overlap))
 
 class GFA:
     """
     Graph object containing the important information about the graph
     """
-
     __slots__ = ['nodes', 'low_memory']
 
     def __init__(self, graph_file=None, no_seq=False):
-        if graph_file is not None:
+        self.nodes = dict()
+        self.low_memory = no_seq
+        if graph_file:
             if not os.path.exists(graph_file):
-                print("Error! Check log file.")
-                logging.error("graph file {} does not exist".format(graph_file))
-                sys.exit()
-            # loading nodes from file
-            self.nodes = self.read_gfa(gfa_file_path=graph_file, low_memory=no_seq)
-
-        else:
-            self.nodes = dict()
-            self.edge_counts = dict()
+                raise FileNotFoundError
+        self.read_graph(gfa_file_path=graph_file, low_memory=no_seq)
 
     def __len__(self):
         """
@@ -148,9 +167,9 @@ class GFA:
 
     def __delitem__(self, key):
         """
-        overloading deleting item
+        overloading deleting item, which removes node and all its edges safely
         """
-        del self.nodes[key]
+        self.remove_node(key)
 
     def reset_visited(self):
         """
@@ -159,31 +178,25 @@ class GFA:
         for n in self.nodes.values():
             n.visited = False
 
-
     def remove_node(self, n_id):
         """
         remove a node and its corresponding edges
+
+        TODO: I should stage the edge removals but first make sure it will not fail
+        otherwise I'll end up with a node half-removed and will cause a mess
         """
         starts = [x for x in self.nodes[n_id].start]
         for n_start in starts:
             overlap = n_start[2]
             self.remove_edge((n_id, 0, n_start[0], n_start[1], overlap))
-            # if n_start[1] == 1:
-            #     self.nodes[n_start[0]].end.remove((n_id, 0, overlap))
-            # else:
-            #     self.nodes[n_start[0]].start.remove((n_id, 0, overlap))
 
         ends = [x for x in self.nodes[n_id].end]
         for n_end in ends:
             overlap = n_end[2]
-            self.remove_edge((n_id, 1, n_start[0], n_start[1], overlap))
-            # if n_end[1] == 1:
-            #     self.nodes[n_end[0]].end.remove((n_id, 1, overlap))
-            # else:
-            #     self.nodes[n_end[0]].start.remove((n_id, 1, overlap))
+            self.remove_edge((n_id, 1, n_end[0], n_end[1], overlap))
 
         del self.nodes[n_id]
-
+        
     def remove_edge(self, edge):
         n1, side1, n2, side2, overlap = edge
         if side1 == 0:
@@ -196,9 +209,34 @@ class GFA:
         else:
             self.nodes[n2].remove_from_end(n1, side1, overlap)
 
+    def add_node(self, node_id, seq=""):
+        if node_id not in self:
+            node = Node(node_id)
+            node.seq = seq
+            node.seq_len = len(seq)
+            self[node_id] = node
+        else:
+            logging.warning(f"You are trying to add node {node_id} and it already exists in the graph")
+
+
+    def add_edge(self, node1, node1_dir, node2, node2_dir, overlap=0):
+        assert node1 in self
+        assert node2 in self
+        assert node1_dir in {1, 0}
+        assert node2_dir in {1, 0}
+        if node1_dir == 0:
+            self[node1].add_from_start(node2, node2_dir, overlap)
+        else:
+            self[node1].add_from_end(node2, node2_dir, overlap)
+
+        if node2_dir == 0:
+            self[node2].add_from_start(node1, node1_dir, overlap)
+        else:
+            self[node2].add_from_end(node1, node1_dir, overlap)
+
     def remove_lonely_nodes(self):
         """
-        remove singular nodes with no neighbors
+        remove singular nodes with no edges
         """
         nodes_to_remove = [n.id for n in self.nodes.values() if len(n.neighbors()) == 0]
         for i in nodes_to_remove:
@@ -207,13 +245,10 @@ class GFA:
     def write_graph(self, set_of_nodes=None,
                     output_file="output_graph.gfa",
                     append=False):
-        """writes a graph file as GFA
-
-        list_of_nodes can be a list of node ids to write
-        ignore_nodes is a list of node ids to not write out
-        if append is set to true then output file should be an existing
-        graph file to append to
-        modified to output a modified graph file
+        """
+        writes a graph file as GFA
+        Can be given a set of nodes to only write those nodes with their edges
+        if append is true, then it appends to an existing gfa file, otherwise, it overwrites it
         """
         if not output_file.endswith(".gfa"):
             output_file += ".gfa"
@@ -236,11 +271,9 @@ class GFA:
                 self.write_graph(set_of_nodes=cc, output_file=output_file, append=False)
 
 
-    def read_gfa(self, gfa_file_path, low_memory=False):
+    def read_graph(self, gfa_file_path, low_memory=False):
         """
-        Read a gfa file
-
-        :param gfa_file_path: gfa graph file.
+        Read a gfa file and return a populated graph object
         """
         if not os.path.exists(gfa_file_path):
             logging.error("the gfa file path you gave does not exists, please try again!")
@@ -253,17 +286,16 @@ class GFA:
         elif gfa_file_path.endswith(".gfa"):
             open_file = open(gfa_file_path, "r")
         else:
-            raise FileNotFoundError
+            raise ValueError(f"File {gfa_file_path} needs to end with .gfa or .gz")
 
         for line in open_file:
             if line.startswith("S"):
                 line = line.split()
                 assert len(line) >= 3  # must be at least "S id seq"
                 n_id = str(line[1])
-                n_len = len(line[2])
-                nodes[n_id] = Node(n_id)
+                self.nodes[n_id] = Node(n_id)
 
-                self.nodes[n_id].seq_len = n_len
+                self.nodes[n_id].seq_len = len(line[2])
                 if not low_memory:  # don't load the sequence
                     self.nodes[n_id].seq = str(line[2]).strip()
                 # adding the extra tags if any to the node object
@@ -281,11 +313,12 @@ class GFA:
             k = line[1]
             if k not in self.nodes:  # if the edge is there but not the node
                 continue
-
-            overlap = int(line[5][:-1])
-
+            try:
+                overlap = int(line[5][:-1])
+            except:
+                raise ValueError(f"Overlap should be represented as (int)M, e.g. 10M, could not recognize {overlap}")
             neighbor = line[3]
-            if neighbor not in nodes:
+            if neighbor not in self.nodes:
                 continue
 
             from_start = False
@@ -307,7 +340,7 @@ class GFA:
                     self.nodes[k].start.add((neighbor, 0, overlap))
 
                 if (k, 0, overlap) not in self.nodes[neighbor].start:
-                    self.odes[neighbor].start.add((k, 0, overlap))
+                    self.nodes[neighbor].start.add((k, 0, overlap))
 
             elif not from_start and not to_end:  # from end to start L x + y +
                 if (neighbor, 0, overlap) not in self.nodes[k].end:
@@ -322,7 +355,6 @@ class GFA:
 
                 if (k, 1, overlap) not in self.nodes[neighbor].end:
                     self.nodes[neighbor].end.add((k, 1, overlap))
-
 
     def write_gfa(self, set_of_nodes=None, output_file="output_file.gfa", append=False):
         """
@@ -450,7 +482,6 @@ class GFA:
 
         return cc
 
-
     def all_components(self):
         """
         find all connected components in the graph
@@ -473,12 +504,13 @@ class GFA:
         for n in self.nodes.values():
             n.visited = visited
 
-    def check_path(self, path):
+    def path_exists(self, path):
         """
         Just a sanity check that a path given exists in the graph
         I am assuming that the list of node given as ordered_path taken from the GAF alignment is ordered
         i.e. node 1 parent of node 2, node 2 parent of node 3 and so on
         """
+        print("wkjdf")
 
         # might be hacky, will think of a better way later
         ordered_path = path.replace(">", ",").replace("<", ",").split(",")
@@ -503,7 +535,7 @@ class GFA:
         """
         seq = []
 
-        if not check_path(ordered_path):
+        if not self.path_exists(path):
             return ""
 
         reverse_complement = {"A":"T", "C":"G", "G":"C", "T":"A"}
@@ -511,11 +543,11 @@ class GFA:
             if n[1:] not in self:
                 logging.error(f"The node {n[1:]} in path {path} does not seem to exist in this GFA")
                 return ""
-
+            # print(n)
             if n.startswith(">"):
                 seq.append(self.nodes[n[1:]].seq)
             elif n.startswith("<"):
-                seq.append([reverse_complement[x] for x in self.nodes[n[1:]].seq][-1::])
+                seq.append("".join([reverse_complement[x] for x in self.nodes[n[1:]].seq[::-1]]))
             else:
                 logging.error(f"Some error happened where a node {n} doesn't start with > or <")
                 return ""
