@@ -31,7 +31,7 @@ pip install -e .
 #### Using Conda Environment
 
 ```sh
-conda create -n gaftools-dev python=3.10
+conda create -n gaftools-dev python=3.10 pytest coverage
 conda activate gaftools-dev
 pip install -e .
 ```
@@ -39,7 +39,18 @@ pip install -e .
 In order to use gaftools, the virtual environment has to be activated with `source venv/bin/activate`.
 
 #### Executing Test Cases
-To execute all the tests (collected in `tests`) run `pytest`.
+To execute all the tests (collected in `tests`) run
+
+```pytest
+```
+
+To generate an html report on the test coverage:
+
+```coverage run -m pytest
+coverage report -m
+coverage html
+firefox  htmlcov/index.html
+```
 
 ## Usage
 
