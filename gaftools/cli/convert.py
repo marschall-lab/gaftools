@@ -4,6 +4,8 @@ Convert Coordinate Systems between the stable system and unstable system
 
 import logging
 import sys
+import gaftools.utils as utils
+import gaftools.gaf
 
 from gaftools import __version__
 from gaftools.cli import log_memory_usage
@@ -44,6 +46,24 @@ def run(gaf_file, gfa_file, output=sys.stdout, unstable=False, stable=False):
     logger.info("Total time:                                  %9.2f s", total_time)
 
 
+def search_intervals(intervals, query_start, query_end, start, end):
+    '''Given the start-end coordinates in the GFA file for the given contig (SO, SO+LN), it
+    searches for the given (query_start, query_end) matches. (query_start, query_end) is the start
+    and end location of a mapping in the gaf file.
+    '''
+
+    if start <= end:
+        mid = start + (end - start) // 2
+        if query_end <= intervals[mid].start:
+            return search_intervals(intervals, query_start, query_end, start, mid - 1)
+        elif query_start >= intervals[mid].end:
+            return search_intervals(intervals, query_start, query_end, mid + 1, end)
+        else:
+            return start, end
+
+    return -1, -1
+
+
 def stable_to_unstable(gaf_path, gfa_path, out_path):
     '''This function converts a GAF file (mappings to a pangenome graph) into unstable coordinate. It does not expect sorted
     input however it strictly assumes that SO, LN and SN tags are available in the rGFA...
@@ -54,7 +74,6 @@ def stable_to_unstable(gaf_path, gfa_path, out_path):
     import gzip
     import itertools
     import gaftools.utils as utils
-    import gaftools.gaf
     from gaftools.cli.sort import gfa_sort_basic
     
     '''Needs to sort the gfa to use logn time binary search'''
@@ -117,12 +136,10 @@ def stable_to_unstable(gaf_path, gfa_path, out_path):
                     orient = ">"
                 else:
                     orient = "<"
-            
-            #print(reference[query_contig_name])
+ 
             '''Find the matching nodes from the reference genome here'''
             start, end = search_intervals(reference[query_contig_name], int(query_start), int(query_end), 0, len(reference[query_contig_name]))
-            #print(start, end)
-            
+ 
             nodes_tmp = []
             for i in reference[query_contig_name][start:end+1]:
                 cases = -1
@@ -160,25 +177,22 @@ def stable_to_unstable(gaf_path, gfa_path, out_path):
         else:
             new_end = new_start + (int(gaf_line.path_end) - int(gaf_line.path_start))
 
-        gaf_unstable.write("%s\t%s\t%s\t%s\t+\t%s\t%d\t%d\t%d\t%d\t%d\t%s\t%s"
+        gaf_unstable.write("%s\t%s\t%s\t%s\t+\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%s"
                            %(gaf_line.query_name, gaf_line.query_length, gaf_line.query_start, gaf_line.query_end,
                             unstable_coord, new_total, new_start, new_end, gaf_line.residue_matches,
                             gaf_line.alignment_block_length, gaf_line.mapping_quality,
                              gaf_line.is_primary[0]))
-        """line_count += 1
-        for i in gaf_line_elements[9:len(gaf_line_elements)-1]:
-            gaf_unstable.write("\t%s"%i)"""
         
+        line_count += 1
+        """for i in gaf_line_elements[9:len(gaf_line_elements)-1]:
+            gaf_unstable.write("\t%s"%i)"""
+
         #Add cigar in reverse 
         if gaf_line.strand == "-":
-            cigar = gaf_line.cigar[5:]
-            all_cigars = ["".join(x) for _, x in itertools.groupby(cigar, key=str.isdigit)]
-            new_cigar = "cg:Z:"
-            for i in range(len(all_cigars), 0, -2):
-                new_cigar += str(all_cigars[i-2]) + str(all_cigars[i-1])
-            gaf_unstable.write("\t%s"%new_cigar)
+            new_cigar = utils.reverse_cigar(gaf_line.cigar)
+            gaf_unstable.write("\t%s" %new_cigar)
         else:
-            gaf_unstable.write("\t%s"%gaf_line.cigar)
+            gaf_unstable.write("\t%s" %gaf_line.cigar)
 
     gaf_file.close()
     gaf_unstable.close()
@@ -197,16 +211,19 @@ def unstable_to_stable(gaf_path, gfa_path, out_path):
     contig_len = {}
     ref_contig = []
     contig_name = None
+    
     gz_flag = gfa_path[-2:] == "gz"
     if gz_flag:
         gfa_file = gzip.open(gfa_path,"r")
     else:
         gfa_file = open(gfa_path,"r")
+
     for gfa_line in gfa_file:
         if gz_flag:
             gfa_line = gfa_line.decode("utf-8")
         if gfa_line[0] != "S":
             break
+        
         gfa_line = gfa_line.rstrip().split('\t')
         contig_name = [k for k in gfa_line if k.startswith("SN:Z:")][0][5:]
         start_pos = int([k for k in gfa_line if k.startswith("SO:i:")][0][5:])
@@ -229,25 +246,17 @@ def unstable_to_stable(gaf_path, gfa_path, out_path):
         except KeyError:
             contig_len[contig_name] = end_pos-start_pos
     gfa_file.close()
-    gaf_stable = open(out_path, "w")
+    
 
+    gaf_stable = open(out_path, "w")
     logger.info("INFO: Reading and converting the alignments...")
     line_count = 0
-    gz_flag = gaf_path[-2:] == "gz"
-    if gz_flag:
-        gaf_file = gzip.open(gaf_path,"r")
-    else:
-        gaf_file = open(gaf_path,"r")
     
     new_total = None
     new_start = None
-    for gaf_line in gaf_file:
+    for gaf_line in gaftools.gaf.parse_gaf(gaf_path):
         reverse_flag = False
-        if gz_flag:
-            gaf_line_elements = gaf_line.decode("utf-8").rstrip().split('\t')
-        else:
-            gaf_line_elements = gaf_line.rstrip().split('\t')
-        gaf_nodes = list(filter(None, re.split('(>)|(<)', gaf_line_elements[5])))
+        gaf_nodes = list(filter(None, re.split('(>)|(<)', gaf_line.path)))
         node_list = []
         stable_coord = ""
         orient = None
@@ -273,63 +282,38 @@ def unstable_to_stable(gaf_path, gfa_path, out_path):
         if len(out_node) == 1 and out_node[0][0].contig_id in ref_contig:
             if out_node[0][1] == "<":
                 reverse_flag = True
-                gaf_line_elements[4] = "-"
-                new_start = out_node[0][0].start + int(gaf_line_elements[6]) - int(gaf_line_elements[8])
+                gaf_line.strand = "-"
+                new_start = out_node[0][0].start + gaf_line.path_length - gaf_line.path_end
             else:
-                new_start = out_node[0][0].start + int(gaf_line_elements[7])
+                new_start = out_node[0][0].start + gaf_line.path_start
             stable_coord = out_node[0][0].contig_id
             new_total = contig_len[stable_coord]
             
         else:
             stable_coord += out_node[-1][0].to_string(out_node[-1][1])
-            new_start = int(gaf_line_elements[7])
-            new_total = int(gaf_line_elements[6])
+            new_start = gaf_line.path_start
+            new_total = gaf_line.path_length
         
         if line_count != 0:
             gaf_stable.write("\n")
-        gaf_stable.write("%s\t%s\t%s\t%s\t%s\t%s\t%d\t%d\t%d" %(gaf_line_elements[0], gaf_line_elements[1], gaf_line_elements[2], 
-                                                                    gaf_line_elements[3],
-                                                                    gaf_line_elements[4],
-                                                                    stable_coord, new_total,
-                                                                    new_start, new_start +
-                                                                    int(gaf_line_elements[8])-int(gaf_line_elements[7])))
+        gaf_stable.write("%s\t%s\t%s\t%s\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%s" %(gaf_line.query_name, 
+                        gaf_line.query_length, gaf_line.query_start, gaf_line.query_end, gaf_line.strand, 
+                        stable_coord, new_total, new_start, new_start + gaf_line.path_start - gaf_line.path_end, 
+                        gaf_line.residue_matches, gaf_line.alignment_block_length, gaf_line.mapping_quality, 
+                        gaf_line.is_primary[0]))
+
         line_count += 1
-        for i in gaf_line_elements[9:len(gaf_line_elements)]:
-            if i[:5] == "cg:Z:" and reverse_flag:
-                i = reverse_cigar(i)
-            gaf_stable.write("\t%s"%i)
-        
+
+        #Add cigar in reverse 
+        if reverse_flag:
+            tmp_cigar = utils.reverse_cigar(gaf_line.cigar)
+            gaf_stable.write("\t%s" %tmp_cigar)
+        else:
+            gaf_stable.write("\t%s" %gaf_line.cigar)
+
     gaf_file.close()
     gaf_stable.close()
     return True
-
-
-def reverse_cigar(cg):
-    import itertools
-    cg = cg[5:]
-    all_cigars = ["".join(x) for _, x in itertools.groupby(cg, key=str.isdigit)]
-    new_cigar = "cg:Z:"
-    for i in range(len(all_cigars), 0, -2):
-        new_cigar += str(all_cigars[i-2]) + str(all_cigars[i-1])
-    return new_cigar
-
-
-def search_intervals(intervals, query_start, query_end, start, end):
-    '''Given the start-end coordinates in the GFA file for the given contig (SO, SO+LN), it
-    searches for the given (query_start, query_end) matches. (query_start, query_end) is the start
-    and end location of a mapping in the gaf file.
-    '''
-
-    if start <= end:
-        mid = start + (end - start) // 2
-        if query_end <= intervals[mid].start:
-            return search_intervals(intervals, query_start, query_end, start, mid - 1)
-        elif query_start >= intervals[mid].end:
-            return search_intervals(intervals, query_start, query_end, mid + 1, end)
-        else:
-            return start, end
-
-    return -1, -1
 
 
 def merge_nodes(node1, node2, orient1, orient2):
