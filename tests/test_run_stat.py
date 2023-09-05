@@ -22,6 +22,11 @@ def test_stat_graphaligner(tmp_path):
     )
     output_lines = parse_output(output)
     assert output_lines[0] == ('Total alignments', '2')
+    assert output_lines[1] == ('Primary', '2')
+    assert output_lines[2] == ('Secondary', '0')
+    assert output_lines[3] == ('Reads with at least one alignment', '2')
+    assert output_lines[4] == ('Total aligned bases', '744')
+    assert output_lines[5] == ('Average mapping quality', '60.0')
 
 
 def test_stat_minigraph_stable(tmp_path):
@@ -34,6 +39,11 @@ def test_stat_minigraph_stable(tmp_path):
     )
     output_lines = parse_output(output)
     assert output_lines[0] == ('Total alignments', '2')
+    assert output_lines[1] == ('Primary', '2')
+    assert output_lines[2] == ('Secondary', '0')
+    assert output_lines[3] == ('Reads with at least one alignment', '2')
+    assert output_lines[4] == ('Total aligned bases', '744')
+    assert output_lines[5] == ('Average mapping quality', '60.0')
 
 
 def test_stat_minigraph_unstable(tmp_path):
@@ -46,3 +56,8 @@ def test_stat_minigraph_unstable(tmp_path):
     )
     output_lines = parse_output(output)
     assert output_lines[0] == ('Total alignments', '2')
+    assert output_lines[1] == ('Primary', '2')
+    assert output_lines[2] == ('Secondary', '0')
+    assert output_lines[3] == ('Reads with at least one alignment', '2')
+    assert output_lines[4] == ('Total aligned bases', '744')
+    assert output_lines[5] == ('Average mapping quality', '60.0')
