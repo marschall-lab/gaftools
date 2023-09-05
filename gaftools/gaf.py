@@ -32,6 +32,7 @@ class Alignment:
         self.duplicate = False
         self.tags = tags
 
+
 def parse_gaf(filename):
    
     gz_flag = False

@@ -233,6 +233,7 @@ def convert_to_unstable(x, ind):
     import copy
     from gaftools.cli.convert import Node1, search_intervals
     import re
+    
     reference = {}    
     contig_name = None
     for n in ind:
