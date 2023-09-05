@@ -80,12 +80,17 @@ def write_alignments(aln, output):
     for read_name, mappings in aln.items():
         for gaf_line in mappings:
             if not gaf_line.duplicate:
-                output.write("%s\t%d\t%d\t%d\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d" %(read_name, gaf_line.query_length,
-                     gaf_line.query_start, gaf_line.query_end, gaf_line.strand, gaf_line.path, gaf_line.path_length, 
-                     gaf_line.path_start, gaf_line.path_end, gaf_line.residue_matches, gaf_line.cigar_length, 60))
-        
-                #if gaf_line.is_primary:
-                #    sys.stdout.write("\t%s" %gaf_line.is_primary[0])
+
+
+                #Write the alignment back to the GAF
+                output.write("%s\t%d\t%d\t%d\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d" %(gaf_line.query_name,
+                        gaf_line.query_length, gaf_line.query_start, gaf_line.query_end, gaf_line.strand,
+                        gaf_line.path, gaf_line.path_length, gaf_line.path_start, gaf_line.path_end,
+                        match, cigar_len, gaf_line.mapping_quality))
+
+                for k in gaf_line.tags.keys():
+                    output.write("\t%s:%s"%(k,gaf_line.tags[k]))
+ 
                 output.write("\tcg:Z:%s\n" %gaf_line.cigar)
 
 

@@ -3,11 +3,12 @@ Index the GAF File
 """
 
 import logging
-import re
+import gaftools.utils as utils
 
 from gaftools import __version__
 from gaftools.timer import StageTimer
 from gaftools.cli import log_memory_usage, CommandLineError
+
 
 class Node1:
     def __init__(self, node_id, start, end):
@@ -17,12 +18,15 @@ class Node1:
 
 logger = logging.getLogger(__name__)
 
-def run(gaf_path, reference, output=None):
+
+def run(gaf_path, 
+        reference, 
+        output=None
+       ):
     
     import gzip
     import copy
-    from gaftools.sort import gfa_sort
-    from gaftools.utils import is_file_gzipped
+    from gaftools.cli.sort import gfa_sort_basic
     import pickle
     from pysam import libcbgzf
 
@@ -31,13 +35,14 @@ def run(gaf_path, reference, output=None):
         output = gaf_path+".gai"
     
     #Detecting if GAF has stable or unstable coordinate
-    if is_file_gzipped(gaf_path):
+    if utils.is_file_gzipped(gaf_path):
         gaf_file = libcbgzf.BGZFile(gaf_path,"rb")
         line = gaf_file.readline().decode("utf-8")
     else:
         gaf_file = open(gaf_path,"rt")
         line = gaf_file.readline()
-    unstable = detect_unstable(line)
+    
+    unstable = utils.is_unstable(line)
     gaf_file.close()
     
     nodes = {}
@@ -45,12 +50,15 @@ def run(gaf_path, reference, output=None):
     ref_contig = []
     if not unstable:
         logger.info("INFO: Detected stable coordinates in the GAF file.")
+        
         with timers("sort_gfa"):
             logger.info("INFO: Sorting GFA File")
-            gfa_lines = gfa_sort(reference, None, True)
+            gfa_lines = gfa_sort_basic(reference)
         contig_name = None
+        
         with timers("store_contig_info"):
             logger.info("INFO: Storing Contig Information")
+            
             for gfa_line in gfa_lines:
                 tmp_contig_name = [k for k in gfa_line if k.startswith("SN:Z:")][0][5:]
                 
@@ -103,12 +111,13 @@ def run(gaf_path, reference, output=None):
             else:
                 assert (rank == 0)
     
-    if is_file_gzipped(gaf_path):
-        logger.info("INFO: GAF file compression detected. BGZF compression needed for optimal performance. Generating appropriated index (using virtual offsets defined by the BGZF compression).")
+    if utils.is_file_gzipped(gaf_path):
+        logger.info("INFO: GAF file compression detected. BGZF compression needed for optimal performance. Generating appropriate index (using virtual offsets defined by the BGZF compression).")
         gaf_file = libcbgzf.BGZFile(gaf_path,"rb")
     else:
         logger.info("INFO: Uncompressed GAF file detected. Generating appropriate index (using offset values).")
         gaf_file = open(gaf_path,"rt")
+    
     out_dict = {}
     logger.info("INFO: Indexing the file")
     offset = 0
@@ -121,6 +130,7 @@ def run(gaf_path, reference, output=None):
             val = mapping.rstrip().split('\t')
         except TypeError:
             val = mapping.decode("utf-8").rstrip().split('\t')
+        
         if not unstable:
             with timers("convert_coord"):
                 alignment = convert_coord(val, ref)
@@ -144,9 +154,10 @@ def run(gaf_path, reference, output=None):
     log_memory_usage()
     logger.info("Total time:                                  %9.2f s", total_time)
 
+
 def convert_coord(line, ref):
     
-    from gaftools.cli.convert import search_intervals
+    from gaftools.cli.utils import search_intervals
 
     unstable_coord = []
     gaf_contigs = list(filter(None, re.split('(>)|(<)', line[5])))
@@ -162,7 +173,6 @@ def convert_coord(line, ref):
             query_end = line[8] 
             query_contig_name = nd
         
-        #print(orient, query_contig_name, query_start, query_end)
         '''Find the matching nodes from the reference genome here'''
         start, end = search_intervals(ref[query_contig_name], int(query_start), int(query_end), 0, len(ref[query_contig_name]))
 
@@ -180,14 +190,6 @@ def convert_coord(line, ref):
     
     return unstable_coord
 
-def detect_unstable(line):
-    a = line.rstrip().split('\t')[5]
-    g = list(filter(None, re.split('(>)|(<)', a)))
-    if len(g) == 1:
-        return False
-    if ":" in g[1]:
-        return False
-    return True
 
 # fmt: off
 def add_arguments(parser):
