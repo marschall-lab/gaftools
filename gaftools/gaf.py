@@ -23,11 +23,11 @@ class Alignment:
         self.path_start = path_start
         self.path_end = path_end
         self.residue_matches = residue_matches
-        self.alignment_block_length = -1
+        self.alignment_block_length = alignment_block_length
         self.cigar_length = cigar_length
         self.score = score
         self.cigar = cigar
-        self.mapping_quality = -1
+        self.mapping_quality = mapping_quality
         self.is_primary = is_primary
         self.duplicate = False
 
