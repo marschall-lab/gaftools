@@ -28,6 +28,8 @@ source venv/bin/activate
 pip install -e .
 ```
 
+In order to use gaftools, the virtual environment has to be activated with `source venv/bin/activate`.
+
 #### Using Conda Environment
 
 ```sh
@@ -35,8 +37,6 @@ conda create -n gaftools-dev python=3.10 pytest coverage
 conda activate gaftools-dev
 pip install -e .
 ```
-
-In order to use gaftools, the virtual environment has to be activated with `source venv/bin/activate`.
 
 #### Executing Test Cases
 To execute all the tests (collected in `tests`) run
