@@ -25,7 +25,7 @@ def test_parse_gaf():
     assert gaf_lines[0].alignment_block_length == 398
     assert gaf_lines[0].mapping_quality == 60
     assert gaf_lines[0].cigar == '398='
-    #assert gaf_lines[0].is_primary
+    assert gaf_lines[0].is_primary
 
     assert gaf_lines[1].query_name == 'read_s8_s9_deletion15'
     assert gaf_lines[1].query_length == 383
@@ -40,4 +40,4 @@ def test_parse_gaf():
     assert gaf_lines[1].alignment_block_length == 398
     assert gaf_lines[1].mapping_quality == 60
     assert gaf_lines[1].cigar == '189=2D1=13D193='
-    #assert gaf_lines[1].is_primary
+    assert gaf_lines[1].is_primary
