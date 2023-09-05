@@ -50,7 +50,7 @@ def run(gaf_path, reference, output=None):
             gfa_lines = gfa_sort(reference, None, True)
         contig_name = None
         with timers("store_contig_info"):
-            logger.info("INFO: Storing Contig Informationa")
+            logger.info("INFO: Storing Contig Information")
             for gfa_line in gfa_lines:
                 tmp_contig_name = [k for k in gfa_line if k.startswith("SN:Z:")][0][5:]
                 
