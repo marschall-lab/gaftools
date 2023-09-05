@@ -1,6 +1,9 @@
+import re
+
 def is_file_gzipped(src):
     with open(src, "rb") as inp:
         return inp.read(2) == b'\x1f\x8b'
+
 
 def search_intervals(intervals, query_start, query_end, start, end):
     '''Given the start-end coordinates in the GFA file for the given contig (SO, SO+LN), it
@@ -28,3 +31,13 @@ def reverse_cigar(cg):
     for i in range(len(all_cigars), 0, -2):
         new_cigar += str(all_cigars[i-2]) + str(all_cigars[i-1])
     return new_cigar
+
+
+def is_unstable(line):
+    a = line.rstrip().split('\t')[5]
+    g = list(filter(None, re.split('(>)|(<)', a)))
+    if len(g) == 1:
+        return False
+    if ":" in g[1]:
+        return False
+    return True

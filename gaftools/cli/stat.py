@@ -104,11 +104,6 @@ def run_stat(
     logger.info("Total time:                                  %9.2f s", total_time)
 
 
-def is_file_gzipped(src):
-    with open(src, "rb") as inp:
-        return inp.read(2) == b'\x1f\x8b'
-
-
 def add_arguments(parser):
     arg = parser.add_argument
     # Positional arguments

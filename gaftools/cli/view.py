@@ -45,8 +45,10 @@ def run(gaf_path,
         if index == None:
             index = gaf_path+".gai"
         ind = None
+        
         with open(index, 'rb') as tmp:
             ind = pickle.load(tmp)
+       
         ind_key = sorted(list(ind.keys()), key = lambda x: (x[1], x[2]))
         ind_dict = {}
         for i in ind_key:
@@ -55,17 +57,19 @@ def run(gaf_path,
         if isRegion:
             node = get_unstable(node, ind)
         node_id = [n[0] for n in node]
-        if (len(node_id)==1):
+        if (len(node_id) == 1):
             logger.info("INFO: One node ID recovered from the list of regions/nodes given. Output will contain entire alignments which contain that node.")
         elif full_alignment:
             logger.info("INFO: Multiple node IDs recovered from the list of regions/nodes given. Output will contain entire alignment since --full-alignment flag has been given.")
         else:
             logger.info("INFO: Multiple node IDs recovered from the list of regions/nodes given. Output will contain parts of the alignment which from the first node given to the last node given.")
+        
         offsets=ind[node[0]]
         for nd in node[1:]:
             offsets = list(set(offsets) & set(ind[nd]))
         offsets.sort()
         c = 0
+        
         for ofs in offsets:
             gaf_file.seek(ofs)
             mapping = gaf_file.readline()
@@ -89,8 +93,7 @@ def run(gaf_path,
                 out_str = out_str.strip("\t")
                 out_str += "\n"
             out.write(out_str)        
-                
-        
+ 
     else:
         logger.info("INFO: No Nodes specified.")
         for ofs in offsets:
@@ -231,7 +234,8 @@ def change_format(a, show_node_id, node_id, ind, ind_dict, fa):
 def convert_to_unstable(x, ind):
     
     import copy
-    from gaftools.cli.convert import Node1, search_intervals
+    from gaftools.cli.convert import Node1
+    from gaftools.cli.utils import search_intervals
     import re
     
     reference = {}    
@@ -357,7 +361,8 @@ def search(node, node_list):
         result.append(node_list[pos])
 
     return result
-    
+
+
 # fmt: off
 def add_arguments(parser):
     arg = parser.add_argument
