@@ -125,17 +125,17 @@ def wfa_alignment(aln, gaf_line, ref, query, path_start, output, extended):
         if match < 30:
             return
         if gaf_line.query_name in aln:
-            aln[gaf_line.query_name].append(Alignment(gaf_line.query_length, res.text_start,
+            aln[gaf_line.query_name].append(Alignment("", gaf_line.query_length, res.text_start,
                                                res.text_end, gaf_line.strand, gaf_line.path,
                                                gaf_line.path_length, path_start + res.pattern_start,
-                                               path_start + res.pattern_end, match, cigar_len,
-                                               res.score, cigar))
+                                               path_start + res.pattern_end, match, 0, 0, False, cigar,
+                                               cigar_len, res.score))
         else:
-            aln[gaf_line.query_name] = [Alignment(gaf_line.query_length, res.text_start,
+            aln[gaf_line.query_name] = [Alignment("", gaf_line.query_length, res.text_start,
                                                res.text_end, gaf_line.strand, gaf_line.path,
                                                gaf_line.path_length, path_start + res.pattern_start,
-                                               path_start + res.pattern_end, match, cigar_len,
-                                               res.score, cigar)]
+                                               path_start + res.pattern_end, match, 0, 0, False,
+                                               cigar, cigar_len, res.score)]
     else:
         cigar = aligner.cigarstring.replace("M", "=")
 
