@@ -11,7 +11,7 @@ complement = str.maketrans('ACGT', 'TGCA')
 class Alignment:
     def __init__(self, query_name, query_length, query_start, query_end, strand, path, path_length, path_start,
                  path_end, residue_matches, alignment_block_length, mapping_quality, is_primary,
-                 cigar, cigar_length=None, score=None):
+                 cigar, cigar_length=None, score=None, tags=None):
 
         self.query_name = query_name
         self.query_length = query_length
@@ -30,7 +30,7 @@ class Alignment:
         self.mapping_quality = mapping_quality
         self.is_primary = is_primary
         self.duplicate = False
-
+        self.tags = tags
 
 def parse_gaf(filename):
    
@@ -46,7 +46,7 @@ def parse_gaf(filename):
             fields = line.rstrip().split('\t')
         else:
             fields = line.decode("utf-8").rstrip().split('\t')
-
+    
     for line in open(filename):
         fields = line.split('\t')
         
@@ -63,12 +63,29 @@ def parse_gaf(filename):
         residue_matches = int(fields[9])
         alignment_block_length = int(fields[10])
         mapping_quality = int(fields[11])
-        is_primary = [k for k in fields if k.startswith("tp:A:") or None]
-        cigar = [k for k in fields if k.startswith("cg:Z:")][-1][5:].strip()
+        is_primary = True
+        cigar = ""
 
+        #Check if there are additional tags
+        tags = {}
+        for k in fields:
+            if re.match("[A-Za-z][A-Za-z0-9]:[AifZHB]:[A-Za-z0-9]+", k):
+                pattern = re.findall(r"([A-Za-z][A-Za-z0-9]:[AifZHB]:)[A-Za-z0-9]+", k)[0]
+                
+                if pattern == "cg:Z:":
+                    val = re.findall(r"[A-Za-z][A-Za-z0-9]:[AifZHB]:([A-Za-z0-9=]+)", k)[0]
+                    cigar = val
+                else:
+                    val = re.findall(r"[A-Za-z][A-Za-z0-9]:[AifZHB]:([A-Za-z0-9]+)", k)[0]
+                    if pattern not in tags:
+                        tags[pattern] = val
+
+                    if pattern == "tp:A" and (val != "P" or val != "p"):
+                        is_primary = False
+        
         yield Alignment(query_name, query_length, query_start, query_end, strand, path,
                         path_length, path_start, path_end, residue_matches, alignment_block_length,
-                        mapping_quality, is_primary, cigar)
+                        mapping_quality, is_primary, cigar, tags=tags)
     return
 
 

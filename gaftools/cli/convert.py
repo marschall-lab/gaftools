@@ -177,15 +177,18 @@ def stable_to_unstable(gaf_path, gfa_path, out_path):
         else:
             new_end = new_start + (int(gaf_line.path_end) - int(gaf_line.path_start))
 
-        gaf_unstable.write("%s\t%s\t%s\t%s\t+\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%s"
+        gaf_unstable.write("%s\t%s\t%s\t%s\t+\t%s\t%d\t%d\t%d\t%d\t%d\t%d"
                            %(gaf_line.query_name, gaf_line.query_length, gaf_line.query_start, gaf_line.query_end,
                             unstable_coord, new_total, new_start, new_end, gaf_line.residue_matches,
-                            gaf_line.alignment_block_length, gaf_line.mapping_quality,
-                             gaf_line.is_primary[0]))
+                            gaf_line.alignment_block_length, gaf_line.mapping_quality))
         
+
         line_count += 1
         """for i in gaf_line_elements[9:len(gaf_line_elements)-1]:
             gaf_unstable.write("\t%s"%i)"""
+
+        for k in gaf_line.tags.keys():
+            gaf_unstable.write("\t%s:%s"%(k,gaf_line.tags[k]))
 
         #Add cigar in reverse 
         if gaf_line.strand == "-":
@@ -296,14 +299,16 @@ def unstable_to_stable(gaf_path, gfa_path, out_path):
         
         if line_count != 0:
             gaf_stable.write("\n")
-        gaf_stable.write("%s\t%s\t%s\t%s\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%s" %(gaf_line.query_name, 
+        gaf_stable.write("%s\t%s\t%s\t%s\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d" %(gaf_line.query_name, 
                         gaf_line.query_length, gaf_line.query_start, gaf_line.query_end, gaf_line.strand, 
                         stable_coord, new_total, new_start, new_start + gaf_line.path_start - gaf_line.path_end, 
-                        gaf_line.residue_matches, gaf_line.alignment_block_length, gaf_line.mapping_quality, 
-                        gaf_line.is_primary[0]))
+                        gaf_line.residue_matches, gaf_line.alignment_block_length, gaf_line.mapping_quality))
 
         line_count += 1
 
+        for k in gaf_line.tags.keys():
+            gaf_stable.write("\t%s:%s"%(k,gaf_line.tags[k]))
+        
         #Add cigar in reverse 
         if reverse_flag:
             tmp_cigar = utils.reverse_cigar(gaf_line.cigar)
