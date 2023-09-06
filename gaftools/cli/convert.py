@@ -63,8 +63,7 @@ def merge_nodes(node1, node2, orient1, orient2):
 
 
 def stable_to_unstable(gaf_path, gfa_path, out_path):
-    '''This function converts a GAF file (mappings to a pangenome graph) into unstable coordinate. It does not expect sorted
-    input however it strictly assumes that SO, LN and SN tags are available in the rGFA...
+    '''This function converts a GAF file (mappings to a pangenome graph) into unstable coordinate. It does not expect sorted input however it strictly assumes that SO, LN and SN tags are available in the rGFA...
     '''
 
     import re
@@ -100,12 +99,9 @@ def stable_to_unstable(gaf_path, gfa_path, out_path):
         reference[contig_name].append(tmp)
     
     gaf_unstable = open(out_path, "w")
-
     logger.info("INFO: Reading and converting the alignments...")
      
-    line_count = 0
-
-    for gaf_line in parse_gaf(gaf_path):
+    for line_count, gaf_line in enumerate(parse_gaf(gaf_path)):
         
         gaf_contigs = list(filter(None, re.split('(>)|(<)', gaf_line.path)))
         assert len(gaf_contigs) >= 1
@@ -164,7 +160,6 @@ def stable_to_unstable(gaf_path, gfa_path, out_path):
                 for i in nodes_tmp:
                     unstable_coord += orient+i
 
-
         if line_count != 0:
             gaf_unstable.write("\n")
         
@@ -179,11 +174,6 @@ def stable_to_unstable(gaf_path, gfa_path, out_path):
                             unstable_coord, new_total, new_start, new_end, gaf_line.residue_matches,
                             gaf_line.alignment_block_length, gaf_line.mapping_quality))
         
-
-        line_count += 1
-        """for i in gaf_line_elements[9:len(gaf_line_elements)-1]:
-            gaf_unstable.write("\t%s"%i)"""
-
         for k in gaf_line.tags.keys():
             gaf_unstable.write("\t%s:%s"%(k,gaf_line.tags[k]))
 
@@ -250,11 +240,10 @@ def unstable_to_stable(gaf_path, gfa_path, out_path):
 
     gaf_stable = open(out_path, "w")
     logger.info("INFO: Reading and converting the alignments...")
-    line_count = 0
     
     new_total = None
     new_start = None
-    for gaf_line in parse_gaf(gaf_path):
+    for line_count, gaf_line in enumerate(parse_gaf(gaf_path)):
         reverse_flag = False
         gaf_nodes = list(filter(None, re.split('(>)|(<)', gaf_line.path)))
         node_list = []
@@ -270,7 +259,7 @@ def unstable_to_stable(gaf_path, gfa_path, out_path):
             node_list.append([nodes[nd], orient])
         out_node = [node_list[0]]
 
-        for i in range(len(node_list)-1):
+        for i in range(len(node_list) - 1):
             n1 = out_node[-1][0]
             o1 = out_node[-1][1]
             n2 = node_list[i+1][0]
@@ -281,6 +270,7 @@ def unstable_to_stable(gaf_path, gfa_path, out_path):
                 out_node.append([n2, o2])
             else:
                 out_node[-1] = node_merge
+        
         if len(out_node) == 1 and out_node[0][0].contig_id in ref_contig:
             if out_node[0][1] == "<":
                 reverse_flag = True
@@ -288,6 +278,7 @@ def unstable_to_stable(gaf_path, gfa_path, out_path):
                 new_start = out_node[0][0].start + gaf_line.path_length - gaf_line.path_end
             else:
                 new_start = out_node[0][0].start + gaf_line.path_start
+            
             stable_coord = out_node[0][0].contig_id
             new_total = contig_len[stable_coord]
         else:
@@ -302,8 +293,6 @@ def unstable_to_stable(gaf_path, gfa_path, out_path):
                         gaf_line.query_length, gaf_line.query_start, gaf_line.query_end, gaf_line.strand, 
                         stable_coord, new_total, new_start, new_start + gaf_line.path_start - gaf_line.path_end, 
                         gaf_line.residue_matches, gaf_line.alignment_block_length, gaf_line.mapping_quality))
-
-        line_count += 1
 
         for k in gaf_line.tags.keys():
             gaf_stable.write("\t%s:%s"%(k,gaf_line.tags[k]))
