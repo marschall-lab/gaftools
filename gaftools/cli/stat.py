@@ -35,7 +35,6 @@ def run_stat(
     total_mapq = 0
     total_primary = 0
     total_secondary = 0
-    alignment_count = 0
 
     if cigar_stat:
         total_del = 0
@@ -48,8 +47,7 @@ def run_stat(
         total_match_large = 0
         total_perfect = 0
         
-    for mapping in parse_gaf(gaf_path):
-        alignment_count += 1
+    for alignment_count, mapping in enumerate(parse_gaf(gaf_path), 1):
         hashed_readname = hash(mapping.query_name)
         read_names.add(hashed_readname)
         total_aligned_bases += mapping.residue_matches
