@@ -48,9 +48,6 @@ def parse_gaf(filename):
             fields = line.rstrip().split('\t')
         else:
             fields = line.decode("utf-8").rstrip().split('\t')
-    
-    for line in open(filename):
-        fields = line.split('\t')
         
         #If the query name has spaces (e.g., GraphAligner), we get rid of the segment after the space
         query_name = fields[0].split(' ')[0]
