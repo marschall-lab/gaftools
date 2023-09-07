@@ -20,7 +20,6 @@ def test_load_gfa():
     assert graph['2'].seq == "T"
     assert graph['3'].seq == "G"
     assert graph['4'].seq == "TGGC"
-
     # check that connectivity is correct
     assert '1' in graph['2'].neighbors()
     assert '2' in graph['1'].neighbors()
@@ -67,7 +66,7 @@ def test_add_node():
     assert graph['5'].seq == "CCCC"
     assert graph['5'].seq_len == 4
     # adding an edge between end of node 4 and start of node 5 with 0 overlap
-    graph.add_edge('4', 1, '5', 0, 0)
+    graph.add_edge('4', "+", '5', "+", 0)
     assert '5' in graph['4'].neighbors()
     assert graph['4'].in_direction('5', 1)
     assert graph['5'].in_direction('4', 0)

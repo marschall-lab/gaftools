@@ -5,8 +5,6 @@ Hopefully used then by all scripts in gaftools
 
 TODO:
 1- Now that I have implement add node and add edge, I should change the read graph to start using those functions
-2- implement biconnected components so I can get rid of the usage of networkx and keep everything in the GFA class
-3- 
 """
 import sys
 import logging
@@ -15,6 +13,8 @@ import re
 import os
 from gaftools.utils import rev_comp, is_correct_tag
 
+
+E_DIR = {("+", "+"): (1, 0), ("+", "-"): (1, 1), ("-", "+"): (0, 0), ("-", "-"): (0, 1)}
 
 class Node:
     __slots__ = ('id', 'seq', 'seq_len', 'start', 'end', 'visited', 'optional')
@@ -205,11 +205,14 @@ class GFA:
         else:
             self.nodes[n2].remove_from_end(n1, side1, overlap)
 
-    def add_node(self, node_id, seq=""):
+    def add_node(self, node_id, seq="", low_memory=False):
         if node_id not in self:
             node = Node(node_id)
-            node.seq = seq
-            node.seq_len = len(seq)
+            if not low_memory:
+                node.seq = seq
+                node.seq_len = len(seq)
+            else:
+                node.seq_len = len(seq)
             self[node_id] = node
         else:
             logging.warning(f"You are trying to add node {node_id} and it already exists in the graph")
@@ -218,8 +221,9 @@ class GFA:
     def add_edge(self, node1, node1_dir, node2, node2_dir, overlap=0):
         assert node1 in self
         assert node2 in self
-        assert node1_dir in {1, 0}
-        assert node2_dir in {1, 0}
+        assert node1_dir in {"+", "-"}
+        assert node2_dir in {"+", "-"}
+        node1_dir, node2_dir = E_DIR[(node1_dir, node2_dir)]
         if node1_dir == 0:
             self[node1].add_from_start(node2, node2_dir, overlap)
         else:
@@ -289,11 +293,8 @@ class GFA:
                 line = line.strip().split("\t")
                 assert len(line) >= 3  # must be at least "S id seq"
                 n_id = str(line[1])
-                self.nodes[n_id] = Node(n_id)
+                self.add_node(n_id, line[2], low_memory)
 
-                self.nodes[n_id].seq_len = len(line[2])
-                if not low_memory:  # don't load the sequence
-                    self.nodes[n_id].seq = str(line[2]).strip()
                 # adding the extra tags if any to the node object
                 if len(line) > 3:
                     for tag in line[3:]:
@@ -301,61 +302,27 @@ class GFA:
                             raise ValueError(f"The tag {tag} did not match the specifications, check sam specification on tags")
                         tag = tag.split(":")
                         # I am adding the tags as key:value, key is tag_name:type and value is the value at the end
+                        # e.g. SN:i:10 will be {"SN:i": 10}
                         self[n_id].optional[f"{tag[0]}:{tag[1]}"] = tag[2]
-                        # self.nodes[n_id].optional.append(tag)
-                    # self.nodes[n_id].optional = "\t".join(line[3:])
 
             elif line.startswith("L"):
                 edges.append(line)
         open_file.close()
 
         for e in edges:
-            line = e.split()
-            k = line[1]
-            if k not in self.nodes:  # if the edge is there but not the node
-                continue
+            e = e.split()
+            # TODO: for now ignoring the edge tags, need to deal with this at some point
+            e = e[1:6]
             try:
-                overlap = int(line[5][:-1])
+                e[4] = int(e[4][:-1])  # getting overlap
             except:
-                raise ValueError(f"Overlap should be represented as (int)M, e.g. 10M, could not recognize {overlap}")
-            neighbor = line[3]
-            if neighbor not in self.nodes:
+                raise ValueError(f"The overlap in {e} has a problem, must be (int)M, e.g. 10M")
+
+            # skip an edge of the node is not there
+            if e[0] not in self or e[2] not in self:
                 continue
 
-            from_start = False
-            to_end = False
-            if line[2] == "-":
-                from_start = True
-            if line[4] == "-":
-                to_end = True
-
-            if from_start and to_end:  # from start to end L x - y -
-                if (neighbor, 1, overlap) not in self.nodes[k].start:
-                    self.nodes[k].start.add((neighbor, 1, overlap))
-                if (k, 0, overlap) not in self.nodes[neighbor].end:
-                    self.nodes[neighbor].end.add((k, 0, overlap))
-
-            elif from_start and not to_end:  # from start to start L x - y +
-
-                if (neighbor, 0, overlap) not in self.nodes[k].start:
-                    self.nodes[k].start.add((neighbor, 0, overlap))
-
-                if (k, 0, overlap) not in self.nodes[neighbor].start:
-                    self.nodes[neighbor].start.add((k, 0, overlap))
-
-            elif not from_start and not to_end:  # from end to start L x + y +
-                if (neighbor, 0, overlap) not in self.nodes[k].end:
-                    self.nodes[k].end.add((neighbor, 0, overlap))
-
-                if (k, 1, overlap) not in self.nodes[neighbor].start:
-                    self.nodes[neighbor].start.add((k, 1, overlap))
-
-            elif not from_start and to_end:  # from end to end L x + y -
-                if (neighbor, 1, overlap) not in self.nodes[k].end:
-                    self.nodes[k].end.add((neighbor, 1, overlap))
-
-                if (k, 1, overlap) not in self.nodes[neighbor].end:
-                    self.nodes[neighbor].end.add((k, 1, overlap))
+            self.add_edge(*e)
 
     def write_gfa(self, set_of_nodes=None, output_file="output_file.gfa", append=False):
         """
