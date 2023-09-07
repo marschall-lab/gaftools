@@ -545,6 +545,7 @@ class GFA:
                 # If u is an articulation point, pop
                 # all edges from stack until (u, v)
                 if parent[u] == -1 and children > 1 or parent[u] != -1 and low[v] >= disc[u]:
+                    # need to save this info somewhere that if I am here then n_id is an articulation node
                     self.bicc_count += 1 # increment count
                     w = -1
                     one_bi_cc = set()
@@ -567,8 +568,6 @@ class GFA:
         find biconnected components and returns a list of these components in terms of node ids
         Mostly taken from https://www.geeksforgeeks.org/biconnected-components/
         """
-        # because later in the algorithm I need easily map a node id to an int to check the 
-        # different vectors. Otherwise I have to add the disc, low, parent information to the node class itself and its messy
         all_bi_cc = list()
         node_ids = dict()
         # node_ids_list = [0] * len(self)
