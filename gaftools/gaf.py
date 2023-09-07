@@ -1,4 +1,5 @@
 import re
+import gzip
 import logging
 import gaftools.utils as utils
 from gaftools import __version__
