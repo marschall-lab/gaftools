@@ -167,8 +167,7 @@ def realign_gaf(gaf, graph, fasta, output, extended):
 
     aln = {}
     for cnt, line in enumerate(gaftools.gaf.parse_gaf(gaf)):
-        if line.is_primary and line.is_primary == "tp:A:P":
-            continue
+        
         path_sequence = graph_obj.extract_path(line.path)
 
         if extended:
