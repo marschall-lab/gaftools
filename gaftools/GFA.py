@@ -13,25 +13,8 @@ import logging
 import gzip
 import re
 import os
+from gaftools.utils import rev_comp, is_correct_tag
 
-
-def is_correct_tag(tag):
-    # first check if tag follows the scheme two_letters:{AifZHB}:value
-    tag_regex = r"^[A-Za-z][A-Za-z][:][AifZHB][:][ !-~]*$"
-    if not re.match(tag_regex, tag):
-        return False
-    types_regex = {
-    "A": r"^[!-~]$",
-    "i": r"^[-+]?[0-9]+$",
-    "f": r"^[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?$",
-    "Z": r"^[ !-~]*$",
-    "H": r"^([0-9A-F][0-9A-F])*$",
-    "B": r"^[cCsSiIf](,[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?)*$"
-    }
-    name, tag_type, value = tag.split(":")
-    if not re.match(types_regex[tag_type], value):
-        return False
-    return True
 
 class Node:
     __slots__ = ('id', 'seq', 'seq_len', 'start', 'end', 'visited', 'optional')
@@ -563,7 +546,6 @@ class GFA:
         if not self.path_exists(path):
             return ""
 
-        reverse_complement = {"A":"T", "C":"G", "G":"C", "T":"A"}
         for n in re.findall('[><][^><]+', path):
             if n[1:] not in self:
                 logging.error(f"The node {n[1:]} in path {path} does not seem to exist in this GFA")
@@ -572,7 +554,8 @@ class GFA:
             if n.startswith(">"):
                 seq.append(self.nodes[n[1:]].seq)
             elif n.startswith("<"):
-                seq.append("".join([reverse_complement[x] for x in self.nodes[n[1:]].seq[::-1]]))
+                seq.append(rev_comp(self.nodes[n[1:]].seq))
+                # seq.append("".join([reverse_complement[x] for x in self.nodes[n[1:]].seq[::-1]]))
             else:
                 logging.error(f"Some error happened where a node {n} doesn't start with > or <")
                 return ""

@@ -1,5 +1,32 @@
 import re
 
+complement = str.maketrans('ACGT', 'TGCA')
+tag_regex = r"^[A-Za-z][A-Za-z][:][AifZHB][:][ !-~]*$"
+
+types_regex = {
+    "A": r"^[!-~]$",
+    "i": r"^[-+]?[0-9]+$",
+    "f": r"^[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?$",
+    "Z": r"^[ !-~]*$",
+    "H": r"^([0-9A-F][0-9A-F])*$",
+    "B": r"^[cCsSiIf](,[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?)*$"
+    }
+
+
+def rev_comp(seq):
+    return seq[::-1].translate(complement)
+
+
+def is_correct_tag(tag):
+    # first check if tag follows the scheme two_letters:{AifZHB}:value
+    if not re.match(tag_regex, tag):
+        return False
+    name, tag_type, value = tag.split(":")
+    if not re.match(types_regex[tag_type], value):
+        return False
+    return True
+
+
 def is_file_gzipped(src):
     with open(src, "rb") as inp:
         return inp.read(2) == b'\x1f\x8b'
