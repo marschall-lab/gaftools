@@ -169,7 +169,7 @@ def realign_gaf(gaf, graph, fasta, output, extended):
     for cnt, line in enumerate(gaftools.gaf.parse_gaf(gaf)):
         
         path_sequence = graph_obj.extract_path(line.path)
-
+        
         if extended:
             extension_start = line.query_start
             extension_end = line.query_length - line.query_end
