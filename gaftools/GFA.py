@@ -518,8 +518,6 @@ class GFA:
         I am assuming that the list of node given as ordered_path taken from the GAF alignment is ordered
         i.e. node 1 parent of node 2, node 2 parent of node 3 and so on
         """
-        print("wkjdf")
-
         # might be hacky, will think of a better way later
         ordered_path = path.replace(">", ",").replace("<", ",").split(",")
         if ordered_path[0] == "":
