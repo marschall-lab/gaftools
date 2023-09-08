@@ -3,7 +3,7 @@ import gzip
 import logging
 import gaftools.utils as utils
 from gaftools import __version__
-from collections import namedtuple, defaultdict
+from collections import defaultdict
 
 logger = logging.getLogger(__name__)
 
@@ -41,8 +41,8 @@ def parse_gaf(filename):
         gaf_file = gzip.open(filename,"r")
         gz_flag = True
     else:
-        gaf_file = open(filename,"r")
-    
+        gaf_file = open(filename,"r") 
+
     for line in gaf_file:
         if not gz_flag:
             fields = line.rstrip().split('\t')
