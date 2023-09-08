@@ -44,6 +44,17 @@ def test_load_gfa():
     assert '2' in graph['1'].children(1)
     assert '4' in graph['3'].children(0)
 
+    # test file not found
+    try:
+        graph = GFA("test/data/nonexistant_graph.gfa")
+    except FileNotFoundError:
+        pass
+
+    try:
+        graph = GFA("tests/data/test_GFA_class_wrong_graph.gfa")
+    except ValueError:
+        pass
+
 
 def test_node_tags():
     graph = GFA("tests/data/test_GFA_class.gfa")
@@ -61,7 +72,8 @@ def test_delete_node():
 
 def test_add_node():
     graph = GFA("tests/data/test_GFA_class.gfa")
-    graph.add_node("5", "CCCC")
+    node_line = "S\t5\tCCCC"
+    graph.add_node(node_line.strip().split())
     assert '5' in graph
     assert graph['5'].seq == "CCCC"
     assert graph['5'].seq_len == 4

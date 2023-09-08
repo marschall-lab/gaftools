@@ -142,7 +142,12 @@ class GFA:
         """
         overloading the string function for printing
         """
-        return "The graph has {} Nodes".format(len(self.nodes))
+        edge_count = 0
+        for n in self.nodes.values():
+            edge_count += len(n.start)
+            edge_count += len(n.end)
+
+        return f"The graph has {len(self)} Nodes and {int(edge_count/2)} Edges"
 
     def __contains__(self, key):
         """
@@ -205,22 +210,32 @@ class GFA:
         else:
             self.nodes[n2].remove_from_end(n1, side1, overlap)
 
-    def add_node(self, node_id, seq="", low_memory=False):
+    def add_node(self, gfa_line, low_memory=False):
+        node_id = str(gfa_line[1])
         if node_id not in self:
             node = Node(node_id)
             if not low_memory:
-                node.seq = seq
-                node.seq_len = len(seq)
+                node.seq = gfa_line[2]
+                node.seq_len = len(node.seq)
             else:
                 node.seq_len = len(seq)
             self[node_id] = node
+            # adding the extra tags if any to the node object
+            if len(gfa_line) > 3:
+                for tag in gfa_line[3:]:
+                    if not is_correct_tag(tag):
+                        raise ValueError(f"The tag {tag} did not match the specifications, check sam specification on tags")
+                    tag = tag.split(":")
+                    # I am adding the tags as key:value, key is tag_name:type and value is the value at the end
+                    # e.g. SN:i:10 will be {"SN:i": 10}
+                    self[node_id].optional[f"{tag[0]}:{tag[1]}"] = tag[2]
+
         else:
             logging.warning(f"You are trying to add node {node_id} and it already exists in the graph")
 
 
+
     def add_edge(self, node1, node1_dir, node2, node2_dir, overlap=0):
-        assert node1 in self
-        assert node2 in self
         assert node1_dir in {"+", "-"}
         assert node2_dir in {"+", "-"}
         node1_dir, node2_dir = E_DIR[(node1_dir, node2_dir)]
@@ -282,46 +297,34 @@ class GFA:
         # nodes = dict()
         edges = []
         if gfa_file_path.endswith(".gz"):
-            open_file = gzip.open(gfa_file_path, "rt")
+            opened_file = gzip.open(gfa_file_path, "rt")
         elif gfa_file_path.endswith(".gfa"):
-            open_file = open(gfa_file_path, "r")
+            opened_file = open(gfa_file_path, "r")
         else:
             raise ValueError(f"File {gfa_file_path} needs to end with .gfa or .gz")
 
-        for line in open_file:
+        for line in opened_file:
             if line.startswith("S"):
                 line = line.strip().split("\t")
-                assert len(line) >= 3  # must be at least "S id seq"
-                n_id = str(line[1])
-                self.add_node(n_id, line[2], low_memory)
-
-                # adding the extra tags if any to the node object
-                if len(line) > 3:
-                    for tag in line[3:]:
-                        if not is_correct_tag(tag):
-                            raise ValueError(f"The tag {tag} did not match the specifications, check sam specification on tags")
-                        tag = tag.split(":")
-                        # I am adding the tags as key:value, key is tag_name:type and value is the value at the end
-                        # e.g. SN:i:10 will be {"SN:i": 10}
-                        self[n_id].optional[f"{tag[0]}:{tag[1]}"] = tag[2]
+                assert len(line) >= 3  # must be at least 3 columns for "S id seq"
+                self.add_node(line, low_memory)
 
             elif line.startswith("L"):
                 edges.append(line)
-        open_file.close()
+        opened_file.close()
 
         for e in edges:
-            e = e.split()
+            e = e.strip().split("\t")
+            assert len(e) >= 6  # must be at least 6 columns (L id1 dir1 id2 dir2 overlap)
             # TODO: for now ignoring the edge tags, need to deal with this at some point
             e = e[1:6]
             try:
                 e[4] = int(e[4][:-1])  # getting overlap
             except:
                 raise ValueError(f"The overlap in {e} has a problem, must be (int)M, e.g. 10M")
-
-            # skip an edge of the node is not there
+            # skip an edge if the node is not there
             if e[0] not in self or e[2] not in self:
                 continue
-
             self.add_edge(*e)
 
     def write_gfa(self, set_of_nodes=None, output_file="output_file.gfa", append=False):
