@@ -44,7 +44,7 @@ def run_order_gfa(
         logger.info('  Expected: %s', ','.join(chromosome_order))
         logger.info('  Found: %s', ','.join(sorted(name_to_component.keys())))
         sys.exit(1)
-        
+
     # running index for the bubble index (BO) already used
     bo = 0
     total_bubbles = 0

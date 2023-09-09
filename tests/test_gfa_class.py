@@ -1,4 +1,5 @@
 from gaftools.GFA import GFA
+import pdb
 
 """
 The example graph I am using looks like this
@@ -72,8 +73,8 @@ def test_delete_node():
 
 def test_add_node():
     graph = GFA("tests/data/test_GFA_class.gfa")
-    node_line = "S\t5\tCCCC"
-    graph.add_node(node_line.strip().split())
+    node_line = "S\t5\tCCCC".split()
+    graph.add_node(node_line[1], node_line[2])
     assert '5' in graph
     assert graph['5'].seq == "CCCC"
     assert graph['5'].seq_len == 4
@@ -90,3 +91,33 @@ def test_path_extraction():
     assert graph.extract_path(">1>2>4") == "AGGTCGTTGGC"
     assert graph.extract_path(">1<2>4") == "AGGTCGATGGC"
     assert graph.extract_path("<1") == "CGACCT"
+
+    # testing non-ACTG characters
+    graph['1'].seq = graph['1'].seq + "N"
+    assert graph.extract_path(">1>2>4") == graph['1'].seq + graph['2'].seq + graph['4'].seq
+
+
+def test_components():
+    graph = GFA("tests/data/test_GFA_class.gfa")
+    components = graph.all_components()
+    assert len(components) == 1
+    assert components[0] == set(graph.nodes.keys())
+    graph.add_node('5', 'GGCC')
+    graph.add_node("6", "CCGG")
+    graph.add_edge('5', "+", "6", "+", 2)
+    components = graph.all_components()
+    assert len(components) == 2
+    comp1, comp2 = components
+    if len(comp1) > len(comp2):
+        assert comp1 == {'1', '2', '3', '4'}
+        assert comp2 == {'5', '6'}
+    else:
+        assert comp2 == {'1', '2', '3', '4'}
+        assert comp1 == {'5', '6'}
+
+
+def test_bicc():
+    graph = GFA("tests/data/smallgraph-noseq.gfa")
+    biccs, artic_points = graph.bicc()
+    assert set(artic_points) == {'s8', 's6', 's4', 's2'}
+    assert len(biccs) == 5

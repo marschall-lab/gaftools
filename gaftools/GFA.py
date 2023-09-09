@@ -210,25 +210,24 @@ class GFA:
         else:
             self.nodes[n2].remove_from_end(n1, side1, overlap)
 
-    def add_node(self, gfa_line, low_memory=False):
-        node_id = str(gfa_line[1])
+    def add_node(self, node_id, seq="", tags=[]):
+        """
+        adds a node to the graph, you need to give at least a node_id
+        """
+        node_id = str(node_id)
         if node_id not in self:
             node = Node(node_id)
-            if not low_memory:
-                node.seq = gfa_line[2]
-                node.seq_len = len(node.seq)
-            else:
-                node.seq_len = len(seq)
+            node.seq = seq
+            node.seq_len = len(seq)
             self[node_id] = node
             # adding the extra tags if any to the node object
-            if len(gfa_line) > 3:
-                for tag in gfa_line[3:]:
-                    if not is_correct_tag(tag):
-                        raise ValueError(f"The tag {tag} did not match the specifications, check sam specification on tags")
-                    tag = tag.split(":")
-                    # I am adding the tags as key:value, key is tag_name:type and value is the value at the end
-                    # e.g. SN:i:10 will be {"SN:i": 10}
-                    self[node_id].optional[f"{tag[0]}:{tag[1]}"] = tag[2]
+            for tag in tags:
+                if not is_correct_tag(tag):
+                    raise ValueError(f"The tag {tag} did not match the specifications, check sam specification on tags")
+                tag = tag.split(":")
+                # I am adding the tags as key:value, key is tag_name:type and value is the value at the end
+                # e.g. SN:i:10 will be {"SN:i": 10}
+                self[node_id].optional[f"{tag[0]}:{tag[1]}"] = tag[2]
 
         else:
             logging.warning(f"You are trying to add node {node_id} and it already exists in the graph")
@@ -307,7 +306,10 @@ class GFA:
             if line.startswith("S"):
                 line = line.strip().split("\t")
                 assert len(line) >= 3  # must be at least 3 columns for "S id seq"
-                self.add_node(line, low_memory)
+                if low_memory:
+                    self.add_node(line[1], "", line[3:])
+                else:
+                    self.add_node(line[1], line[2], line[3:])
 
             elif line.startswith("L"):
                 edges.append(line)
@@ -458,8 +460,8 @@ class GFA:
         connected_comp = []
         # visited = set()
         for n in self.nodes:
-            if not graph.nodes[n].visited:
-                connected_comp.append(find_component(self, n))
+            if not self.nodes[n].visited:
+                connected_comp.append(self.find_component(n))
                 # visited = visited.union(connected_comp[-1])
         # resetting the visited to false, in case I'm going to use some other algorithm later
         self.set_visited(False)
@@ -520,7 +522,7 @@ class GFA:
 
         return "".join(seq)
 
-    def bi_cc_rec(self, n_id, parent, low, disc, stack, node_ids, all_bi_cc):
+    def bi_cc_rec(self, n_id, parent, low, disc, stack, node_ids, all_bi_cc, artic_points):
         # Count of children in current node
         u = node_ids[n_id]
         children = 0
@@ -538,7 +540,7 @@ class GFA:
                 parent[v] = n_id
                 children += 1
                 stack.append((n_id, neighbor_id)) # store the edge in stack
-                self.bi_cc_rec(neighbor_id, parent, low, disc, stack, node_ids, all_bi_cc)
+                self.bi_cc_rec(neighbor_id, parent, low, disc, stack, node_ids, all_bi_cc, artic_points)
  
                 # Check if the subtree rooted with v has a connection to
                 # one of the ancestors of u
@@ -548,6 +550,7 @@ class GFA:
                 # If u is an articulation point, pop
                 # all edges from stack until (u, v)
                 if parent[u] == -1 and children > 1 or parent[u] != -1 and low[v] >= disc[u]:
+                    artic_points.append(n_id)
                     # need to save this info somewhere that if I am here then n_id is an articulation node
                     self.bicc_count += 1 # increment count
                     w = -1
@@ -566,13 +569,14 @@ class GFA:
                 low[u] = min(low [u], disc[v])
                 stack.append((n_id, neighbor_id))
 
-    def bi_cc(self):
+    def bicc(self):
         """
         find biconnected components and returns a list of these components in terms of node ids
         Mostly taken from https://www.geeksforgeeks.org/biconnected-components/
         """
         all_bi_cc = list()
         node_ids = dict()
+        artic_points = []
         # node_ids_list = [0] * len(self)
         for idx, n_id in enumerate(list(self.nodes.keys())):
             node_ids[n_id] = idx
@@ -590,7 +594,7 @@ class GFA:
         for n_id in self.nodes.keys():
             i = node_ids[n_id]
             if disc[i] == -1:
-                self.bi_cc_rec(n_id, parent, low, disc, stack, node_ids, all_bi_cc)
+                self.bi_cc_rec(n_id, parent, low, disc, stack, node_ids, all_bi_cc, artic_points)
             # If stack is not empty, pop all edges from stack
             if stack:
                 self.bicc_count = self.bicc_count + 1
@@ -600,4 +604,4 @@ class GFA:
                     for n in w:
                         one_bi_cc.add(n)
                 all_bi_cc.append(one_bi_cc)
-        return all_bi_cc
+        return all_bi_cc, artic_points
