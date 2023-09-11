@@ -17,7 +17,7 @@ from gaftools.utils import rev_comp, is_correct_tag
 E_DIR = {("+", "+"): (1, 0), ("+", "-"): (1, 1), ("-", "+"): (0, 0), ("-", "-"): (0, 1)}
 
 class Node:
-    __slots__ = ('id', 'seq', 'seq_len', 'start', 'end', 'visited', 'optional')
+    __slots__ = ('id', 'seq', 'seq_len', 'start', 'end', 'visited', 'tags')
     def __init__(self, identifier):
         self.id = identifier
         self.seq = ""
@@ -25,7 +25,7 @@ class Node:
         self.start = set()
         self.end = set()
         self.visited = False
-        self.optional = dict()
+        self.tags = dict()
 
     def __sizeof__(self):
         """
@@ -122,15 +122,15 @@ class GFA:
     """
     __slots__ = ['nodes', 'low_memory', 'disc_time', 'bicc_count']
 
-    def __init__(self, graph_file=None, no_seq=False):
+    def __init__(self, graph_file=None, low_memory=False):
         self.disc_time = 0
         self.bicc_count = 0
         self.nodes = dict()
-        self.low_memory = no_seq
+        self.low_memory = low_memory
         if graph_file:
             if not os.path.exists(graph_file):
                 raise FileNotFoundError
-        self.read_graph(gfa_file_path=graph_file, low_memory=no_seq)
+        self.read_graph(gfa_file_path=graph_file, low_memory=low_memory)
 
     def __len__(self):
         """
@@ -227,7 +227,8 @@ class GFA:
                 tag = tag.split(":")
                 # I am adding the tags as key:value, key is tag_name:type and value is the value at the end
                 # e.g. SN:i:10 will be {"SN:i": 10}
-                self[node_id].optional[f"{tag[0]}:{tag[1]}"] = tag[2]
+                self[node_id].tags[tag[0]] = (tag[1], tag[2])  # (type, value)
+                # self[node_id].tags[f"{tag[0]}:{tag[1]}"] = tag[2]
 
         else:
             logging.warning(f"You are trying to add node {node_id} and it already exists in the graph")
@@ -357,10 +358,10 @@ class GFA:
                 logging.warning("Node {} does not exist in the graph, skipped in output".format(n1))
                 continue
 
-            if self.nodes[n1].optional:
+            if self.nodes[n1].tags:
                 tags = []
                 for tag_name, value in self.nodes[n1].optional.items():
-                    tags.append(f"{tag_name}:{value}")
+                    tags.append(f"{tag_name}:{value[0]:{value[1]}}")
                 line = str("\t".join(["S", str(n1), self.nodes[n1].seq, "\t".join(tags)]))
                 # line = str("\t".join(("S", str(n1), nodes[n1].seq, nodes[n1].optional)))
             else:

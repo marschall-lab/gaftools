@@ -59,9 +59,9 @@ def test_load_gfa():
 
 def test_node_tags():
     graph = GFA("tests/data/test_GFA_class.gfa")
-    assert 'SG:Z' in graph['1'].optional
-    assert graph['1'].optional['SG:Z'] == "testing_tags"
-    assert len(graph['2'].optional) == 2
+    assert 'SG' in graph['1'].tags
+    assert graph['1'].tags['SG'] == ("Z", "testing_tags")
+    assert len(graph['2'].tags) == 2
 
 def test_delete_node():
     graph = GFA("tests/data/test_GFA_class.gfa")

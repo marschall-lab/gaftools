@@ -22,4 +22,3 @@ def test_order_gfa(tmp_path):
 
     for input_line, output_line in zip(input_lines, output_lines):
         assert input_line[0] == output_line[0]
-

@@ -4,10 +4,12 @@ Adds BO and NO tags to GFA
 
 import sys
 import logging
-from collections import namedtuple, defaultdict
+from collections import namedtuple, defaultdict, Counter
 from gaftools.graph import ComponentFinder
+from gaftools.GFA import GFA
 import networkx as nx
 from argparse import ArgumentParser
+import pdb
 
 default_chromosome_order = 'chr1,chr2,chr3,chr4,chr5,chr6,chr7,chr8,chr9,chr10,chr11,chr12,chr13,chr14,chr15,chr16,chr17,chr18,chr19,chr20,chr21,chr22,chrX,chrY,chrM'
 logger = logging.getLogger(__name__)
@@ -19,31 +21,56 @@ def run_order_gfa(
     with_sequence=False,
 ):
 
-    chromosome_order = chromosome_order.split(sep=',')
+    ########################### old part
+    # chromosome_order = chromosome_order.split(sep=',')
 
-    logger.info('Reading %s', gfa_filename)
+    # logger.info('Reading %s', gfa_filename)
 
     nodes, edges = parse_gfa(gfa_filename, with_sequence)
 
-    logger.info('Nodes: %d', len(nodes))
-    logger.info('Edges: %d', len(edges))
+    # logger.info('Nodes: %d', len(nodes))
+    # logger.info('Edges: %d', len(edges))
 
     cf = ComponentFinder(nodes.keys())
     for (from_node,to_node),e in edges.items():
         cf.merge(from_node,to_node)
 
     connected_components = set((cf.find(node) for node in nodes.keys()))
-    logger.info('Connected components: %d', len(connected_components))
+    # logger.info('Connected components: %d', len(connected_components))
 
 
     name_to_component = dict((name,component) for (component,name) in component_names(cf, nodes, connected_components).items())
-    if set(name_to_component.keys()) == set(chromosome_order):
-        logger.info('Found one connected component per expected chromosome.')
+    # if set(name_to_component.keys()) == set(chromosome_order):
+    #     logger.info('Found one connected component per expected chromosome.')
+    # else:
+    #     logger.info('Chromsome set mismatch:')
+    #     logger.info('  Expected: %s', ','.join(chromosome_order))
+    #     logger.info('  Found: %s', ','.join(sorted(name_to_component.keys())))
+    #     sys.exit(1)
+    ########################### old part
+
+    ########################### new part
+    chromosome_order = chromosome_order.split(sep=",")
+
+    logger.info(f"Reading {gfa_filename}")
+    graph = GFA(gfa_filename, low_memory=True)
+
+    # the __str__ functions print the number of nodes and edges
+    logger.info("The graph has:")
+    logger.info(graph.__str__())
+
+    components = graph.all_components()
+    logger.info(f"Connected components: {len(components)}")
+    components = name_comps(graph, components)
+    if set(components.keys()) == set(chromosome_order):
+        logger.info("Found one connected component per expected chromosome.")
     else:
-        logger.info('Chromsome set mismatch:')
-        logger.info('  Expected: %s', ','.join(chromosome_order))
-        logger.info('  Found: %s', ','.join(sorted(name_to_component.keys())))
+        logger.info("Chromosome set mismatch:")
+        logger.info(f"  Expected: {','.join(chromosome_order)}")
+        logger.info(f"  Found: {','.join(sorted(components.keys()))}")
         sys.exit(1)
+
+    ########################### new part
 
     # running index for the bubble index (BO) already used
     bo = 0
@@ -61,7 +88,12 @@ def run_order_gfa(
         for node_name in sorted(nodes.keys()):
             if cf.find(node_name) == representative_node:
                 component_nodes.add(node_name)
-
+        pdb.set_trace()
+        # component_nodes I already have, I can just get form components[chromosome] :D
+        # scaffold_nodes are simply the articulation points that bicc will return
+        # bubble_count is the number of biccs
+        # inside_nodes are the component nodes without the scaffold nodes
+        # the order is the tricky one that I need to solve
         scaffold_nodes, inside_nodes, node_order, bo, bubble_count = decompose_and_order(nodes, edges, component_nodes, bo)
         total_bubbles += bubble_count
 
@@ -157,7 +189,7 @@ def parse_gfa(gfa_filename, with_sequence=False):
 
 
 def decompose_and_order(nodes, edges, node_subset, bubble_order_start=0):
-    logger.info('  Input graph: %d nodes', len(node_subset))
+    logger.info(f'  Input graph: {len(node_subset)} nodes')
     if len(node_subset) == 1:
         node = list(node_subset)[0]
         scaffold_nodes = set([node])
@@ -214,6 +246,7 @@ def decompose_and_order(nodes, edges, node_subset, bubble_order_start=0):
     # check that all scaffold nodes carry the same sequence name (SN), i.e. all came for the linear reference
     assert len(set(nodes[n].tags['SN'] for n in  traversal_scaffold_only)) == 1
     coordinates = list(nodes[n].tags['SO'] for n in  traversal_scaffold_only)
+    pdb.set_trace()
     # make sure to that the traversal is in ascending order
     if coordinates[0] > coordinates[-1]:
         traversal.reverse()
@@ -252,6 +285,25 @@ def component_names(cf, nodes, connected_components):
         component_name = sorted(sn_counts.items(), key=lambda t: t[1], reverse=True)[0][0]
         d[representative_node] = component_name
     return d
+
+
+def name_comps(graph, components):
+    """
+    the graph is GFA object and components is a list of sets of the node ids of each component
+    for each component we take a majority vote of the SN tage and name the component accordingly
+    """
+    named_comps = dict()
+    current_tag = ""
+    for comp in components:
+        counts = Counter([graph[n].tags["SN"][1] for n in comp])
+        most_freq = 0
+        for tag, count in counts.items():
+            if most_freq <= count:
+                current_tag, most_freq = tag, count
+        if current_tag == "":
+            raise ValueError("Were not able to assign a chromosome to component, SN tags could be missing")
+        named_comps[current_tag] = comp
+    return named_comps
 
 
 def add_arguments(parser):
