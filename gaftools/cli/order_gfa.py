@@ -5,9 +5,7 @@ Adds BO and NO tags to GFA
 import sys
 import logging
 from collections import namedtuple, defaultdict, Counter
-from gaftools.graph import ComponentFinder
 from gaftools.GFA import GFA
-import networkx as nx
 from argparse import ArgumentParser
 import pdb
 
@@ -26,30 +24,9 @@ def run_order_gfa(
 
     # logger.info('Reading %s', gfa_filename)
 
+    # to remove later
     nodes, edges = parse_gfa(gfa_filename, with_sequence)
 
-    # logger.info('Nodes: %d', len(nodes))
-    # logger.info('Edges: %d', len(edges))
-
-    cf = ComponentFinder(nodes.keys())
-    for (from_node,to_node),e in edges.items():
-        cf.merge(from_node,to_node)
-
-    connected_components = set((cf.find(node) for node in nodes.keys()))
-    # logger.info('Connected components: %d', len(connected_components))
-
-
-    name_to_component = dict((name,component) for (component,name) in component_names(cf, nodes, connected_components).items())
-    # if set(name_to_component.keys()) == set(chromosome_order):
-    #     logger.info('Found one connected component per expected chromosome.')
-    # else:
-    #     logger.info('Chromsome set mismatch:')
-    #     logger.info('  Expected: %s', ','.join(chromosome_order))
-    #     logger.info('  Found: %s', ','.join(sorted(name_to_component.keys())))
-    #     sys.exit(1)
-    ########################### old part
-
-    ########################### new part
     chromosome_order = chromosome_order.split(sep=",")
 
     logger.info(f"Reading {gfa_filename}")
@@ -70,33 +47,25 @@ def run_order_gfa(
         logger.info(f"  Found: {','.join(sorted(components.keys()))}")
         sys.exit(1)
 
-    ########################### new part
 
     # running index for the bubble index (BO) already used
     bo = 0
     total_bubbles = 0
     for chromosome in chromosome_order:
         logger.info('Processing %s', chromosome)
-        representative_node = name_to_component[chromosome]
-
+        component_nodes = components[chromosome]
         # Initialize files
         f_gfa = open(outdir+'/'+gfa_filename.split("/")[-1][:-4]+'-'+chromosome+'.gfa', 'w')
         f_colors = open(outdir+'/'+gfa_filename.split("/")[-1][:-4]+'-'+chromosome+'.csv', 'w')
         f_colors.write('Name,Color,SN,SO,BO,NO\n')
 
-        component_nodes = set()
-        for node_name in sorted(nodes.keys()):
-            if cf.find(node_name) == representative_node:
-                component_nodes.add(node_name)
-        pdb.set_trace()
-        # component_nodes I already have, I can just get form components[chromosome] :D
-        # scaffold_nodes are simply the articulation points that bicc will return
-        # bubble_count is the number of biccs
-        # inside_nodes are the component nodes without the scaffold nodes
-        # the order is the tricky one that I need to solve
-        scaffold_nodes, inside_nodes, node_order, bo, bubble_count = decompose_and_order(nodes, edges, component_nodes, bo)
+        scaffold_nodes, inside_nodes, node_order, bo, bubble_count = decompose_and_order(graph, component_nodes, bo)
+
+        # scaffold_nodes2, inside_nodes2, node_order2, bo2, bubble_count2 = decompose_and_order2(graph, component_nodes, bo)
         total_bubbles += bubble_count
 
+        # to adjust later to write according to the GFA I have
+        # need to fix that one thing abou the edge tags
         for node_name in sorted(component_nodes):
             node = nodes[node_name]
             bo_tag, no_tag = node_order[node_name]
@@ -113,10 +82,8 @@ def run_order_gfa(
             f_colors.write('{},{},{},{},{},{}\n'.format(node_name,color,node.tags['SN'], node.tags['SO'], bo_tag, no_tag))
 
         for edge_key in sorted(edges.keys()):
-            from_node, to_node = edge_key
-            if cf.find(from_node) == representative_node:
-                for edge in edges[edge_key]:
-                    f_gfa.write(edge.to_line() + '\n')
+            for edge in edges[edge_key]:
+                f_gfa.write(edge.to_line() + '\n')
 
         f_gfa.close()
         f_colors.close()
@@ -188,36 +155,31 @@ def parse_gfa(gfa_filename, with_sequence=False):
     return nodes, edges
 
 
-def decompose_and_order(nodes, edges, node_subset, bubble_order_start=0):
-    logger.info(f'  Input graph: {len(node_subset)} nodes')
-    if len(node_subset) == 1:
-        node = list(node_subset)[0]
-        scaffold_nodes = set([node])
-        inside_nodes = set()
-        node_order = {node: (bubble_order_start,0)}
-        bo = bubble_order_start + 1
-        return scaffold_nodes, inside_nodes, node_order, bo, 0
-
-    graph = nx.Graph()
-    for node_name in node_subset:
-        graph.add_node(node_name)
-    for (from_node,to_node) in edges.keys():
-        if (from_node in node_subset) and (to_node in node_subset):
-            graph.add_edge(from_node, to_node)
-
-    # We create a scaffold graph with two types of nodes:
-    # s-nodes (scaffold) corresponding to the articulation points and
-    # b-nodes corresponding to bubbles (= biconnected components without the articulation nodes)
-    # if the graph is "overall linear" then the scaffold graph is a line
-    scaffold_graph = nx.Graph()
-    # list of sets of nodes representing the bubbles
+def decompose_and_order(graph, component, bo_start=0):
+    # component_nodes I already have, I can just get form components[chromosome] :D
+    # scaffold_nodes are simply the articulation points that bicc will return
+    # bubble_count is the number of biccs
+    # inside_nodes are the component nodes without the scaffold nodes
+    # the order is the tricky one that I need to solve
+    logger.info(f" Input graph: {len(component)} nodes")
+    if len(component) == 1:
+        node = list(component)[0]
+        return component, set(), {node: (bo_start, 0)}, bo_start + 1, 0
+    logger.info(f" Finding Biconnected Components of the component")
+    all_biccs, artic_points = graph.bicc()
     bubbles = []
-    scaffold_nodes = set(nx.articulation_points(graph))
+    scaffold_graph = GFA()
+    scaffold_node_types = dict()
+    for n in artic_points:
+        scaffold_graph.add_node(n)
+        scaffold_node_types[n] = 's'
     inside_nodes = set()
-    for bc in nx.biconnected_components(graph):
-        bc_inside_nodes = bc.difference(scaffold_nodes)
-        bc_end_nodes = bc.intersection(scaffold_nodes)
+
+    for bc in all_biccs:
+        bc_inside_nodes = bc.difference(artic_points)
+        bc_end_nodes = bc.intersection(artic_points)
         inside_nodes.update(bc_inside_nodes)
+
         if len(bc_inside_nodes) == 0:
             assert len(bc_end_nodes) == 2
             node1, node2 = tuple(bc_end_nodes)
@@ -225,28 +187,29 @@ def decompose_and_order(nodes, edges, node_subset, bubble_order_start=0):
         else:
             bubble_index = len(bubbles)
             bubbles.append(bc_inside_nodes)
+            scaffold_graph.add_node(str(bubble_index))
+            scaffold_node_types[str(bubble_index)] = 'b'
             for end_node in bc_end_nodes:
-                scaffold_graph.add_edge(('s',end_node), ('b',bubble_index))
+                scaffold_graph.add_edge(end_node, "+", str(bubble_index), "+", 0)
     logger.info('  Bubbles: %d', len(bubbles))
-    logger.info('  Scaffold graph: %d nodes', len(scaffold_graph.nodes))
+    logger.info('  Scaffold graph: %d nodes', len(scaffold_graph))
 
     # Find start/end points of the line by looking for nodes with degree 1
-    degree_one = list(node for node in scaffold_graph.nodes if scaffold_graph.degree(node) == 1)
-    degree_two = list(node for node in scaffold_graph.nodes if scaffold_graph.degree(node) == 2)
+    degree_one = [x.id for x in scaffold_graph.nodes.values() if len(x.neighbors()) == 1]
+    degree_two = [x.id for x in scaffold_graph.nodes.values() if len(x.neighbors()) == 2]
+
     # Perform DFS traversal
-    if len(scaffold_graph.nodes) == 1:
-        dfs_tree = nx.dfs_tree(scaffold_graph, source=scaffold_graph.nodes[0])
-    else:
-        # For a line graph, there should be exactly two nodes with degree one and all other nodes have degree two.
-        assert len(degree_one) == 2
-        assert len(degree_two) == len(scaffold_graph.nodes) - 2
-        dfs_tree = nx.dfs_tree(scaffold_graph, source=degree_one[0])
-    traversal = list(dfs_tree.nodes())
-    traversal_scaffold_only = [node_name for (node_type,node_name) in traversal if node_type == 's']
+    assert len(degree_one) == 2
+    assert len(degree_two) == len(scaffold_graph) - 2
+    traversal = scaffold_graph.dfs(degree_one[0])
+
+
+    traversal_scaffold_only = [node_name for node_name in traversal if scaffold_node_types[node_name] == 's']
     # check that all scaffold nodes carry the same sequence name (SN), i.e. all came for the linear reference
-    assert len(set(nodes[n].tags['SN'] for n in  traversal_scaffold_only)) == 1
-    coordinates = list(nodes[n].tags['SO'] for n in  traversal_scaffold_only)
-    pdb.set_trace()
+    assert len(set(graph[n].tags['SN'] for n in  traversal_scaffold_only)) == 1
+    # I save tags as key:(type, value), so "SO":(i, '123')
+    coordinates = list(int(graph[n].tags['SO'][1]) for n in  traversal_scaffold_only)
+
     # make sure to that the traversal is in ascending order
     if coordinates[0] > coordinates[-1]:
         traversal.reverse()
@@ -256,35 +219,18 @@ def decompose_and_order(nodes, edges, node_subset, bubble_order_start=0):
         assert coordinates[i] < coordinates[i+1]
     # compute dictionary mapping each node name to the corresponding "bubble order" and "node order" (BO,NO)
     node_order = dict()
-    bo = bubble_order_start
+    bo = bo_start
     for node in traversal:
-        node_type, node_name = node
+        node_type = scaffold_node_types[node]
         if node_type == 's':
-            node_order[node_name] = (bo,0)
+            node_order[node] = (bo,0)
         elif node_type == 'b':
-            for i,n in enumerate(sorted(bubbles[node_name])):
+            for i, n in enumerate(sorted(bubbles[int(node)])):
                 node_order[n] = (bo,i+1)
         else:
             assert False
         bo += 1
-
-    return scaffold_nodes, inside_nodes, node_order, bo, len(bubbles)
-
-
-def component_names(cf, nodes, connected_components):
-    """
-    Returns dictionary mapping names of representative nodes to
-    names in SN tags occuring most often in that component.
-    """
-    d = {}
-    for representative_node in connected_components:
-        sn_counts = defaultdict(int)
-        for node in nodes.values():
-            if cf.find(node.name) == representative_node:
-                sn_counts[node.tags['SN']]+=1
-        component_name = sorted(sn_counts.items(), key=lambda t: t[1], reverse=True)[0][0]
-        d[representative_node] = component_name
-    return d
+    return artic_points, inside_nodes, node_order, bo, len(bubbles)
 
 
 def name_comps(graph, components):

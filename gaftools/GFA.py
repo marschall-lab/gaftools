@@ -120,17 +120,15 @@ class GFA:
     """
     Graph object containing the important information about the graph
     """
-    __slots__ = ['nodes', 'low_memory', 'disc_time', 'bicc_count']
+    __slots__ = ['nodes', 'low_memory']
 
     def __init__(self, graph_file=None, low_memory=False):
-        self.disc_time = 0
-        self.bicc_count = 0
         self.nodes = dict()
         self.low_memory = low_memory
         if graph_file:
             if not os.path.exists(graph_file):
                 raise FileNotFoundError
-        self.read_graph(gfa_file_path=graph_file, low_memory=low_memory)
+            self.read_graph(gfa_file_path=graph_file, low_memory=low_memory)
 
     def __len__(self):
         """
@@ -210,10 +208,12 @@ class GFA:
         else:
             self.nodes[n2].remove_from_end(n1, side1, overlap)
 
-    def add_node(self, node_id, seq="", tags=[]):
+    def add_node(self, node_id, seq="", tags=None):
         """
         adds a node to the graph, you need to give at least a node_id
         """
+        if not tags:
+            tags = []
         node_id = str(node_id)
         if node_id not in self:
             node = Node(node_id)
@@ -523,14 +523,41 @@ class GFA:
 
         return "".join(seq)
 
-    def bi_cc_rec(self, n_id, parent, low, disc, stack, node_ids, all_bi_cc, artic_points):
+    def dfs(self, start_node):
+        """
+        Performd depth first search from start node given by user
+        return the path as a list
+        """
+        if not start_node in self:
+            return []
+        if len(self) == 1:
+            return [list(self.nodes.keys())[0]]
+            
+        path = []
+        stack = []
+        stack.append(start_node)
+        while stack:
+            s = stack.pop()
+            # Note: this is doing membership check on a list, which is O(n) time
+            # this is slow, but for now it's ok, might need to change later to a set
+            # However, a set is not ordered
+            if s not in path:
+                path.append(s)
+            elif s in path:
+                #leaf node
+                continue
+            for neighbour in self[s].neighbors():
+                stack.append(neighbour)
+        return path
+
+    def bi_cc_rec(self, n_id, parent, low, disc, stack, node_ids, all_bi_cc, artic_points, disc_time):
         # Count of children in current node
         u = node_ids[n_id]
         children = 0
         # Initialize discovery time and low value
-        disc[u] = self.disc_time
-        low[u] = self.disc_time
-        self.disc_time += 1
+        disc[u] = disc_time[0]
+        low[u] = disc_time[0]
+        disc_time[0] += 1
  
         # Recur for all the vertices adjacent to this vertex
         for neighbor_id in self.nodes[n_id].neighbors():
@@ -541,7 +568,7 @@ class GFA:
                 parent[v] = n_id
                 children += 1
                 stack.append((n_id, neighbor_id)) # store the edge in stack
-                self.bi_cc_rec(neighbor_id, parent, low, disc, stack, node_ids, all_bi_cc, artic_points)
+                self.bi_cc_rec(neighbor_id, parent, low, disc, stack, node_ids, all_bi_cc, artic_points, disc_time)
  
                 # Check if the subtree rooted with v has a connection to
                 # one of the ancestors of u
@@ -553,7 +580,6 @@ class GFA:
                 if parent[u] == -1 and children > 1 or parent[u] != -1 and low[v] >= disc[u]:
                     artic_points.append(n_id)
                     # need to save this info somewhere that if I am here then n_id is an articulation node
-                    self.bicc_count += 1 # increment count
                     w = -1
                     one_bi_cc = set()
                     while w != (n_id, neighbor_id):
@@ -575,6 +601,7 @@ class GFA:
         find biconnected components and returns a list of these components in terms of node ids
         Mostly taken from https://www.geeksforgeeks.org/biconnected-components/
         """
+        disc_time = [0]
         all_bi_cc = list()
         node_ids = dict()
         artic_points = []
@@ -595,10 +622,9 @@ class GFA:
         for n_id in self.nodes.keys():
             i = node_ids[n_id]
             if disc[i] == -1:
-                self.bi_cc_rec(n_id, parent, low, disc, stack, node_ids, all_bi_cc, artic_points)
+                self.bi_cc_rec(n_id, parent, low, disc, stack, node_ids, all_bi_cc, artic_points, disc_time)
             # If stack is not empty, pop all edges from stack
             if stack:
-                self.bicc_count = self.bicc_count + 1
                 one_bi_cc = set()
                 while stack:
                     w = stack.pop()
