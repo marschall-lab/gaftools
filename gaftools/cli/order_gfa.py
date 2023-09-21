@@ -166,7 +166,7 @@ def decompose_and_order(graph, component, bo_start=0):
         node = list(component)[0]
         return component, set(), {node: (bo_start, 0)}, bo_start + 1, 0
     logger.info(f" Finding Biconnected Components of the component")
-    all_biccs, artic_points = graph.bicc()
+    all_biccs, artic_points = graph.biccs()
     bubbles = []
     scaffold_graph = GFA()
     scaffold_node_types = dict()

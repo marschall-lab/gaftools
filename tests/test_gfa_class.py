@@ -118,6 +118,6 @@ def test_components():
 
 def test_bicc():
     graph = GFA("tests/data/smallgraph-noseq.gfa")
-    biccs, artic_points = graph.bicc()
+    biccs, artic_points = graph.biccs()
     assert set(artic_points) == {'s8', 's6', 's4', 's2'}
     assert len(biccs) == 5
