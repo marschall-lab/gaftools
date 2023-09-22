@@ -34,6 +34,17 @@ class Alignment:
         self.tags = tags
 
 
+class Read:
+    def __init__(self, query_name, read_length, map_ratio, seq_identity):
+        self.rname = query_name
+        self.length = read_length
+        self.aln_count = 1
+        self.highest_map_ratio = map_ratio
+        self.total_map_ratio = map_ratio
+        self.highest_seq_identity = seq_identity
+        self.total_seq_identity = seq_identity
+
+
 def parse_gaf(filename):
    
     gz_flag = False
