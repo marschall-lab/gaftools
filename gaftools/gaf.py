@@ -85,8 +85,9 @@ def parse_gaf(filename):
                 if pattern == "cg:Z:":
                     val = re.findall(r"[A-Za-z][A-Za-z0-9]:[AifZHB]:([A-Za-z0-9=]+)", k)[0]
                     cigar = val
+                    tags[pattern] = val
                 else:
-                    val = re.findall(r"[A-Za-z][A-Za-z0-9]:[AifZHB]:([A-Za-z0-9]+)", k)[0]
+                    val = re.findall(r"[A-Za-z][A-Za-z0-9]:[AifZHB]:([A-Za-z0-9.]+)", k)[0]
                     if pattern not in tags:
                         tags[pattern] = val
 
