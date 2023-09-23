@@ -76,7 +76,6 @@ def stable_to_unstable(gaf_path, gfa_path, out_path):
     '''Needs to sort the gfa to use logn time binary search'''
     logger.info("INFO: Sorting the GFA file...")
     gfa_lines = gfa_sort_basic(gfa_path)
-    print("Done")  
 
     '''We load the GFA into memory for fast execution. GFA is not very large
     so it does not seem to be a big issue... This creates a dictionary where each element is a
@@ -130,10 +129,9 @@ def stable_to_unstable(gaf_path, gfa_path, out_path):
                     orient = ">"
                 else:
                     orient = "<"
- 
+            
             '''Find the matching nodes from the reference genome here'''
-            start, end = utils.search_intervals(reference[query_contig_name], query_start, query_end, 0, len(reference[query_contig_name]))
- 
+            start, end = utils.search_intervals(reference[query_contig_name], int(query_start), int(query_end), 0, len(reference[query_contig_name]))
             nodes_tmp = []
             for i in reference[query_contig_name][start:end+1]:
                 cases = -1
@@ -164,27 +162,34 @@ def stable_to_unstable(gaf_path, gfa_path, out_path):
             gaf_unstable.write("\n")
         
         if gaf_line.strand == "-":
-            new_end = new_total - new_start
-            new_start = new_end - (gaf_line.path_end - gaf_line.path_start)
+            if split_contig:
+                new_total = gaf_line.path_length
+                new_start = new_total - gaf_line.path_end
+                new_end = new_total - gaf_line.path_start
+            else:
+                new_end = new_total - new_start
+                new_start = new_end - (gaf_line.path_end - gaf_line.path_start)
         else:
-            new_end = new_start + (gaf_line.path_end - gaf_line.path_start)
+            if split_contig:
+                new_total = gaf_line.path_length
+                new_start = gaf_line.path_start
+                new_end = gaf_line.path_end
+            else:
+                new_end = new_start + (gaf_line.path_end - gaf_line.path_start)
 
         gaf_unstable.write("%s\t%s\t%s\t%s\t+\t%s\t%d\t%d\t%d\t%d\t%d\t%d"
                            %(gaf_line.query_name, gaf_line.query_length, gaf_line.query_start, gaf_line.query_end,
                             unstable_coord, new_total, new_start, new_end, gaf_line.residue_matches,
                             gaf_line.alignment_block_length, gaf_line.mapping_quality))
         
-        for k in gaf_line.tags.keys():
-            gaf_unstable.write("\t%s:%s"%(k,gaf_line.tags[k]))
-
         #Add cigar in reverse 
         if gaf_line.strand == "-":
             new_cigar = utils.reverse_cigar(gaf_line.cigar)
-            gaf_unstable.write("\t%s" %new_cigar)
-        else:
-            gaf_unstable.write("\t%s" %gaf_line.cigar)
+            gaf_line.tags['cg:Z:'] = new_cigar
 
-    gaf_file.close()
+        for k in gaf_line.tags.keys():
+            gaf_unstable.write("\t%s%s"%(k,gaf_line.tags[k]))
+
     gaf_unstable.close()
 
 
@@ -291,23 +296,20 @@ def unstable_to_stable(gaf_path, gfa_path, out_path):
 
         gaf_stable.write("%s\t%s\t%s\t%s\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d" %(gaf_line.query_name, 
                         gaf_line.query_length, gaf_line.query_start, gaf_line.query_end, gaf_line.strand, 
-                        stable_coord, new_total, new_start, new_start + gaf_line.path_start - gaf_line.path_end, 
+                        stable_coord, new_total, new_start, new_start + gaf_line.path_end - gaf_line.path_start, 
                         gaf_line.residue_matches, gaf_line.alignment_block_length, gaf_line.mapping_quality))
-
-        for k in gaf_line.tags.keys():
-            gaf_stable.write("\t%s:%s"%(k,gaf_line.tags[k]))
         
         #Add cigar in reverse 
         if reverse_flag:
-            tmp_cigar = utils.reverse_cigar(gaf_line.cigar)
-            gaf_stable.write("\t%s" %tmp_cigar)
-        else:
-            gaf_stable.write("\t%s" %gaf_line.cigar)
+            new_cigar = utils.reverse_cigar(gaf_line.cigar)
+            gaf_line.tags['cg:Z:'] = new_cigar
+            
+        # adding tags in the sequence it was found
+        for k in gaf_line.tags.keys():
+            gaf_stable.write("\t%s%s"%(k,gaf_line.tags[k]))
 
-    gaf_file.close()
     gaf_stable.close()
-    return True
-
+    
 # fmt: off
 def add_arguments(parser):
     arg = parser.add_argument
