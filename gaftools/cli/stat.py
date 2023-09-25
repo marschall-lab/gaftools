@@ -6,7 +6,7 @@ import sys
 import logging
 import gzip
 import itertools
-from gaftools.gaf import parse_gaf
+from gaftools.gaf import parse_gaf, Read
 from gaftools.cli import log_memory_usage
 from gaftools.timer import StageTimer
 
@@ -47,15 +47,35 @@ def run_stat(
         total_match_large = 0
         total_perfect = 0
         
+    reads = {}
     for alignment_count, mapping in enumerate(parse_gaf(gaf_path), 1):
-        hashed_readname = hash(mapping.query_name)
-        read_names.add(hashed_readname)
+        #hashed_readname = hash(mapping.query_name)
+        #read_names.add(hashed_readname)
+        
+        if not (mapping.is_primary) or (mapping.mapping_quality <= 0):
+            total_secondary += 1
+            continue
+
+        map_ratio = float(mapping.query_end - mapping.query_start)/(mapping.query_length)
+        seq_identity = (float(mapping.residue_matches)/mapping.alignment_block_length)
+
+        if mapping.query_name not in reads:
+            reads[mapping.query_name] = Read(mapping.query_name, mapping.query_length, map_ratio, seq_identity)
+        else:
+            reads[mapping.query_name].aln_count += 1
+            #reads[mapping.query_name].total_map_ratio += map_ratio
+            #reads[mapping.query_name].total_seq_identity += seq_identity
+            
+            if reads[mapping.query_name].highest_map_ratio < map_ratio:
+                reads[mapping.query_name].highest_map_ratio = map_ratio
+
+            if reads[mapping.query_name].highest_seq_identity < seq_identity:
+                reads[mapping.query_name].highest_seq_identity = seq_identity
+            
+
         total_aligned_bases += mapping.residue_matches
         total_mapq += mapping.mapping_quality
-        if mapping.is_primary:
-            total_primary += 1
-        else:
-            total_secondary += 1
+        total_primary += 1
 
         if cigar_stat:
             '''Cigar string analysis'''
@@ -81,13 +101,32 @@ def run_stat(
                     if int(all_cigars[cnt]) >= 50:
                         total_match_large += 1
     
+    #avg_total_seq_identity = 0.0
+    #avg_total_map_ratio = 0.0
+    avg_highest_seq_identity = 0.0
+    avg_highest_map_ratio = 0.0
+    
+    for k,v in reads.items():
+        #avg_total_seq_identity += float(v.total_seq_identity) / v.aln_count
+        #avg_total_map_ratio += float(v.total_map_ratio) / v.aln_count
+        avg_highest_seq_identity += float(v.highest_seq_identity)
+        avg_highest_map_ratio += float(v.highest_map_ratio)
 
+    #avg_total_seq_identity /= len(reads)
+    #avg_total_map_ratio /= len(reads)
+    avg_highest_seq_identity /= len(reads)
+    avg_highest_map_ratio /= len(reads) 
+    print()
     print("Total alignments:", alignment_count, file=output)
     print("\tPrimary:", total_primary, file=output)
     print("\tSecondary:", total_secondary, file=output)
-    print("Reads with at least one alignment:", len(read_names), file=output)
+    print("Reads with at least one alignment:", len(reads), file=output)
     print("Total aligned bases:", str(total_aligned_bases), file=output)
     print("Average mapping quality:", round((total_mapq/alignment_count), 1), file=output)
+    #print("Average total sequence identity:", round(avg_total_seq_identity, 2), file=output)
+    print("Average highest sequence identity:", round(avg_highest_seq_identity, 3), file=output)
+    #print("Average total map ratio:", round(avg_total_map_ratio,2), file=output)
+    print("Average highest map ratio:", round(avg_highest_map_ratio, 3), file=output)
     
     if cigar_stat:
         print("Cigar string statistics:\n\tTotal deletion regions: %d (%d >50bps)\n\tTotal insertion regions: %d (%d >50bps)\n\tTotal substitution regions: %d (%d >50bps)\n\tTotal match regions: %d (%d >50bps)" % 
@@ -95,7 +134,9 @@ def run_stat(
            total_match, total_match_large), file=output)
         
         print("Total perfect alignments (exact match):", total_perfect, file=output)
-
+    
+    print()
+    print("* Numbers are based on primary alignments and the ones with >0 mapping quality", file=output)
     logger.info("\n== SUMMARY ==")
     total_time = timers.total()
     log_memory_usage()
