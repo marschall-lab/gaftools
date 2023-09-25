@@ -19,15 +19,12 @@ def run_order_gfa(
     with_sequence=False,
 ):
 
-    ########################### old part
-    # chromosome_order = chromosome_order.split(sep=',')
+    chromosome_order = chromosome_order.split(sep=",")
 
-    # logger.info('Reading %s', gfa_filename)
+    logger.info(f'Reading {gfa_filename}')
 
     # to remove later
-    nodes, edges = parse_gfa(gfa_filename, with_sequence)
-
-    chromosome_order = chromosome_order.split(sep=",")
+    # nodes, edges = parse_gfa(gfa_filename, with_sequence)
 
     logger.info(f"Reading {gfa_filename}")
     graph = GFA(gfa_filename, low_memory=True)
@@ -65,13 +62,13 @@ def run_order_gfa(
         total_bubbles += bubble_count
 
         # to adjust later to write according to the GFA I have
-        # need to fix that one thing abou the edge tags
+        # need to fix that one thing about the edge tags
         for node_name in sorted(component_nodes):
-            node = nodes[node_name]
+            node = graph.nodes[node_name]
             bo_tag, no_tag = node_order[node_name]
-            node.tags['BO'] = bo_tag
-            node.tags['NO'] = no_tag
-            f_gfa.write(node.to_line() + '\n')
+            node.tags['BO'] = ("i", bo_tag)
+            node.tags['NO'] = ("i", no_tag)
+            f_gfa.write(node.to_gfa_line() + '\n')
 
             if node_name in scaffold_nodes:
                 color = 'orange'
@@ -81,9 +78,10 @@ def run_order_gfa(
                 color = 'gray'
             f_colors.write('{},{},{},{},{},{}\n'.format(node_name,color,node.tags['SN'], node.tags['SO'], bo_tag, no_tag))
 
-        for edge_key in sorted(edges.keys()):
-            for edge in edges[edge_key]:
-                f_gfa.write(edge.to_line() + '\n')
+        with open(gfa_filename, "r") as infile:
+            for l in infile:
+                if l.startswith("L"):
+                    f_gfa.write(l)
 
         f_gfa.close()
         f_colors.close()
@@ -100,24 +98,6 @@ def tag_to_str(tag):
     else:
         assert False
 
-class Node:
-    def __init__(self, name, tags, sequence=None):
-        self.name = name
-        self.tags = tags
-        self.sequence = sequence
-    def to_line(self):
-        return '\t'.join(['S', self.name, '*' if self.sequence is None else self.sequence] + [tag_to_str(t) for t in self.tags.items()])
-
-class Edge:
-    def __init__(self, from_node, from_dir, to_node, to_dir, overlap, tags):
-        self.from_node = from_node
-        self.from_dir = from_dir
-        self.to_node = to_node
-        self.to_dir = to_dir
-        self.overlap = overlap
-        self.tags = tags
-    def to_line(self):
-        return '\t'.join(['L', self.from_node, self.from_dir, self.to_node, self.to_dir, self.overlap,] + [tag_to_str(t) for t in self.tags.items()])
 
 def parse_tag(s):
     name, type_id, value = s.split(':')
@@ -128,31 +108,6 @@ def parse_tag(s):
         return name, value
     else:
         assert False
-
-def parse_gfa(gfa_filename, with_sequence=False):
-    nodes = {}
-    edges = defaultdict(list)
-
-    for nr, line in enumerate(open(gfa_filename)):
-        fields = line.split('\t')
-        if fields[0] == 'S':
-            name = fields[1]
-            tags = dict(parse_tag(s) for s in fields[3:])
-            sequence = None
-            if with_sequence and (fields[2] != '*'):
-                sequence = fields[2]
-            nodes[name] = Node(name,tags,sequence)
-        elif fields[0] == 'L':
-            from_node = fields[1]
-            from_dir = fields[2]
-            to_node = fields[3]
-            to_dir = fields[4]
-            overlap = fields[5]
-            tags = dict(parse_tag(s) for s in fields[6:])
-            e = Edge(from_node,from_dir,to_node,to_dir,overlap, tags)
-            edges[(from_node,to_node)].append(e)
-
-    return nodes, edges
 
 
 def decompose_and_order(graph, component, bo_start=0):

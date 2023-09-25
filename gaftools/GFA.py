@@ -3,6 +3,7 @@ import logging
 import gzip
 import re
 import os
+import pdb
 from gaftools.utils import rev_comp, is_correct_tag
 
 
@@ -107,6 +108,16 @@ class Node:
         """
         assert side in {1, 0}
         self.end.add((neighbor, side, overlap))
+
+    def to_gfa_line(self, with_seq=True):
+        if with_seq:
+            seq = self.seq
+        else:
+            seq = "*"
+        tags = []
+        for tag_id, tag in self.tags.items():
+            tags.append(f"{tag_id}:{tag[0]}:{tag[1]}")
+        return "\t".join(["S", self.id, seq] + tags)
 
 class GFA:
     """
@@ -480,7 +491,6 @@ class GFA:
         I am assuming that the list of node given as ordered_path taken from the GAF alignment is ordered
         i.e. node 1 parent of node 2, node 2 parent of node 3 and so on
         """
-        # might be hacky, will think of a better way later
         ordered_path = path.replace(">", ",").replace("<", ",").split(",")
         if ordered_path[0] == "":
             ordered_path = ordered_path[1:]
@@ -491,9 +501,6 @@ class GFA:
             if current_node in self.nodes[previous_node].neighbors():
                 continue
             else:  # some node is not connected to another node in the path
-                # logging.error(f"in path {ordered_path}, node {current_node} is not a neighbor of {previous_node}, "
-                #               "no continuous walk through the path")
-                # print("The path is not a valid path")
                 return False
         return True
 
@@ -550,9 +557,13 @@ class GFA:
 
     def biccs(self):
         """
-        Adapted from Networkx
+        This function modelled after Networkx implementation
+        https://networkx.org/documentation/networkx-1.9/reference/generated/networkx.algorithms.components.biconnected.biconnected_components.html
         """
         def edge_stack_to_set(edge_stack):
+            """
+            turns the edge stack into a set of nodes for the component
+            """
             out_set = set()
             for es in edge_stack:
                 for n in es:
@@ -560,6 +571,9 @@ class GFA:
             return out_set
 
         def next_child(stack_item):
+            """
+            increments the stack pointer to the next neighbor of stack_item[1] node
+            """
             if not stack_item[3]:
                 return None
             if stack_item[2] >= len(stack_item[3]):
@@ -568,13 +582,11 @@ class GFA:
                 stack_item[2] += 1
                 return stack_item[3][stack_item[2] - 1]
 
-        # depth-first search algorithm to generate articulation points
-        # and biconnected components
         visited = set()
-
         for n in self.nodes:
             if n in visited:
                 continue
+
             discovery = {n:0}
             low = {n:0}
             root_children = 0
@@ -590,7 +602,6 @@ class GFA:
                 child = stack[-1][1]
                 nn = next_child(stack[-1])
 
-                # pdb.set_trace()
                 if nn:
                     if nn == parent:
                         continue
@@ -604,6 +615,7 @@ class GFA:
                         visited.add(nn)
                         stack.append([child, nn, 0, self[nn].neighbors()])
                         edge_stack.append((child, nn))
+
                 elif nn == None:
                     stack.pop()
                     if len(stack) > 1:
@@ -615,6 +627,7 @@ class GFA:
                             edge_stack = edge_stack[:cut_point]
                             # components.append(edge_stack_to_set(edge_stack[edge_stack.index((parent, child)):]))
                         low[parent] = min(low[parent], low[child])
+
                     elif stack:
                         root_children += 1
                         components.append(edge_stack_to_set(edge_stack[edge_stack.index((parent, child)):]))
