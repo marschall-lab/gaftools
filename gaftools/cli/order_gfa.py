@@ -7,7 +7,6 @@ import logging
 from collections import namedtuple, defaultdict, Counter
 from gaftools.GFA import GFA
 from argparse import ArgumentParser
-import pdb
 
 default_chromosome_order = 'chr1,chr2,chr3,chr4,chr5,chr6,chr7,chr8,chr9,chr10,chr11,chr12,chr13,chr14,chr15,chr16,chr17,chr18,chr19,chr20,chr21,chr22,chrX,chrY,chrM'
 logger = logging.getLogger(__name__)
@@ -23,9 +22,6 @@ def run_order_gfa(
 
     logger.info(f'Reading {gfa_filename}')
 
-    # to remove later
-    # nodes, edges = parse_gfa(gfa_filename, with_sequence)
-
     logger.info(f"Reading {gfa_filename}")
     graph = GFA(gfa_filename, low_memory=True)
 
@@ -35,6 +31,8 @@ def run_order_gfa(
 
     components = graph.all_components()
     logger.info(f"Connected components: {len(components)}")
+    # name_comps checks the most frequent SN tag for the node in the component
+    # and returns a dict of chromosome_name: {nodes...}
     components = name_comps(graph, components)
     if set(components.keys()) == set(chromosome_order):
         logger.info("Found one connected component per expected chromosome.")
@@ -43,7 +41,6 @@ def run_order_gfa(
         logger.info(f"  Expected: {','.join(chromosome_order)}")
         logger.info(f"  Found: {','.join(sorted(components.keys()))}")
         sys.exit(1)
-
 
     # running index for the bubble index (BO) already used
     bo = 0
@@ -58,7 +55,6 @@ def run_order_gfa(
 
         scaffold_nodes, inside_nodes, node_order, bo, bubble_count = decompose_and_order(graph, component_nodes, bo)
 
-        # scaffold_nodes2, inside_nodes2, node_order2, bo2, bubble_count2 = decompose_and_order2(graph, component_nodes, bo)
         total_bubbles += bubble_count
 
         # to adjust later to write according to the GFA I have
@@ -111,11 +107,10 @@ def parse_tag(s):
 
 
 def decompose_and_order(graph, component, bo_start=0):
-    # component_nodes I already have, I can just get form components[chromosome] :D
-    # scaffold_nodes are simply the articulation points that bicc will return
-    # bubble_count is the number of biccs
-    # inside_nodes are the component nodes without the scaffold nodes
-    # the order is the tricky one that I need to solve
+    """
+    This function takes the graph and a component
+    detects all biconnected components, order the scaffold nodes and starts ordering
+    """
     logger.info(f" Input graph: {len(component)} nodes")
     if len(component) == 1:
         node = list(component)[0]

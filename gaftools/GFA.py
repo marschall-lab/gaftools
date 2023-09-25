@@ -3,7 +3,6 @@ import logging
 import gzip
 import re
 import os
-import pdb
 from gaftools.utils import rev_comp, is_correct_tag
 
 
