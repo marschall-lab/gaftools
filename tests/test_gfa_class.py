@@ -1,4 +1,5 @@
 from gaftools.GFA import GFA
+import pdb
 
 """
 The example graph I am using looks like this
@@ -20,7 +21,6 @@ def test_load_gfa():
     assert graph['2'].seq == "T"
     assert graph['3'].seq == "G"
     assert graph['4'].seq == "TGGC"
-
     # check that connectivity is correct
     assert '1' in graph['2'].neighbors()
     assert '2' in graph['1'].neighbors()
@@ -45,12 +45,23 @@ def test_load_gfa():
     assert '2' in graph['1'].children(1)
     assert '4' in graph['3'].children(0)
 
+    # test file not found
+    try:
+        graph = GFA("test/data/nonexistant_graph.gfa")
+    except FileNotFoundError:
+        pass
+
+    try:
+        graph = GFA("tests/data/test_GFA_class_wrong_graph.gfa")
+    except ValueError:
+        pass
+
 
 def test_node_tags():
     graph = GFA("tests/data/test_GFA_class.gfa")
-    assert 'SG:Z' in graph['1'].optional
-    assert graph['1'].optional['SG:Z'] == "testing_tags"
-    assert len(graph['2'].optional) == 2
+    assert 'SG' in graph['1'].tags
+    assert graph['1'].tags['SG'] == ("Z", "testing_tags")
+    assert len(graph['2'].tags) == 2
 
 def test_delete_node():
     graph = GFA("tests/data/test_GFA_class.gfa")
@@ -62,12 +73,13 @@ def test_delete_node():
 
 def test_add_node():
     graph = GFA("tests/data/test_GFA_class.gfa")
-    graph.add_node("5", "CCCC")
+    node_line = "S\t5\tCCCC".split()
+    graph.add_node(node_line[1], node_line[2])
     assert '5' in graph
     assert graph['5'].seq == "CCCC"
     assert graph['5'].seq_len == 4
     # adding an edge between end of node 4 and start of node 5 with 0 overlap
-    graph.add_edge('4', 1, '5', 0, 0)
+    graph.add_edge('4', "+", '5', "+", 0)
     assert '5' in graph['4'].neighbors()
     assert graph['4'].in_direction('5', 1)
     assert graph['5'].in_direction('4', 0)
@@ -79,3 +91,33 @@ def test_path_extraction():
     assert graph.extract_path(">1>2>4") == "AGGTCGTTGGC"
     assert graph.extract_path(">1<2>4") == "AGGTCGATGGC"
     assert graph.extract_path("<1") == "CGACCT"
+
+    # testing non-ACTG characters
+    graph['1'].seq = graph['1'].seq + "N"
+    assert graph.extract_path(">1>2>4") == graph['1'].seq + graph['2'].seq + graph['4'].seq
+
+
+def test_components():
+    graph = GFA("tests/data/test_GFA_class.gfa")
+    components = graph.all_components()
+    assert len(components) == 1
+    assert components[0] == set(graph.nodes.keys())
+    graph.add_node('5', 'GGCC')
+    graph.add_node("6", "CCGG")
+    graph.add_edge('5', "+", "6", "+", 2)
+    components = graph.all_components()
+    assert len(components) == 2
+    comp1, comp2 = components
+    if len(comp1) > len(comp2):
+        assert comp1 == {'1', '2', '3', '4'}
+        assert comp2 == {'5', '6'}
+    else:
+        assert comp2 == {'1', '2', '3', '4'}
+        assert comp1 == {'5', '6'}
+
+
+def test_bicc():
+    graph = GFA("tests/data/smallgraph-noseq.gfa")
+    biccs, artic_points = graph.biccs()
+    assert set(artic_points) == {'s8', 's6', 's4', 's2'}
+    assert len(biccs) == 5

@@ -1,13 +1,3 @@
-"""
-Adding a GFA class which will include GFA parsers, graph building, graph functions, graph editing, graph writing and so on
-
-Hopefully used then by all scripts in gaftools
-
-TODO:
-1- Now that I have implement add node and add edge, I should change the read graph to start using those functions
-2- implement biconnected components so I can get rid of the usage of networkx and keep everything in the GFA class
-3- 
-"""
 import sys
 import logging
 import gzip
@@ -16,8 +6,10 @@ import os
 from gaftools.utils import rev_comp, is_correct_tag
 
 
+E_DIR = {("+", "+"): (1, 0), ("+", "-"): (1, 1), ("-", "+"): (0, 0), ("-", "-"): (0, 1)}
+
 class Node:
-    __slots__ = ('id', 'seq', 'seq_len', 'start', 'end', 'visited', 'optional')
+    __slots__ = ('id', 'seq', 'seq_len', 'start', 'end', 'visited', 'tags')
     def __init__(self, identifier):
         self.id = identifier
         self.seq = ""
@@ -25,7 +17,7 @@ class Node:
         self.start = set()
         self.end = set()
         self.visited = False
-        self.optional = dict()
+        self.tags = dict()
 
     def __sizeof__(self):
         """
@@ -116,19 +108,29 @@ class Node:
         assert side in {1, 0}
         self.end.add((neighbor, side, overlap))
 
+    def to_gfa_line(self, with_seq=True):
+        if with_seq:
+            seq = self.seq
+        else:
+            seq = "*"
+        tags = []
+        for tag_id, tag in self.tags.items():
+            tags.append(f"{tag_id}:{tag[0]}:{tag[1]}")
+        return "\t".join(["S", self.id, seq] + tags)
+
 class GFA:
     """
     Graph object containing the important information about the graph
     """
     __slots__ = ['nodes', 'low_memory']
 
-    def __init__(self, graph_file=None, no_seq=False):
+    def __init__(self, graph_file=None, low_memory=False):
         self.nodes = dict()
-        self.low_memory = no_seq
+        self.low_memory = low_memory
         if graph_file:
             if not os.path.exists(graph_file):
                 raise FileNotFoundError
-        self.read_graph(gfa_file_path=graph_file, low_memory=no_seq)
+            self.read_graph(gfa_file_path=graph_file, low_memory=low_memory)
 
     def __len__(self):
         """
@@ -140,7 +142,12 @@ class GFA:
         """
         overloading the string function for printing
         """
-        return "The graph has {} Nodes".format(len(self.nodes))
+        edge_count = 0
+        for n in self.nodes.values():
+            edge_count += len(n.start)
+            edge_count += len(n.end)
+
+        return f"The graph has {len(self)} Nodes and {int(edge_count/2)} Edges"
 
     def __contains__(self, key):
         """
@@ -171,13 +178,6 @@ class GFA:
         overloading deleting item, which removes node and all its edges safely
         """
         self.remove_node(key)
-
-    def reset_visited(self):
-        """
-        resets all nodes.visited to false
-        """
-        for n in self.nodes.values():
-            n.visited = False
 
     def remove_node(self, n_id):
         """
@@ -210,21 +210,37 @@ class GFA:
         else:
             self.nodes[n2].remove_from_end(n1, side1, overlap)
 
-    def add_node(self, node_id, seq=""):
+    def add_node(self, node_id, seq="", tags=None):
+        """
+        adds a node to the graph, you need to give at least a node_id
+        """
+        if not tags:
+            tags = []
+        node_id = str(node_id)
         if node_id not in self:
             node = Node(node_id)
             node.seq = seq
             node.seq_len = len(seq)
             self[node_id] = node
+            # adding the extra tags if any to the node object
+            for tag in tags:
+                if not is_correct_tag(tag):
+                    raise ValueError(f"The tag {tag} did not match the specifications, check sam specification on tags")
+                tag = tag.split(":")
+                # I am adding the tags as key:value, key is tag_name:type and value is the value at the end
+                # e.g. SN:i:10 will be {"SN:i": 10}
+                self[node_id].tags[tag[0]] = (tag[1], tag[2])  # (type, value)
+                # self[node_id].tags[f"{tag[0]}:{tag[1]}"] = tag[2]
+
         else:
             logging.warning(f"You are trying to add node {node_id} and it already exists in the graph")
 
 
+
     def add_edge(self, node1, node1_dir, node2, node2_dir, overlap=0):
-        assert node1 in self
-        assert node2 in self
-        assert node1_dir in {1, 0}
-        assert node2_dir in {1, 0}
+        assert node1_dir in {"+", "-"}
+        assert node2_dir in {"+", "-"}
+        node1_dir, node2_dir = E_DIR[(node1_dir, node2_dir)]
         if node1_dir == 0:
             self[node1].add_from_start(node2, node2_dir, overlap)
         else:
@@ -283,84 +299,38 @@ class GFA:
         # nodes = dict()
         edges = []
         if gfa_file_path.endswith(".gz"):
-            open_file = gzip.open(gfa_file_path, "rt")
+            opened_file = gzip.open(gfa_file_path, "rt")
         elif gfa_file_path.endswith(".gfa"):
-            open_file = open(gfa_file_path, "r")
+            opened_file = open(gfa_file_path, "r")
         else:
             raise ValueError(f"File {gfa_file_path} needs to end with .gfa or .gz")
 
-        for line in open_file:
+        for line in opened_file:
             if line.startswith("S"):
                 line = line.strip().split("\t")
-                assert len(line) >= 3  # must be at least "S id seq"
-                n_id = str(line[1])
-                self.nodes[n_id] = Node(n_id)
-
-                self.nodes[n_id].seq_len = len(line[2])
-                if not low_memory:  # don't load the sequence
-                    self.nodes[n_id].seq = str(line[2]).strip()
-                # adding the extra tags if any to the node object
-                if len(line) > 3:
-                    for tag in line[3:]:
-                        if not is_correct_tag(tag):
-                            raise ValueError(f"The tag {tag} did not match the specifications, check sam specification on tags")
-                        tag = tag.split(":")
-                        # I am adding the tags as key:value, key is tag_name:type and value is the value at the end
-                        self[n_id].optional[f"{tag[0]}:{tag[1]}"] = tag[2]
-                        # self.nodes[n_id].optional.append(tag)
-                    # self.nodes[n_id].optional = "\t".join(line[3:])
+                assert len(line) >= 3  # must be at least 3 columns for "S id seq"
+                if low_memory:
+                    self.add_node(line[1], "", line[3:])
+                else:
+                    self.add_node(line[1], line[2], line[3:])
 
             elif line.startswith("L"):
                 edges.append(line)
-        open_file.close()
+        opened_file.close()
 
         for e in edges:
-            line = e.split()
-            k = line[1]
-            if k not in self.nodes:  # if the edge is there but not the node
-                continue
+            e = e.strip().split("\t")
+            assert len(e) >= 6  # must be at least 6 columns (L id1 dir1 id2 dir2 overlap)
+            # TODO: for now ignoring the edge tags, need to deal with this at some point
+            e = e[1:6]
             try:
-                overlap = int(line[5][:-1])
+                e[4] = int(e[4][:-1])  # getting overlap
             except:
-                raise ValueError(f"Overlap should be represented as (int)M, e.g. 10M, could not recognize {overlap}")
-            neighbor = line[3]
-            if neighbor not in self.nodes:
+                raise ValueError(f"The overlap in {e} has a problem, must be (int)M, e.g. 10M")
+            # skip an edge if the node is not there
+            if e[0] not in self or e[2] not in self:
                 continue
-
-            from_start = False
-            to_end = False
-            if line[2] == "-":
-                from_start = True
-            if line[4] == "-":
-                to_end = True
-
-            if from_start and to_end:  # from start to end L x - y -
-                if (neighbor, 1, overlap) not in self.nodes[k].start:
-                    self.nodes[k].start.add((neighbor, 1, overlap))
-                if (k, 0, overlap) not in self.nodes[neighbor].end:
-                    self.nodes[neighbor].end.add((k, 0, overlap))
-
-            elif from_start and not to_end:  # from start to start L x - y +
-
-                if (neighbor, 0, overlap) not in self.nodes[k].start:
-                    self.nodes[k].start.add((neighbor, 0, overlap))
-
-                if (k, 0, overlap) not in self.nodes[neighbor].start:
-                    self.nodes[neighbor].start.add((k, 0, overlap))
-
-            elif not from_start and not to_end:  # from end to start L x + y +
-                if (neighbor, 0, overlap) not in self.nodes[k].end:
-                    self.nodes[k].end.add((neighbor, 0, overlap))
-
-                if (k, 1, overlap) not in self.nodes[neighbor].start:
-                    self.nodes[neighbor].start.add((k, 1, overlap))
-
-            elif not from_start and to_end:  # from end to end L x + y -
-                if (neighbor, 1, overlap) not in self.nodes[k].end:
-                    self.nodes[k].end.add((neighbor, 1, overlap))
-
-                if (k, 1, overlap) not in self.nodes[neighbor].end:
-                    self.nodes[neighbor].end.add((k, 1, overlap))
+            self.add_edge(*e)
 
     def write_gfa(self, set_of_nodes=None, output_file="output_file.gfa", append=False):
         """
@@ -390,10 +360,10 @@ class GFA:
                 logging.warning("Node {} does not exist in the graph, skipped in output".format(n1))
                 continue
 
-            if self.nodes[n1].optional:
+            if self.nodes[n1].tags:
                 tags = []
                 for tag_name, value in self.nodes[n1].optional.items():
-                    tags.append(f"{tag_name}:{value}")
+                    tags.append(f"{tag_name}:{value[0]:{value[1]}}")
                 line = str("\t".join(["S", str(n1), self.nodes[n1].seq, "\t".join(tags)]))
                 # line = str("\t".join(("S", str(n1), nodes[n1].seq, nodes[n1].optional)))
             else:
@@ -432,14 +402,21 @@ class GFA:
 
         f.close()
 
-    def bfs(self, start_id, size, reset_visited=True):
+    def bfs(self, start_id, size=0, reset_visited=True):
+        """
+        runs BFS from the start node and limits the return to the size given
+        if size not given then it keeps going until it runs out of nodes
+        """
         if reset_visited:
-            self.reset_visited()
+            self.set_visited(reset_visited)
 
         if len(self.nodes[start_id].neighbors()) == 0:
             return {start_id}
 
-        queue = deque()
+        if size == 0:
+            size = len(self) + 1
+
+        queue = deque()  # deque is faster when popping left
         queue.append(start_id)
         self.nodes[start_id].visited = True
         neighborhood = set()
@@ -456,10 +433,6 @@ class GFA:
     def find_component(self, start_node):
         """
         Find component in the graph starting from given node
-
-        :param graph: is a graph object from class Graph
-        :param start_node: The start node of BFS search.
-        :return: a list of node ids for the component
         """
         queue = []
         cc = set()
@@ -493,19 +466,18 @@ class GFA:
     def all_components(self):
         """
         find all connected components in the graph
-
-        :params graph: is a graph object from class Graph
-        :return: list of set of components
         """
         connected_comp = []
         # visited = set()
         for n in self.nodes:
-            if not graph.nodes[n].visited:
-                connected_comp.append(find_component(self, n))
+            if not self.nodes[n].visited:
+                connected_comp.append(self.find_component(n))
                 # visited = visited.union(connected_comp[-1])
+        # resetting the visited to false, in case I'm going to use some other algorithm later
+        self.set_visited(False)
         return connected_comp
 
-    def reset_visited(self, visited=False):
+    def set_visited(self, visited=False):
         """
         Resets all nodes to given boolean
         """
@@ -518,7 +490,6 @@ class GFA:
         I am assuming that the list of node given as ordered_path taken from the GAF alignment is ordered
         i.e. node 1 parent of node 2, node 2 parent of node 3 and so on
         """
-        # might be hacky, will think of a better way later
         ordered_path = path.replace(">", ",").replace("<", ",").split(",")
         if ordered_path[0] == "":
             ordered_path = ordered_path[1:]
@@ -528,10 +499,7 @@ class GFA:
             previous_node = ordered_path[i-1]
             if current_node in self.nodes[previous_node].neighbors():
                 continue
-            else:
-                logging.error(f"in path {ordered_path}, node {current_node} is not a neighbor of {previous_node}, "
-                              "no continuous walk through the path")
-                # print("The path is not a valid path")
+            else:  # some node is not connected to another node in the path
                 return False
         return True
 
@@ -557,5 +525,113 @@ class GFA:
             else:
                 logging.error(f"Some error happened where a node {n} doesn't start with > or <")
                 return ""
-
         return "".join(seq)
+
+    def dfs(self, start_node):
+        """
+        Performs depth first search from start node given by user
+        return the path as a list
+        """
+        if not start_node in self:
+            return []
+        if len(self) == 1:
+            return [list(self.nodes.keys())[0]]
+        if len(self[start_node].neighbors()) == 0:
+            return [start_node]
+            
+        dfs_out = []
+        stack = [start_node]
+        while stack:
+            s = stack.pop()
+            # Note: this is doing membership check on a list, which is O(n) time
+            # this is slow, but for now it's ok, might need to change later to a set
+            # However, a set is not ordered, so would need to add an ordering function
+            if s not in dfs_out:
+                dfs_out.append(s)
+            else:
+                continue
+            for neighbour in self[s].neighbors():
+                stack.append(neighbour)
+        return dfs_out
+
+    def biccs(self):
+        """
+        This function modelled after Networkx implementation
+        https://networkx.org/documentation/networkx-1.9/reference/generated/networkx.algorithms.components.biconnected.biconnected_components.html
+        """
+        def edge_stack_to_set(edge_stack):
+            """
+            turns the edge stack into a set of nodes for the component
+            """
+            out_set = set()
+            for es in edge_stack:
+                for n in es:
+                    out_set.add(n)
+            return out_set
+
+        def next_child(stack_item):
+            """
+            increments the stack pointer to the next neighbor of stack_item[1] node
+            """
+            if not stack_item[3]:
+                return None
+            if stack_item[2] >= len(stack_item[3]):
+                return None
+            else:
+                stack_item[2] += 1
+                return stack_item[3][stack_item[2] - 1]
+
+        visited = set()
+        for n in self.nodes:
+            if n in visited:
+                continue
+
+            discovery = {n:0}
+            low = {n:0}
+            root_children = 0
+            artic_points = []
+            components = []
+            visited.add(n)
+            edge_stack = []
+            # stack = [(start, start, iter(G[start]))]
+            neighbors = self[n].neighbors()
+            stack = [[n, n, 0, neighbors]]
+            while stack:
+                parent = stack[-1][0]
+                child = stack[-1][1]
+                nn = next_child(stack[-1])
+
+                if nn:
+                    if nn == parent:
+                        continue
+                    if nn in visited:
+                        if discovery[nn] <= discovery[child]:
+                            edge_stack.append((child, nn))
+                            low[child] = min(low[child], discovery[nn])
+                    else:
+                        low[nn] = len(discovery)
+                        discovery[nn] = low[nn]
+                        visited.add(nn)
+                        stack.append([child, nn, 0, self[nn].neighbors()])
+                        edge_stack.append((child, nn))
+
+                elif nn == None:
+                    stack.pop()
+                    if len(stack) > 1:
+                        if low[child] >= discovery[parent]:
+                            artic_points.append(parent)
+                            cut_point = edge_stack.index((parent, child))
+                            comp = edge_stack_to_set(edge_stack[cut_point:])
+                            components.append(comp)
+                            edge_stack = edge_stack[:cut_point]
+                            # components.append(edge_stack_to_set(edge_stack[edge_stack.index((parent, child)):]))
+                        low[parent] = min(low[parent], low[child])
+
+                    elif stack:
+                        root_children += 1
+                        components.append(edge_stack_to_set(edge_stack[edge_stack.index((parent, child)):]))
+
+            if root_children > 1:
+                artic_points.append[n]
+
+        return components, artic_points
