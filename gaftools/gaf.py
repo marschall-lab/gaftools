@@ -81,7 +81,6 @@ def parse_gaf(filename):
         for k in fields:
             if re.match("[A-Za-z][A-Za-z0-9]:[AifZHB]:[A-Za-z0-9]+", k):
                 pattern = re.findall(r"([A-Za-z][A-Za-z0-9]:[AifZHB]:)[A-Za-z0-9]+", k)[0]
-                
                 if pattern == "cg:Z:":
                     val = re.findall(r"[A-Za-z][A-Za-z0-9]:[AifZHB]:([A-Za-z0-9=]+)", k)[0]
                     cigar = val
@@ -93,7 +92,7 @@ def parse_gaf(filename):
 
                     if pattern == "tp:A" and (val != "P" or val != "p"):
                         is_primary = False
-        
+                       
         yield Alignment(query_name, query_length, query_start, query_end, strand, path,
                         path_length, path_start, path_end, residue_matches, alignment_block_length,
                         mapping_quality, is_primary, cigar, tags=tags)
