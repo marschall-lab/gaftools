@@ -151,7 +151,7 @@ def wfa_alignment(aln, gaf_line, ref, query, path_start, output, extended):
                         match, cigar_len, gaf_line.mapping_quality))
 
         for k in gaf_line.tags.keys():
-            output.write("\t%s%s"%(k, gaf_line.tags[k]))
+            output.write("\t%s%s\n"%(k, gaf_line.tags[k]))
         
 
 def realign_gaf(gaf, graph, fasta, output, extended):
@@ -165,7 +165,7 @@ def realign_gaf(gaf, graph, fasta, output, extended):
     aln = {}
     for cnt, line in enumerate(gaftools.gaf.parse_gaf(gaf)):
         path_sequence = graph_obj.extract_path(line.path)
-        
+
         if extended:
             extension_start = line.query_start
             extension_end = line.query_length - line.query_end
@@ -178,16 +178,15 @@ def realign_gaf(gaf, graph, fasta, output, extended):
 
             path_start = line.path_start - extension_start
             path_end = line.path_end + extension_end
-            
+
             if path_start < 0:
                 path_start = 0
             if path_end > line.path_length:
                 path_end = line.path_length
-
+            
             ref = path_sequence[path_start:path_end]
             query = fastafile.fetch(line.query_name)
             wfa_alignment(aln, line, ref, query, path_start, output, extended)
-
         else:
             ref = path_sequence[line.path_start:line.path_end]
             query = fastafile.fetch(line.query_name, line.query_start, line.query_end)
