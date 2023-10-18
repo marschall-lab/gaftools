@@ -151,8 +151,9 @@ def wfa_alignment(aln, gaf_line, ref, query, path_start, output, extended):
                         match, cigar_len, gaf_line.mapping_quality))
 
         for k in gaf_line.tags.keys():
-            output.write("\t%s%s\n"%(k, gaf_line.tags[k]))
+            output.write("\t%s%s"%(k, gaf_line.tags[k]))
         
+        output.write("\n")
 
 def realign_gaf(gaf, graph, fasta, output, extended):
     """
