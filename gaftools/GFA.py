@@ -109,8 +109,11 @@ class Node:
         self.end.add((neighbor, side, overlap))
 
     def to_gfa_line(self, with_seq=True):
-        if with_seq:
-            seq = self.seq
+        if with_seq:  # in case with_seq was true but there was no seq
+            if self.seq == "":
+                seq = "*"
+            else:
+                seq = self.seq
         else:
             seq = "*"
         tags = []

@@ -4,6 +4,8 @@ Adds BO and NO tags to GFA
 
 import sys
 import logging
+import gzip
+import time
 from collections import namedtuple, defaultdict, Counter
 from gaftools.GFA import GFA
 from argparse import ArgumentParser
@@ -19,8 +21,6 @@ def run_order_gfa(
 ):
 
     chromosome_order = chromosome_order.split(sep=",")
-
-    logger.info(f'Reading {gfa_filename}')
 
     logger.info(f"Reading {gfa_filename}")
     graph = GFA(gfa_filename, low_memory=True)
@@ -74,10 +74,14 @@ def run_order_gfa(
                 color = 'gray'
             f_colors.write('{},{},{},{},{},{}\n'.format(node_name,color,node.tags['SN'], node.tags['SO'], bo_tag, no_tag))
 
-        with open(gfa_filename, "r") as infile:
-            for l in infile:
-                if l.startswith("L"):
-                    f_gfa.write(l)
+        if gfa_filename.endswith("gz"):
+            infile = gzip.open(gfa_filename, 'rt')
+        else:
+            infile = open(gfa_filename, "r")
+        for l in infile:
+            if l.startswith("L"):
+                f_gfa.write(l)
+        infile.close()
 
         f_gfa.close()
         f_colors.close()
@@ -116,6 +120,7 @@ def decompose_and_order(graph, component, bo_start=0):
         node = list(component)[0]
         return component, set(), {node: (bo_start, 0)}, bo_start + 1, 0
     logger.info(f" Finding Biconnected Components of the component")
+    start = time.perf_counter()
     all_biccs, artic_points = graph.biccs()
     bubbles = []
     scaffold_graph = GFA()
@@ -133,7 +138,8 @@ def decompose_and_order(graph, component, bo_start=0):
         if len(bc_inside_nodes) == 0:
             assert len(bc_end_nodes) == 2
             node1, node2 = tuple(bc_end_nodes)
-            scaffold_graph.add_edge(('s',node1), ('s',node2))
+            scaffold_graph.add_edge(node1, "+", node2, "+", 0)
+            # scaffold_graph.add_edge(('s',node1), ('s',node2))
         else:
             bubble_index = len(bubbles)
             bubbles.append(bc_inside_nodes)
@@ -141,6 +147,7 @@ def decompose_and_order(graph, component, bo_start=0):
             scaffold_node_types[str(bubble_index)] = 'b'
             for end_node in bc_end_nodes:
                 scaffold_graph.add_edge(end_node, "+", str(bubble_index), "+", 0)
+    logger.info(f" It took {time.perf_counter() - start} seconds to find the Biconnected Components")
     logger.info('  Bubbles: %d', len(bubbles))
     logger.info('  Scaffold graph: %d nodes', len(scaffold_graph))
 
