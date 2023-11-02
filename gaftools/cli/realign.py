@@ -96,6 +96,21 @@ def write_alignments(aln, output):
 
 def wfa_alignment(aln, gaf_line, ref, query, path_start, output, extended):
 
+        
+    if(gaf_line.query_end - gaf_line.query_start  > 40000):
+        print(gaf_line.query_end - gaf_line.query_start)
+        #Write the originalalignment back to the GAF
+        output.write("%s\t%d\t%d\t%d\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d" %(gaf_line.query_name,
+                        gaf_line.query_length, gaf_line.query_start, gaf_line.query_end, gaf_line.strand,
+                        gaf_line.path, gaf_line.path_length, gaf_line.path_start, gaf_line.path_end,
+                        gaf_line.residue_matches, gaf_line.alignment_block_length, gaf_line.mapping_quality))
+
+        for k in gaf_line.tags.keys():
+            output.write("\t%s%s"%(k, gaf_line.tags[k]))
+        
+        output.write("\n")
+        return
+
     aligner = WavefrontAligner(ref)
     if extended:
         res = aligner(query, clip_cigar = True, min_aligned_bases_left = 30, min_aligned_bases_right = 30)
@@ -159,7 +174,7 @@ def realign_gaf(gaf, graph, fasta, output, extended):
     """
     Uses pyWFA (https://github.com/kcleal/pywfa)
     """
-
+    
     fastafile = pysam.FastaFile(fasta)
     graph_obj = GFA(graph)
 
