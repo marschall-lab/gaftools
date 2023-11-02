@@ -96,10 +96,9 @@ def write_alignments(aln, output):
 
 def wfa_alignment(aln, gaf_line, ref, query, path_start, output, extended):
 
-        
-    if(gaf_line.query_end - gaf_line.query_start  > 40000):
-        print(gaf_line.query_end - gaf_line.query_start)
-        #Write the originalalignment back to the GAF
+    #If the sequence is too large, the running time and memory requirement increases too much
+    #Thus, we write the original alignment back to the GAF instead of realignment
+    if(gaf_line.query_end - gaf_line.query_start  > 60000):
         output.write("%s\t%d\t%d\t%d\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d" %(gaf_line.query_name,
                         gaf_line.query_length, gaf_line.query_start, gaf_line.query_end, gaf_line.strand,
                         gaf_line.path, gaf_line.path_length, gaf_line.path_start, gaf_line.path_end,
@@ -177,7 +176,7 @@ def realign_gaf(gaf, graph, fasta, output, extended):
     
     fastafile = pysam.FastaFile(fasta)
     graph_obj = GFA(graph)
-
+    
     aln = {}
     for cnt, line in enumerate(gaftools.gaf.parse_gaf(gaf)):
         path_sequence = graph_obj.extract_path(line.path)
