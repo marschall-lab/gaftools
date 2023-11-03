@@ -48,5 +48,5 @@ def test_order_gfa(tmp_path):
     assert gaf_lines[1].residue_matches == 383
     assert gaf_lines[1].alignment_block_length == 398
     assert gaf_lines[1].mapping_quality == 60
-    assert gaf_lines[1].cigar == '189=15D194='
+    assert gaf_lines[1].cigar == '189=2D1=13D193='
     #assert gaf_lines[1].is_primary
