@@ -41,6 +41,22 @@ class Node:
     def __len__(self):
         return self.seq_len
 
+    def is_equal_to(self, other, only_topo=False):
+        """
+        checks if two nodes are equal to each other in terms of edges and other attributes
+        """
+        all_ats = ["id", "seq", "seq_len", "start", "end", "tags"]
+        only_topo_atts = ["id", "start", "end"]
+        if only_topo:
+            for a in atts:
+                if not getattr(self, a) == getattr(other, a):
+                    return False
+        else:
+            for a in only_topo_atts:
+                if not getattr(self, a) == getattr(other, a):
+                    return False
+        return True
+
     def neighbors(self):
         """
         Returns all adjacent nodes' ids to self
@@ -181,6 +197,22 @@ class GFA:
         overloading deleting item, which removes node and all its edges safely
         """
         self.remove_node(key)
+
+    def is_equal_to(self, other, only_topo=False):
+        """
+        a graph equality functions which allows us to compare two graphs together, whether they contain the same information or not
+
+        If only_topo is True, then only the graphs toplogies will be compared, and won't look at sequences and tags of nodes
+        """
+        if len(self) != len(other):
+            return False
+        for n_id, node1 in self.nodes.items():
+            node2 = other[n_id]
+            if node2 == None:  # n_id not in other graph, so not equal graphs
+                return False
+            if not node1.is_equal_to(node2, only_topo):
+                return False
+        return True
 
     def remove_node(self, n_id):
         """
