@@ -395,14 +395,15 @@ class GFA:
                 logging.warning("Node {} does not exist in the graph, skipped in output".format(n1))
                 continue
 
-            if self.nodes[n1].tags:
-                tags = []
-                for tag_name, value in self.nodes[n1].optional.items():
-                    tags.append(f"{tag_name}:{value[0]:{value[1]}}")
-                line = str("\t".join(["S", str(n1), self.nodes[n1].seq, "\t".join(tags)]))
-                # line = str("\t".join(("S", str(n1), nodes[n1].seq, nodes[n1].optional)))
-            else:
-                line = str("\t".join(["S", str(n1), self.nodes[n1].seq + "\n"]))
+            line = self.nodes[n1].to_gfa_line()
+            # if self.nodes[n1].tags:
+            #     tags = []
+            #     for tag_name, value in self.nodes[n1].optional.items():
+            #         tags.append(f"{tag_name}:{value[0]:{value[1]}}")
+            #     line = str("\t".join(["S", str(n1), self.nodes[n1].seq, "\t".join(tags)]))
+            #     # line = str("\t".join(("S", str(n1), nodes[n1].seq, nodes[n1].optional)))
+            # else:
+            #     line = str("\t".join(["S", str(n1), self.nodes[n1].seq + "\n"]))
 
             f.write(line+"\n")
 
@@ -519,6 +520,18 @@ class GFA:
         for n in self.nodes.values():
             n.visited = visited
 
+    def graph_from_comp(self, component_nodes):
+        new_graph = GFA()
+        for n in component_nodes:
+            new_node = Node(n)
+            new_node.seq = self[n].seq
+            new_node.seq_len = self[n].seq_len
+            new_node.start = self[n].start
+            new_node.end = self[n].end
+            new_node.tags = self[n].tags
+            new_graph.nodes[n] = new_node
+        return new_graph
+
     def path_exists(self, path):
         """
         Just a sanity check that a path given exists in the graph
@@ -574,7 +587,8 @@ class GFA:
         if len(self[start_node].neighbors()) == 0:
             return [start_node]
             
-        dfs_out = []
+        dfs_out = set()
+        ordered_dfs_out = list()
         stack = [start_node]
         while stack:
             s = stack.pop()
@@ -582,12 +596,13 @@ class GFA:
             # this is slow, but for now it's ok, might need to change later to a set
             # However, a set is not ordered, so would need to add an ordering function
             if s not in dfs_out:
-                dfs_out.append(s)
+                dfs_out.add(s)
+                ordered_dfs_out.append(s)
             else:
                 continue
             for neighbour in self[s].neighbors():
                 stack.append(neighbour)
-        return dfs_out
+        return ordered_dfs_out
 
     def biccs(self):
         """
@@ -624,10 +639,11 @@ class GFA:
             discovery = {n:0}
             low = {n:0}
             root_children = 0
-            artic_points = []
+            artic_points = set()
             components = []
             visited.add(n)
             edge_stack = []
+            edge_stack_loc = dict()
             # stack = [(start, start, iter(G[start]))]
             neighbors = self[n].neighbors()
             stack = [[n, n, 0, neighbors]]
@@ -642,6 +658,7 @@ class GFA:
                     if nn in visited:
                         if discovery[nn] <= discovery[child]:
                             edge_stack.append((child, nn))
+                            edge_stack_loc[(child, nn)] = len(edge_stack) - 1
                             low[child] = min(low[child], discovery[nn])
                     else:
                         low[nn] = len(discovery)
@@ -649,13 +666,15 @@ class GFA:
                         visited.add(nn)
                         stack.append([child, nn, 0, self[nn].neighbors()])
                         edge_stack.append((child, nn))
+                        edge_stack_loc[(child, nn)] = len(edge_stack) - 1
 
                 elif nn == None:
                     stack.pop()
                     if len(stack) > 1:
                         if low[child] >= discovery[parent]:
-                            artic_points.append(parent)
-                            cut_point = edge_stack.index((parent, child))
+                            artic_points.add(parent)
+                            cut_point = edge_stack_loc[(parent, child)]
+                            # cut_point = edge_stack.index((parent, child))
                             comp = edge_stack_to_set(edge_stack[cut_point:])
                             components.append(comp)
                             edge_stack = edge_stack[:cut_point]
@@ -667,6 +686,6 @@ class GFA:
                         components.append(edge_stack_to_set(edge_stack[edge_stack.index((parent, child)):]))
 
             if root_children > 1:
-                artic_points.append[n]
+                artic_points.add(n)
 
         return components, artic_points

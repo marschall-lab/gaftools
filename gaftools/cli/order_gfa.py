@@ -49,22 +49,25 @@ def run_order_gfa(
         logger.info('Processing %s', chromosome)
         component_nodes = components[chromosome]
         # Initialize files
-        f_gfa = open(outdir+'/'+gfa_filename.split("/")[-1][:-4]+'-'+chromosome+'.gfa', 'w')
+        # f_gfa = open(outdir+'/'+gfa_filename.split("/")[-1][:-4]+'-'+chromosome+'.gfa', 'w')
+        f_gfa = outdir+'/'+gfa_filename.split("/")[-1][:-4]+'-'+chromosome+'.gfa'
         f_colors = open(outdir+'/'+gfa_filename.split("/")[-1][:-4]+'-'+chromosome+'.csv', 'w')
         f_colors.write('Name,Color,SN,SO,BO,NO\n')
 
-        scaffold_nodes, inside_nodes, node_order, bo, bubble_count = decompose_and_order(graph, component_nodes, bo)
+        scaffold_nodes, inside_nodes, node_order, bo, bubble_count = decompose_and_order(graph, component_nodes, chromosome, bo)
 
         total_bubbles += bubble_count
 
         # to adjust later to write according to the GFA I have
-        # need to fix that one thing about the edge tags
+        # I still need to deal with the edge tags, I am not sure if the tags
+        # hold when reversing the direction of the edge, so at the moment
+        # the edge tags are being lost
         for node_name in sorted(component_nodes):
             node = graph.nodes[node_name]
             bo_tag, no_tag = node_order[node_name]
             node.tags['BO'] = ("i", bo_tag)
             node.tags['NO'] = ("i", no_tag)
-            f_gfa.write(node.to_gfa_line() + '\n')
+            # f_gfa.write(node.to_gfa_line() + '\n')
 
             if node_name in scaffold_nodes:
                 color = 'orange'
@@ -74,16 +77,18 @@ def run_order_gfa(
                 color = 'gray'
             f_colors.write('{},{},{},{},{},{}\n'.format(node_name,color,node.tags['SN'], node.tags['SO'], bo_tag, no_tag))
 
-        if gfa_filename.endswith("gz"):
-            infile = gzip.open(gfa_filename, 'rt')
-        else:
-            infile = open(gfa_filename, "r")
-        for l in infile:
-            if l.startswith("L"):
-                f_gfa.write(l)
-        infile.close()
+        graph.write_gfa(set_of_nodes=component_nodes, output_file=f_gfa, append=False)
 
-        f_gfa.close()
+        # if gfa_filename.endswith("gz"):
+        #     infile = gzip.open(gfa_filename, 'rt')
+        # else:
+        #     infile = open(gfa_filename, "r")
+        # for l in infile:
+        #     if l.startswith("L"):
+        #         f_gfa.write(l)
+        # infile.close()
+
+        # f_gfa.close()
         f_colors.close()
 
     logger.info('Total bubbles: %d', total_bubbles)
@@ -109,19 +114,21 @@ def parse_tag(s):
     else:
         assert False
 
-
-def decompose_and_order(graph, component, bo_start=0):
+def decompose_and_order(graph, component, component_name, bo_start=0):
     """
     This function takes the graph and a component
     detects all biconnected components, order the scaffold nodes and starts ordering
     """
-    logger.info(f" Input graph: {len(component)} nodes")
+    logger.info(f" Input component: {len(component)} nodes")
+    logger.info(f" Finding Biconnected Components of the component {component_name}")
     if len(component) == 1:
         node = list(component)[0]
         return component, set(), {node: (bo_start, 0)}, bo_start + 1, 0
-    logger.info(f" Finding Biconnected Components of the component")
+
+    new_graph = graph.graph_from_comp(component)
     start = time.perf_counter()
-    all_biccs, artic_points = graph.biccs()
+    all_biccs, artic_points = new_graph.biccs()
+    logger.info(f" It took {time.perf_counter() - start} seconds to find the Biconnected Components")
     bubbles = []
     scaffold_graph = GFA()
     scaffold_node_types = dict()
@@ -131,6 +138,12 @@ def decompose_and_order(graph, component, bo_start=0):
     inside_nodes = set()
 
     for bc in all_biccs:
+        # these two lines take up around 70% of the time spent in this function
+        # we need to find a better way I think
+        # I think I can remove the artic point and keep the inside from the biccs function
+        # I can do it before putting all the articulation points in a list
+        # import pdb
+        # pdb.set_trace()
         bc_inside_nodes = bc.difference(artic_points)
         bc_end_nodes = bc.intersection(artic_points)
         inside_nodes.update(bc_inside_nodes)
@@ -147,7 +160,7 @@ def decompose_and_order(graph, component, bo_start=0):
             scaffold_node_types[str(bubble_index)] = 'b'
             for end_node in bc_end_nodes:
                 scaffold_graph.add_edge(end_node, "+", str(bubble_index), "+", 0)
-    logger.info(f" It took {time.perf_counter() - start} seconds to find the Biconnected Components")
+    
     logger.info('  Bubbles: %d', len(bubbles))
     logger.info('  Scaffold graph: %d nodes', len(scaffold_graph))
 
@@ -156,16 +169,21 @@ def decompose_and_order(graph, component, bo_start=0):
     degree_two = [x.id for x in scaffold_graph.nodes.values() if len(x.neighbors()) == 2]
 
     # Perform DFS traversal
-    assert len(degree_one) == 2
+    try:
+        assert len(degree_one) == 2
+    except AssertionError:
+        import pdb
+        pdb.set_trace()
+
     assert len(degree_two) == len(scaffold_graph) - 2
     traversal = scaffold_graph.dfs(degree_one[0])
 
 
     traversal_scaffold_only = [node_name for node_name in traversal if scaffold_node_types[node_name] == 's']
     # check that all scaffold nodes carry the same sequence name (SN), i.e. all came for the linear reference
-    assert len(set(graph[n].tags['SN'] for n in  traversal_scaffold_only)) == 1
+    assert len(set(new_graph[n].tags['SN'] for n in  traversal_scaffold_only)) == 1
     # I save tags as key:(type, value), so "SO":(i, '123')
-    coordinates = list(int(graph[n].tags['SO'][1]) for n in  traversal_scaffold_only)
+    coordinates = list(int(new_graph[n].tags['SO'][1]) for n in  traversal_scaffold_only)
 
     # make sure to that the traversal is in ascending order
     if coordinates[0] > coordinates[-1]:

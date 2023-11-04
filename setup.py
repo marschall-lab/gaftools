@@ -47,7 +47,6 @@ else:
     cmdclass = {"build_ext": BuildExt}
     ext_modules = extensions
     install_requires = [
-        "networkx",
         "pyfaidx",
         "pysam",
         "pywfa",
