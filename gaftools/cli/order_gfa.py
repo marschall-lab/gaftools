@@ -24,7 +24,6 @@ def run_order_gfa(
 
     logger.info(f"Reading {gfa_filename}")
     graph = GFA(gfa_filename, low_memory=True)
-
     # the __str__ functions print the number of nodes and edges
     logger.info("The graph has:")
     logger.info(graph.__str__())
@@ -58,13 +57,10 @@ def run_order_gfa(
 
         total_bubbles += bubble_count
 
-        # to adjust later to write according to the GFA I have
-        # I still need to deal with the edge tags, I am not sure if the tags
-        # hold when reversing the direction of the edge, so at the moment
-        # the edge tags are being lost
         for node_name in sorted(component_nodes):
             node = graph.nodes[node_name]
             bo_tag, no_tag = node_order[node_name]
+
             node.tags['BO'] = ("i", bo_tag)
             node.tags['NO'] = ("i", no_tag)
             # f_gfa.write(node.to_gfa_line() + '\n')
@@ -75,20 +71,10 @@ def run_order_gfa(
                 color = 'blue'
             else:
                 color = 'gray'
-            f_colors.write('{},{},{},{},{},{}\n'.format(node_name,color,node.tags['SN'], node.tags['SO'], bo_tag, no_tag))
+            f_colors.write('{},{},{},{},{},{}\n'.format(node_name,color,node.tags['SN'][1], node.tags['SO'][1], bo_tag, no_tag))
 
         graph.write_gfa(set_of_nodes=component_nodes, output_file=f_gfa, append=False)
 
-        # if gfa_filename.endswith("gz"):
-        #     infile = gzip.open(gfa_filename, 'rt')
-        # else:
-        #     infile = open(gfa_filename, "r")
-        # for l in infile:
-        #     if l.startswith("L"):
-        #         f_gfa.write(l)
-        # infile.close()
-
-        # f_gfa.close()
         f_colors.close()
 
     logger.info('Total bubbles: %d', total_bubbles)
@@ -138,12 +124,7 @@ def decompose_and_order(graph, component, component_name, bo_start=0):
     inside_nodes = set()
 
     for bc in all_biccs:
-        # these two lines take up around 70% of the time spent in this function
-        # we need to find a better way I think
-        # I think I can remove the artic point and keep the inside from the biccs function
-        # I can do it before putting all the articulation points in a list
-        # import pdb
-        # pdb.set_trace()
+
         bc_inside_nodes = bc.difference(artic_points)
         bc_end_nodes = bc.intersection(artic_points)
         inside_nodes.update(bc_inside_nodes)
@@ -178,7 +159,6 @@ def decompose_and_order(graph, component, component_name, bo_start=0):
     assert len(degree_two) == len(scaffold_graph) - 2
     traversal = scaffold_graph.dfs(degree_one[0])
 
-
     traversal_scaffold_only = [node_name for node_name in traversal if scaffold_node_types[node_name] == 's']
     # check that all scaffold nodes carry the same sequence name (SN), i.e. all came for the linear reference
     assert len(set(new_graph[n].tags['SN'] for n in  traversal_scaffold_only)) == 1
@@ -198,10 +178,10 @@ def decompose_and_order(graph, component, component_name, bo_start=0):
     for node in traversal:
         node_type = scaffold_node_types[node]
         if node_type == 's':
-            node_order[node] = (bo,0)
+            node_order[node] = (bo, 0)
         elif node_type == 'b':
             for i, n in enumerate(sorted(bubbles[int(node)])):
-                node_order[n] = (bo,i+1)
+                node_order[n] = (bo, i+1)
         else:
             assert False
         bo += 1

@@ -20,10 +20,13 @@ def test_order_gfa(tmp_path):
     graph1 = GFA('tests/data/smallgraph-ordered.gfa', low_memory=True)
     graph2 = GFA(output_gfa, low_memory=True)
     assert graph1.is_equal_to(graph2)
-    # input_lines =  [l.split("\t") for l in open(input_gfa)]
-    # output_lines = [l.split("\t") for l in open(output_gfa)]
-    # assert len(input_lines) == len(output_lines)
 
-    # for input_line, output_line in zip(input_lines, output_lines):
-    #     pdb.set_trace()
-    #     assert input_line[0] == output_line[0]
+    # testing the output CSV file that it makes sense
+    csv_file = []
+
+    with open(str(tmp_path) + '/smallgraph-chr1.csv', "r") as infile:
+        for l in infile:
+            if l.startswith("Name"):
+                assert l == "Name,Color,SN,SO,BO,NO\n"
+            if l.startswith("s9"):
+                assert l == "s9,blue,chr1,18093,8,2\n"

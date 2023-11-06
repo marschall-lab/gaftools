@@ -141,10 +141,11 @@ class GFA:
     """
     Graph object containing the important information about the graph
     """
-    __slots__ = ['nodes', 'low_memory']
+    __slots__ = ['nodes', 'low_memory', 'edge_tags']
 
     def __init__(self, graph_file=None, low_memory=False):
         self.nodes = dict()
+        self.edge_tags = dict()
         self.low_memory = low_memory
         if graph_file:
             if not os.path.exists(graph_file):
@@ -272,10 +273,13 @@ class GFA:
 
 
 
-    def add_edge(self, node1, node1_dir, node2, node2_dir, overlap=0):
+    def add_edge(self, node1, node1_dir, node2, node2_dir, overlap, tags=None):
         assert node1_dir in {"+", "-"}
         assert node2_dir in {"+", "-"}
+
         node1_dir, node2_dir = E_DIR[(node1_dir, node2_dir)]
+        if tags:
+            self.edge_tags[(node1, node1_dir, node2, node2_dir)] = tags
         if node1_dir == 0:
             self[node1].add_from_start(node2, node2_dir, overlap)
         else:
@@ -285,6 +289,7 @@ class GFA:
             self[node2].add_from_start(node1, node1_dir, overlap)
         else:
             self[node2].add_from_end(node1, node1_dir, overlap)
+
 
     def remove_lonely_nodes(self):
         """
@@ -356,7 +361,7 @@ class GFA:
         for e in edges:
             e = e.strip().split("\t")
             assert len(e) >= 6  # must be at least 6 columns (L id1 dir1 id2 dir2 overlap)
-            # TODO: for now ignoring the edge tags, need to deal with this at some point
+            e_tags = e[6:]
             e = e[1:6]
             try:
                 e[4] = int(e[4][:-1])  # getting overlap
@@ -365,7 +370,7 @@ class GFA:
             # skip an edge if the node is not there
             if e[0] not in self or e[2] not in self:
                 continue
-            self.add_edge(*e)
+            self.add_edge(*e, e_tags)
 
     def write_gfa(self, set_of_nodes=None, output_file="output_file.gfa", append=False):
         """
@@ -396,14 +401,6 @@ class GFA:
                 continue
 
             line = self.nodes[n1].to_gfa_line()
-            # if self.nodes[n1].tags:
-            #     tags = []
-            #     for tag_name, value in self.nodes[n1].optional.items():
-            #         tags.append(f"{tag_name}:{value[0]:{value[1]}}")
-            #     line = str("\t".join(["S", str(n1), self.nodes[n1].seq, "\t".join(tags)]))
-            #     # line = str("\t".join(("S", str(n1), nodes[n1].seq, nodes[n1].optional)))
-            # else:
-            #     line = str("\t".join(["S", str(n1), self.nodes[n1].seq + "\n"]))
 
             f.write(line+"\n")
 
@@ -411,30 +408,42 @@ class GFA:
             edges = []
             # overlap = str(graph.k - 1) + "M\n"
 
+
             for n in self.nodes[n1].start:
-                overlap = str(n[2]) + "M\n"
+                overlap = str(n[2]) + "M"
 
                 if n[0] in set_of_nodes:
-                    if n[1] == 0:
-                        edge = str("\t".join(("L", str(n1), "-", str(n[0]), "+", overlap)))
-                        edges.append(edge)
-                    else:
-                        edge = str("\t".join(("L", str(n1), "-", str(n[0]), "-", overlap)))
-                        edges.append(edge)
+                    try:
+                        tags = self.edge_tags[(n1, 0, n[0], n[1])]
+                    except KeyError:
+                        tags = []
+                    if tags:
+
+                        if n[1] == 0:
+                            edge = str("\t".join(["L", str(n1), "-", str(n[0]), "+", overlap] + tags))
+                            edges.append(edge)
+                        else:
+                            edge = str("\t".join(["L", str(n1), "-", str(n[0]), "-", overlap] + tags))
+                            edges.append(edge)
 
             for n in self.nodes[n1].end:
-                overlap = str(n[2]) + "M\n"
+                overlap = str(n[2]) + "M"
 
                 if n[0] in set_of_nodes:
-                    if n[1] == 0:
-                        edge = str("\t".join(("L", str(n1), "+", str(n[0]), "+", overlap)))
-                        edges.append(edge)
-                    else:
-                        edge = str("\t".join(("L", str(n1), "+", str(n[0]), "-", overlap)))
-                        edges.append(edge)
+                    try:
+                        tags = self.edge_tags[(n1, 1, n[0], n[1])]
+                    except KeyError:
+                        tags = []
+                    if tags:
+                        if n[1] == 0:
+                            edge = str("\t".join(["L", str(n1), "+", str(n[0]), "+", overlap] + tags))
+                            edges.append(edge)
+                        else:
+                            edge = str("\t".join(["L", str(n1), "+", str(n[0]), "-", overlap] + tags))
+                            edges.append(edge)
 
             for e in edges:
-                f.write(e)
+                f.write(e + "\n")
 
         f.close()
 
