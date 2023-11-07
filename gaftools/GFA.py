@@ -301,7 +301,8 @@ class GFA:
 
     def write_graph(self, set_of_nodes=None,
                     output_file="output_graph.gfa",
-                    append=False):
+                    append=False,
+                    order_bo=False):
         """
         writes a graph file as GFA
         Can be given a set of nodes to only write those nodes with their edges
@@ -311,7 +312,7 @@ class GFA:
             output_file += ".gfa"
         # print("I am here")
         self.write_gfa(self, set_of_nodes=set_of_nodes, output_file=output_file, 
-            append=append)
+            append=append, order_bo=order_bo)
 
     def output_components(self, output_dir):
         """
@@ -372,7 +373,7 @@ class GFA:
                 continue
             self.add_edge(*e, e_tags)
 
-    def write_gfa(self, set_of_nodes=None, output_file="output_file.gfa", append=False):
+    def write_gfa(self, set_of_nodes=None, output_file="output_file.gfa", append=False, order_bo=False):
         """
         Write a gfa out
 
@@ -381,10 +382,12 @@ class GFA:
         :param output_file: path to output file
         :param append: if I want to append to a file instead of rewriting it
         """
-        # nodes = self.nodes
 
-        if set_of_nodes is None:
+        if set_of_nodes is None:  # no subgroup of nodes given, then all nodes are outputted
             set_of_nodes = self.nodes.keys()
+
+        if order_bo:
+            set_of_nodes = sorted(list(self.nodes.keys()), key=lambda x: int(self.nodes[x].tags['BO'][1]))
 
         if append is False:
             f = open(output_file, "w+")
@@ -407,7 +410,6 @@ class GFA:
             # writing edges
             edges = []
             # overlap = str(graph.k - 1) + "M\n"
-
 
             for n in self.nodes[n1].start:
                 overlap = str(n[2]) + "M"

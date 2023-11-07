@@ -56,7 +56,6 @@ def run_order_gfa(
         scaffold_nodes, inside_nodes, node_order, bo, bubble_count = decompose_and_order(graph, component_nodes, chromosome, bo)
 
         total_bubbles += bubble_count
-
         for node_name in sorted(component_nodes):
             node = graph.nodes[node_name]
             bo_tag, no_tag = node_order[node_name]
@@ -73,7 +72,7 @@ def run_order_gfa(
                 color = 'gray'
             f_colors.write('{},{},{},{},{},{}\n'.format(node_name,color,node.tags['SN'][1], node.tags['SO'][1], bo_tag, no_tag))
 
-        graph.write_gfa(set_of_nodes=component_nodes, output_file=f_gfa, append=False)
+        graph.write_gfa(set_of_nodes=component_nodes, output_file=f_gfa, append=False, order_bo=True)
 
         f_colors.close()
 
@@ -124,7 +123,6 @@ def decompose_and_order(graph, component, component_name, bo_start=0):
     inside_nodes = set()
 
     for bc in all_biccs:
-
         bc_inside_nodes = bc.difference(artic_points)
         bc_end_nodes = bc.intersection(artic_points)
         inside_nodes.update(bc_inside_nodes)
@@ -150,12 +148,7 @@ def decompose_and_order(graph, component, component_name, bo_start=0):
     degree_two = [x.id for x in scaffold_graph.nodes.values() if len(x.neighbors()) == 2]
 
     # Perform DFS traversal
-    try:
-        assert len(degree_one) == 2
-    except AssertionError:
-        import pdb
-        pdb.set_trace()
-
+    assert len(degree_one) == 2
     assert len(degree_two) == len(scaffold_graph) - 2
     traversal = scaffold_graph.dfs(degree_one[0])
 
