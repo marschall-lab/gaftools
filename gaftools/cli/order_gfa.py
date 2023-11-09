@@ -62,7 +62,6 @@ def run_order_gfa(
 
             node.tags['BO'] = ("i", bo_tag)
             node.tags['NO'] = ("i", no_tag)
-            # f_gfa.write(node.to_gfa_line() + '\n')
 
             if node_name in scaffold_nodes:
                 color = 'orange'

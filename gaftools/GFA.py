@@ -373,6 +373,27 @@ class GFA:
                 continue
             self.add_edge(*e, e_tags)
 
+    def sort_bo_no(self, set_of_nodes):
+        """
+        sorts the set_of_nodes based on the BO and NO tags and returns a sorted list
+        """
+        separate_bubbles = dict()
+        for n in set_of_nodes:
+            if self[n].tags['BO'][1] not in separate_bubbles:
+                separate_bubbles[self[n].tags['BO'][1]] = [n]
+            else:
+                separate_bubbles[self[n].tags['BO'][1]].append(n)
+        bo_ids = []
+        for bo, n_list in separate_bubbles.items():
+            bo_ids.append(bo)
+            separate_bubbles[bo] = sorted(separate_bubbles[bo], key=lambda x: int(self.nodes[x].tags['NO'][1]))  # sorting the BO bucket by NO
+
+        sorted_set_of_nodes = []
+        for bo in sorted(bo_ids):
+            for n_id in separate_bubbles[bo]:
+                sorted_set_of_nodes.append(n_id)
+        return sorted_set_of_nodes
+
     def write_gfa(self, set_of_nodes=None, output_file="output_file.gfa", append=False, order_bo=False):
         """
         Write a gfa out
@@ -387,7 +408,8 @@ class GFA:
             set_of_nodes = self.nodes.keys()
 
         if order_bo:
-            set_of_nodes = sorted(list(self.nodes.keys()), key=lambda x: int(self.nodes[x].tags['BO'][1]))
+            # sorts first by BO then each BO gets sorted by NO
+            sorted_set_of_nodes = self.sort_bo_no(set_of_nodes)
 
         if append is False:
             f = open(output_file, "w+")
@@ -398,7 +420,7 @@ class GFA:
                 logging.warning("Trying to append to a non-existent file\n"
                                 "creating an output file")
                 f = open(output_file, "w+")
-        for n1 in set_of_nodes:
+        for n1 in sorted_set_of_nodes:
             if n1 not in self.nodes:
                 logging.warning("Node {} does not exist in the graph, skipped in output".format(n1))
                 continue
