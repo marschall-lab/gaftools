@@ -584,6 +584,41 @@ class GFA:
                 return False
         return True
 
+    def list_is_path(self, node_list):
+        """
+        check if a list of nodes create a linear path
+        """
+        for i in range(1, len(node_list)):
+            current_node = node_list[i]
+            previous_node = node_list[i-1]
+            if current_node in self.nodes[previous_node].neighbors():
+                continue
+            else:  # some node is not connected to another node in the path
+                return False
+        return True
+
+    def get_path(self, chrom):
+        """
+        takes a chromosome name (matching the SN tag) and returns the path of that chromosome
+        """
+        # get all nodes with chrom
+        nodes_of_chrom = []
+        for n in self.nodes:
+            if "SN" in self[n].tags:
+                if self[n].tags["SN"][1] == chrom:
+                    nodes_of_chrom.append(n)
+            else:
+                logging.warning(f"Not able to get path for {chrom}, because node {n} doesn't have an SN tag. Stopping! Returning empty list")
+                return list()
+        # sorting based on SO tags, so we get start to end of chromosome
+        sorted_nodes = sorted(nodes_of_chrom, key=lambda x: int(self.nodes[x].tags['SO'][1]))
+        # this sorted list should be a path already spelling the chromosome
+        if self.list_is_path(sorted_nodes):
+            return sorted_nodes
+        else:
+            logging.warning(f"The sorted nodes with SN tag {chrom} did not create a linear path. Stopping! Returning empty list")
+            return list()
+
     def extract_path(self, path):
         """
         returns the sequences representing that path
