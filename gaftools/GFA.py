@@ -64,16 +64,16 @@ class Node:
         neighbors = [x[0] for x in self.start] + [x[0] for x in self.end]
         return sorted(neighbors)
 
-    def in_direction(self, node, direction):
+    def in_direction(self, other, direction):
         """
-        returns true if node is a neighbor in that direction, false otherwise
+        returns true if other is a neighbor in that direction, false otherwise
         """
         if direction == 0:
-            if node in [x[0] for x in self.start]:
+            if other in [x[0] for x in self.start]:
                 return True
             return False
         elif direction == 1:
-            if node in [x[0] for x in self.end]:
+            if other in [x[0] for x in self.end]:
                 return True
             return False
         else:
@@ -596,6 +596,31 @@ class GFA:
             else:  # some node is not connected to another node in the path
                 return False
         return True
+
+    def return_gaf_path(self, list_of_nodes):
+        """
+        Given a list of nodes that create a path, returns a string formatted similar to GFA paths
+        """
+
+        # I am assuming the list_of_nodes came from get_path, so it's already been checked that it's a correct sorted path
+        path = []
+
+        for i in range(len(list_of_nodes) - 1):
+            if self.nodes[list_of_nodes[i]].in_direction(list_of_nodes[i+1], 1):
+                path.append(list_of_nodes[i] + "+")
+            elif self.nodes[list_of_nodes[i]].in_direction(list_of_nodes[i+1], 0):
+                path.append(list_of_nodes[i] + "-")
+            else:
+                raise ValueError("Something went wrong in returning a gaf path format")
+
+        if self.nodes[list_of_nodes[-1]].in_direction(list_of_nodes[-2], 0):
+            path.append(list_of_nodes[-1] + "+")
+        elif self.nodes[list_of_nodes[-1]].in_direction(list_of_nodes[-2], 1):
+            path.append(list_of_nodes[-1] + "-")
+        else:
+            raise ValueError("Something went wrong in returning a gaf path format")
+
+        return ",".join(path)
 
     def get_path(self, chrom):
         """
