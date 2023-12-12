@@ -597,7 +597,7 @@ class GFA:
                 return False
         return True
 
-    def return_gaf_path(self, list_of_nodes):
+    def return_gfa_path(self, list_of_nodes):
         """
         Given a list of nodes that create a path, returns a string formatted similar to GFA paths
         """
