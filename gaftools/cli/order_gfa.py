@@ -3,6 +3,7 @@ Adds BO and NO tags to GFA
 """
 
 import sys
+import os
 import logging
 import gzip
 import time
@@ -22,6 +23,9 @@ def run_order_gfa(
 
     chromosome_order = chromosome_order.split(sep=",")
 
+    if not os.path.isdir(outdir):
+        logging.error(f"The directory {outdir} does not exist")
+        sys.exit()
     logger.info(f"Reading {gfa_filename}")
     graph = GFA(gfa_filename, low_memory=True)
     # the __str__ functions print the number of nodes and edges
@@ -40,7 +44,7 @@ def run_order_gfa(
         logger.info(f"  Expected: {','.join(chromosome_order)}")
         logger.info(f"  Found: {','.join(sorted(components.keys()))}")
         sys.exit(1)
-
+     
     # running index for the bubble index (BO) already used
     bo = 0
     total_bubbles = 0

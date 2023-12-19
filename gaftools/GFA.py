@@ -5,7 +5,6 @@ import re
 import os
 from gaftools.utils import rev_comp, is_correct_tag
 
-
 E_DIR = {("+", "+"): (1, 0), ("+", "-"): (1, 1), ("-", "+"): (0, 0), ("-", "-"): (0, 1)}
 
 class Node:
