@@ -63,11 +63,11 @@ def run_sort(gfa, gaf, outgaf=None, outind=None, bgzip=False):
     logger.info("\nMemory Information")
     logger.info("  Maximum memory usage: %.3f GB", memory_kb / 1e6)
     logger.info("\nTime Summary:")
-    logger.info("  Time to parse GFA file: %.3f"%(timers.elapsed("read_gfa")))
-    logger.info("  Total time to sort GAF file: %.3f"%(timers.elapsed("total_sort")))
-    logger.info("    Time to parse GAF file: %.3f"%(timers.elapsed("read_gaf")))
-    logger.info("    Time to sort GAF file: %.3f"%(timers.elapsed("sort_gaf")))
-    logger.info("    Time to write GAF file: %.3f"%(timers.elapsed("write_gaf")))
+    logger.info("  Time to parse GFA file: %.3f seconds"%(timers.elapsed("read_gfa")))
+    logger.info("  Total time to sort GAF file: %.3f seconds"%(timers.elapsed("total_sort")))
+    logger.info("    Time to parse GAF file: %.3f seconds"%(timers.elapsed("read_gaf")))
+    logger.info("    Time to sort GAF file: %.3f seconds"%(timers.elapsed("sort_gaf")))
+    logger.info("    Time to write GAF file: %.3f seconds"%(timers.elapsed("write_gaf")))
     
 
 def sort(gaf, nodes, writer, index_dict, index_file):
@@ -97,7 +97,7 @@ def sort(gaf, nodes, writer, index_dict, index_file):
                 count_inverse += 1
             gaf_alignments.append(Alignment(offset=offset, BO=bo, NO=no, start=start, inv=inv, sn=sn))
     
-    logger.info("\tNumber of alignments with invertions: %d"%(count_inverse))
+    logger.info("\tNumber of alignments with inversions: %d"%(count_inverse))
     # Sorting the alignments based on BO and NO tag
     with timers("sort_gaf"):
         logger.info("\tSorting the alignments...")
