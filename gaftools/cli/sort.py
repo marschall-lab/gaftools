@@ -36,7 +36,7 @@ from collections import defaultdict, namedtuple
 logger = logging.getLogger(__name__)
 timers = StageTimer()
 
-def run(gfa, gaf, outgaf=None, outind=None, bgzip=False):
+def run_sort(gfa, gaf, outgaf=None, outind=None, bgzip=False):
     
     if outgaf == None:
         writer = sys.stdout
@@ -109,7 +109,13 @@ def sort(gaf, nodes, writer, index_dict, index_file):
         for alignment in gaf_alignments:
             off = alignment.offset
             reader.seek(off)
-            line = reader.readline().rstrip()
+            line = reader.readline()
+            if type(line) == bytes:
+                line = line.decode('utf-8').rstrip()
+            elif type(line) == str:
+                line = line.rstrip()
+            else:
+                raise RuntimeError('GAF alignments not in string or byte format.')
             line += "\tbo:i:%d\tsn:Z:%s\tiv:i:%d\n"%(alignment.BO, alignment.sn, alignment.inv)
             if index_file != None:
                 out_off = writer.tell()
@@ -387,4 +393,4 @@ def validate(args, parser):
         parser.error("index path specified but no output gaf path. Please provide an output path.")
     
 def main(args):
-    run(**vars(args))
+    run_sort(**vars(args))
