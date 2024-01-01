@@ -4,6 +4,7 @@ test_files/
 venv/
 *.pyc
 *~
+tests/
 .*.kate-swp
 .snakemake/
 ^data/

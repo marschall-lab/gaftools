@@ -7,7 +7,7 @@ import os
 import logging
 import gzip
 import time
-from collections import namedtuple, defaultdict, Counter
+from collections import namedtuple, defaultdict
 from gaftools.GFA import GFA
 from argparse import ArgumentParser
 
@@ -184,6 +184,17 @@ def decompose_and_order(graph, component, component_name, bo_start=0):
     return artic_points, inside_nodes, node_order, bo, len(bubbles)
 
 
+def count_sn(graph, comp):
+    """
+    counts which SN tag is the majority in that chromosome to name the chromosome accordingly
+    """
+    counts = defaultdict(int)
+    for n in comp:
+        if not "SN" in graph[n].tags:
+            continue
+        counts[graph[n].tags["SN"][1]] += 1
+    return counts
+
 def name_comps(graph, components):
     """
     the graph is GFA object and components is a list of sets of the node ids of each component
@@ -192,7 +203,7 @@ def name_comps(graph, components):
     named_comps = dict()
     current_tag = ""
     for comp in components:
-        counts = Counter([graph[n].tags["SN"][1] for n in comp])
+        counts = count_sn(graph, comp)
         most_freq = 0
         for tag, count in counts.items():
             if most_freq <= count:
