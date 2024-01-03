@@ -44,14 +44,7 @@ def run_order_gfa(
                 logger.info(f"The chromosome name provided {c} did not match with a component in the graph")
                 logger.info(f" What was Found: {','.join(sorted(components.keys()))}")
                 sys.exit(1)
-                
-        # if set(components.keys()) == set(chromosome_order):
-        #     logger.info("Found one connected component per expected chromosome.")
-        # else:
-        #     logger.info("Chromosome set mismatch:")
-        #     logger.info(f"  Expected: {','.join(chromosome_order)}")
-        #     logger.info(f"  Found: {','.join(sorted(components.keys()))}")
-        #     sys.exit(1)
+
     else:  # user did not give a list
         chromosome_order = set(components.keys())
     # running index for the bubble index (BO) already used
@@ -82,7 +75,11 @@ def run_order_gfa(
                 color = 'blue'
             else:
                 color = 'gray'
-            f_colors.write('{},{},{},{},{},{}\n'.format(node_name,color,node.tags['SN'][1], node.tags['SO'][1], bo_tag, no_tag))
+            if "SN" in node.tags:
+                sn_tag = node.tags['SN'][1]
+            else:
+                sn_tag = "NA"
+            f_colors.write('{},{},{},{},{},{}\n'.format(node_name,color,sn_tag, node.tags['SO'][1], bo_tag, no_tag))
 
         graph.write_gfa(set_of_nodes=component_nodes, output_file=f_gfa, append=False, order_bo=True)
 
