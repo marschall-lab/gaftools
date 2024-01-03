@@ -11,7 +11,7 @@ from collections import namedtuple, defaultdict
 from gaftools.GFA import GFA
 from argparse import ArgumentParser
 
-default_chromosome_order = 'chr1,chr2,chr3,chr4,chr5,chr6,chr7,chr8,chr9,chr10,chr11,chr12,chr13,chr14,chr15,chr16,chr17,chr18,chr19,chr20,chr21,chr22,chrX,chrY,chrM'
+# default_chromosome_order = 'chr1,chr2,chr3,chr4,chr5,chr6,chr7,chr8,chr9,chr10,chr11,chr12,chr13,chr14,chr15,chr16,chr17,chr18,chr19,chr20,chr21,chr22,chrX,chrY,chrM'
 logger = logging.getLogger(__name__)
 
 def run_order_gfa(
@@ -21,7 +21,8 @@ def run_order_gfa(
     with_sequence=False,
 ):
 
-    chromosome_order = chromosome_order.split(sep=",")
+    if not chromosome_order == "":
+        chromosome_order = chromosome_order.split(sep=",")
 
     if not os.path.isdir(outdir):
         logging.error(f"The directory {outdir} does not exist")
@@ -37,14 +38,22 @@ def run_order_gfa(
     # name_comps checks the most frequent SN tag for the node in the component
     # and returns a dict of chromosome_name: {nodes...}
     components = name_comps(graph, components)
-    if set(components.keys()) == set(chromosome_order):
-        logger.info("Found one connected component per expected chromosome.")
-    else:
-        logger.info("Chromosome set mismatch:")
-        logger.info(f"  Expected: {','.join(chromosome_order)}")
-        logger.info(f"  Found: {','.join(sorted(components.keys()))}")
-        sys.exit(1)
-     
+    if not chromosome_order == "":  # user gave a list
+        for c in chromosome_order:
+            if c not in set(components.keys()):
+                logger.info(f"The chromosome name provided {c} did not match with a component in the graph")
+                logger.info(f" What was Found: {','.join(sorted(components.keys()))}")
+                sys.exit(1)
+                
+        # if set(components.keys()) == set(chromosome_order):
+        #     logger.info("Found one connected component per expected chromosome.")
+        # else:
+        #     logger.info("Chromosome set mismatch:")
+        #     logger.info(f"  Expected: {','.join(chromosome_order)}")
+        #     logger.info(f"  Found: {','.join(sorted(components.keys()))}")
+        #     sys.exit(1)
+    else:  # user did not give a list
+        chromosome_order = set(components.keys())
     # running index for the bubble index (BO) already used
     bo = 0
     total_bubbles = 0
@@ -216,7 +225,7 @@ def name_comps(graph, components):
 
 def add_arguments(parser):
     arg = parser.add_argument
-    arg('--chromosome_order', default=default_chromosome_order,
+    arg('--chromosome_order', default="",
         help='Order in which to arrange chromosomes in terms of BO sorting. '
         'Expecting comma-separated list. Default: chr1,...,chr22,chrX,chrY,chrM')
     arg('--with-sequence', default=False, action='store_true',
