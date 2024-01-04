@@ -75,11 +75,17 @@ def run_order_gfa(
                 color = 'blue'
             else:
                 color = 'gray'
+
+            # Needs to be replaced by a better design later
             if "SN" in node.tags:
                 sn_tag = node.tags['SN'][1]
             else:
                 sn_tag = "NA"
-            f_colors.write('{},{},{},{},{},{}\n'.format(node_name,color,sn_tag, node.tags['SO'][1], bo_tag, no_tag))
+            if "SO" in node.tags:
+                so_tag = node.tags['SO'][1]
+            else:
+                so_tag = "NA"
+            f_colors.write('{},{},{},{},{},{}\n'.format(node_name,color,sn_tag, so_tag, bo_tag, no_tag))
 
         graph.write_gfa(set_of_nodes=component_nodes, output_file=f_gfa, append=False, order_bo=True)
 

@@ -260,7 +260,7 @@ class GFA:
             # adding the extra tags if any to the node object
             for tag in tags:
                 if not is_correct_tag(tag):
-                    raise ValueError(f"The tag {tag} did not match the specifications, check sam specification on tags")
+                    raise ValueError(f"The tag {tag} for node {node_id} did not match the specifications, check sam specification on tags")
                 tag = tag.split(":")
                 # I am adding the tags as key:value, key is tag_name:type and value is the value at the end
                 # e.g. SN:i:10 will be {"SN:i": 10}
