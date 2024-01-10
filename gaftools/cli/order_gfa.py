@@ -55,41 +55,45 @@ def run_order_gfa(
         component_nodes = components[chromosome]
         # Initialize files
         # f_gfa = open(outdir+'/'+gfa_filename.split("/")[-1][:-4]+'-'+chromosome+'.gfa', 'w')
-        f_gfa = outdir+'/'+gfa_filename.split("/")[-1][:-4]+'-'+chromosome+'.gfa'
-        f_colors = open(outdir+'/'+gfa_filename.split("/")[-1][:-4]+'-'+chromosome+'.csv', 'w')
-        f_colors.write('Name,Color,SN,SO,BO,NO\n')
 
         scaffold_nodes, inside_nodes, node_order, bo, bubble_count = decompose_and_order(graph, component_nodes, chromosome, bo)
+        # skip a chromosome if something went wrong
+        if scaffold_nodes:
+            f_gfa = outdir+'/'+gfa_filename.split("/")[-1][:-4]+'-'+chromosome+'.gfa'
+            f_colors = open(outdir+'/'+gfa_filename.split("/")[-1][:-4]+'-'+chromosome+'.csv', 'w')
+            f_colors.write('Name,Color,SN,SO,BO,NO\n')
+            total_bubbles += bubble_count
+            for node_name in sorted(component_nodes):
+                node = graph.nodes[node_name]
+                bo_tag, no_tag = node_order[node_name]
 
-        total_bubbles += bubble_count
-        for node_name in sorted(component_nodes):
-            node = graph.nodes[node_name]
-            bo_tag, no_tag = node_order[node_name]
+                node.tags['BO'] = ("i", bo_tag)
+                node.tags['NO'] = ("i", no_tag)
 
-            node.tags['BO'] = ("i", bo_tag)
-            node.tags['NO'] = ("i", no_tag)
+                if node_name in scaffold_nodes:
+                    color = 'orange'
+                elif node_name in inside_nodes:
+                    color = 'blue'
+                else:
+                    color = 'gray'
 
-            if node_name in scaffold_nodes:
-                color = 'orange'
-            elif node_name in inside_nodes:
-                color = 'blue'
-            else:
-                color = 'gray'
+                # Needs to be replaced by a better design later
+                if "SN" in node.tags:
+                    sn_tag = node.tags['SN'][1]
+                else:
+                    sn_tag = "NA"
+                if "SO" in node.tags:
+                    so_tag = node.tags['SO'][1]
+                else:
+                    so_tag = "NA"
+                f_colors.write('{},{},{},{},{},{}\n'.format(node_name,color,sn_tag, so_tag, bo_tag, no_tag))
 
-            # Needs to be replaced by a better design later
-            if "SN" in node.tags:
-                sn_tag = node.tags['SN'][1]
-            else:
-                sn_tag = "NA"
-            if "SO" in node.tags:
-                so_tag = node.tags['SO'][1]
-            else:
-                so_tag = "NA"
-            f_colors.write('{},{},{},{},{},{}\n'.format(node_name,color,sn_tag, so_tag, bo_tag, no_tag))
+            graph.write_gfa(set_of_nodes=component_nodes, output_file=f_gfa, append=False, order_bo=True)
 
-        graph.write_gfa(set_of_nodes=component_nodes, output_file=f_gfa, append=False, order_bo=True)
+            f_colors.close()
 
-        f_colors.close()
+        else:
+            logger.warning(f"Chromosome {chromosome} was skipped")
 
     logger.info('Total bubbles: %d', total_bubbles)
 
@@ -146,14 +150,14 @@ def decompose_and_order(graph, component, component_name, bo_start=0):
             assert len(bc_end_nodes) == 2
             node1, node2 = tuple(bc_end_nodes)
             scaffold_graph.add_edge(node1, "+", node2, "+", 0)
-            # scaffold_graph.add_edge(('s',node1), ('s',node2))
+
         else:
             bubble_index = len(bubbles)
             bubbles.append(bc_inside_nodes)
             scaffold_graph.add_node(str(bubble_index))
             scaffold_node_types[str(bubble_index)] = 'b'
             for end_node in bc_end_nodes:
-                scaffold_graph.add_edge(end_node, "+", str(bubble_index), "+", 0)
+                scaffold_graph.add_edge(str(bubble_index), "+", end_node, "+", 0)
     
     logger.info('  Bubbles: %d', len(bubbles))
     logger.info('  Scaffold graph: %d nodes', len(scaffold_graph))
@@ -163,8 +167,19 @@ def decompose_and_order(graph, component, component_name, bo_start=0):
     degree_two = [x.id for x in scaffold_graph.nodes.values() if len(x.neighbors()) == 2]
 
     # Perform DFS traversal
-    assert len(degree_one) == 2
-    assert len(degree_two) == len(scaffold_graph) - 2
+    try:
+        assert len(degree_one) == 2
+    except AssertionError:
+        logger.warning(f"Error: In Chromosome {component_name}, we found more or less than two nodes with degree 1. Skipping this chromosome")
+        # very hacky but for now maybe ok
+        return None, None, None, None, None
+
+    try:
+        assert len(degree_two) == len(scaffold_graph) - 2
+    except AssertionError:
+        logger.warning(f"Error: In Chromosome {component_name}, the number of nodes with degree 2 did not mach the expected number")
+        return None, None, None, None, None
+
     traversal = scaffold_graph.dfs(degree_one[0])
 
     traversal_scaffold_only = [node_name for node_name in traversal if scaffold_node_types[node_name] == 's']

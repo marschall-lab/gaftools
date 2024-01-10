@@ -409,6 +409,8 @@ class GFA:
         if order_bo:
             # sorts first by BO then each BO gets sorted by NO
             sorted_set_of_nodes = self.sort_bo_no(set_of_nodes)
+        else:
+            sorted_set_of_nodes = set_of_nodes
 
         if append is False:
             f = open(output_file, "w+")
