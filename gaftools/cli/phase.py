@@ -72,7 +72,7 @@ def add_phase_info(gaf_path, tsv_path, out_path):
             in_tsv = False
         
         if in_tsv and phase[gaf_line.query_name].haplotype != "none":
-            gaf_out.write("ps:Z:%s-%s\tht:Z:%s\t" % (phase[gaf_line.query_name].chr_name,
+            gaf_out.write("\tps:Z:%s-%s\tht:Z:%s\t" % (phase[gaf_line.query_name].chr_name,
                                         phase[gaf_line.query_name].phase_set, phase[gaf_line.query_name].haplotype))
             phased +=1
         else:
