@@ -82,7 +82,7 @@ def add_phase_info(gaf_path, tsv_path, out_path):
         for k in gaf_line.tags.keys():
             gaf_out.write("\t%s:%s"%(k,gaf_line.tags[k]))
         
-        gaf_out.write("\t%s"%gafline.cigar)
+        gaf_out.write("\t%s"%gaf_line.cigar)
     
     logger.info("INFO: Added phasing info (ps:Z and ht:Z) for %d reads out of %d GAF lines - (%d reads are missing in .tsv)" %(phased, line_count, missing_in_tsv))
 
