@@ -86,7 +86,7 @@ def add_phase_info(gaf_path, tsv_path, out_path):
     
     logger.info("INFO: Added phasing info (ps:Z and ht:Z) for %d reads out of %d GAF lines - (%d reads are missing in .tsv)" %(phased, line_count, missing_in_tsv))
 
-    gaf_file.close()
+    tsv_file.close()
     gaf_out.close()
 
 
