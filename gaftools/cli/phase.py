@@ -76,7 +76,7 @@ def add_phase_info(gaf_path, tsv_path, out_path):
                                         phase[gaf_line.query_name].phase_set, phase[gaf_line.query_name].haplotype))
             phased +=1
         else:
-            gaf_out.write("ps:Z:none\tht:Z:none")
+            gaf_out.write("\tps:Z:none\tht:Z:none")
         
 
         for k in gaf_line.tags.keys():
