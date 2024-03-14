@@ -217,7 +217,7 @@ def unstable_to_stable(gaf_path, gfa_path, out_path):
         if gz_flag:
             gfa_line = gfa_line.decode("utf-8")
         if gfa_line[0] != "S":
-            break
+            continue
         
         gfa_line = gfa_line.rstrip().split('\t')
         contig_name = [k for k in gfa_line if k.startswith("SN:Z:")][0][5:]
