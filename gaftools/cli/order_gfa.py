@@ -28,7 +28,10 @@ def run_order_gfa(
         logging.error(f"The directory {outdir} does not exist")
         sys.exit()
     logger.info(f"Reading {gfa_filename}")
-    graph = GFA(gfa_filename, low_memory=True)
+    if with_sequence:
+        graph = GFA(gfa_filename, low_memory=False)
+    else:
+        graph = GFA(gfa_filename, low_memory=True)
     # the __str__ functions print the number of nodes and edges
     logger.info("The graph has:")
     logger.info(graph.__str__())
