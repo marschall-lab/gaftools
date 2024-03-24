@@ -174,7 +174,7 @@ def decompose_and_order(graph, component, component_name, bo_start=0):
         assert len(degree_one) == 2
     except AssertionError:
         logger.warning(f"Error: In Chromosome {component_name}, we found more or less than two nodes with degree 1. Skipping this chromosome")
-        # very hacky but for now maybe ok
+        # hacky but for now maybe ok
         return None, None, None, None, None
 
     try:

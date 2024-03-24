@@ -271,7 +271,6 @@ class GFA:
             logging.warning(f"You are trying to add node {node_id} and it already exists in the graph")
 
 
-
     def add_edge(self, node1, node1_dir, node2, node2_dir, overlap, tags=None):
         assert node1_dir in {"+", "-"}
         assert node2_dir in {"+", "-"}
@@ -370,6 +369,8 @@ class GFA:
             # skip an edge if the node is not there
             if e[0] not in self or e[2] not in self:
                 continue
+            if not e_tags:
+                e_tags = [0]
             self.add_edge(*e, e_tags)
 
     def sort_bo_no(self, set_of_nodes):
@@ -436,14 +437,14 @@ class GFA:
 
             for n in self.nodes[n1].start:
                 overlap = str(n[2]) + "M"
-
                 if n[0] in set_of_nodes:
                     try:
                         tags = self.edge_tags[(n1, 0, n[0], n[1])]
                     except KeyError:
                         tags = []
                     if tags:
-
+                        if tags[0] == 0:
+                            tags = []
                         if n[1] == 0:
                             edge = str("\t".join(["L", str(n1), "-", str(n[0]), "+", overlap] + tags))
                             edges.append(edge)
@@ -460,6 +461,8 @@ class GFA:
                     except KeyError:
                         tags = []
                     if tags:
+                        if tags[0] == 0:
+                            tags = []
                         if n[1] == 0:
                             edge = str("\t".join(["L", str(n1), "+", str(n[0]), "+", overlap] + tags))
                             edges.append(edge)
