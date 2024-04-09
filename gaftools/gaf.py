@@ -53,7 +53,7 @@ def parse_gaf(filename):
         gz_flag = True
     else:
         gaf_file = open(filename,"r") 
-
+    
     for line in gaf_file:
         if not gz_flag:
             fields = line.rstrip().split('\t')
@@ -62,14 +62,33 @@ def parse_gaf(filename):
         
         #If the query name has spaces (e.g., GraphAligner), we get rid of the segment after the space
         query_name = fields[0].split(' ')[0]
-        query_length = int(fields[1])
-        query_start = int(fields[2])
-        query_end = int(fields[3])
+        if fields[1].isdigit():
+            query_length = int(fields[1])
+        else:
+            continue
+        if fields[2].isdigit():
+            query_start = int(fields[2])
+        else:
+            continue
+        if fields[3].isdigit():
+            query_end = int(fields[3])
+        else:
+            continue
         strand = fields[4]
         path = fields[5]
-        path_length = int(fields[6])
-        path_start = int(fields[7])
-        path_end = int(fields[8])
+
+        if fields[6].isdigit():
+            path_length = int(fields[6])
+        else:
+            continue
+        if fields[7].isdigit():
+            path_start = int(fields[7])
+        else:
+            continue
+        if fields[8].isdigit():
+            path_end = int(fields[8])
+        else:
+            continue
         residue_matches = int(fields[9])
         alignment_block_length = int(fields[10])
         mapping_quality = int(fields[11])
