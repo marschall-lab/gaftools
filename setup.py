@@ -46,12 +46,18 @@ if os.environ.get("READTHEDOCS") == "True":
 else:
     cmdclass = {"build_ext": BuildExt}
     ext_modules = extensions
-    install_requires = [
-        "pyfaidx",
-        "pysam",
-        "pywfa",
-        "six"
-    ]
+    install_requires = []
+    if os.path.exists("requirements.txt"):
+        with open("requirements.txt") as f:
+            for line in f:
+                install_requires.append(line.strip())
+    else:
+        install_requires = [
+            "pyfaidx",
+            "pysam",
+            "pywfa",
+            "six"
+        ]
 
 setup(
     use_scm_version={"write_to": "gaftools/_version.py"},
