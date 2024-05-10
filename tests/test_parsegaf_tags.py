@@ -2,14 +2,15 @@
 Tests for gaf.py.
 """
 
-from gaftools.gaf import parse_gaf
+from gaftools.gaf import GAF
 
 
 def test_parse_gaf_tags():
     #gaftools realign alignments.gaf smallgraph.gfa reads.fa
     
     gaf_file = open("tests/data/alignments-graphaligner.gaf", "r") 
-    gaf_file2 = list(parse_gaf("tests/data/alignments-graphaligner.gaf"))
+    gaf = GAF("tests/data/alignments-graphaligner.gaf")
+    gaf_file2 = list(gaf.read_file())
     
     for cnt, line in enumerate(gaf_file):
         fields = line.rstrip().split('\t')

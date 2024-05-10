@@ -2,7 +2,7 @@
 Tests for 'gaftools realign'
 """
 
-from gaftools.gaf import parse_gaf
+from gaftools.gaf import GAF
 from gaftools.cli.realign import run_realign
 
 
@@ -18,7 +18,8 @@ def test_order_gfa(tmp_path):
         ext=False
     )
 
-    gaf_lines = list(parse_gaf(output_gaf))
+    gaf = GAF(output_gaf)
+    gaf_lines = list(gaf.read_file())
     assert len(gaf_lines) == 2
 
     assert gaf_lines[0].query_name == 'read_s8_s9'

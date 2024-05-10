@@ -6,7 +6,7 @@ import sys
 import logging
 import gzip
 import itertools
-from gaftools.gaf import parse_gaf, Read
+from gaftools.gaf import GAF, Read
 from gaftools.cli import log_memory_usage
 from gaftools.timer import StageTimer
 
@@ -48,7 +48,8 @@ def run_stat(
         total_perfect = 0
         
     reads = {}
-    for alignment_count, mapping in enumerate(parse_gaf(gaf_path), 1):
+    gaf_file = GAF(gaf_path)
+    for alignment_count, mapping in enumerate(gaf_file.read_file(), 1):
         #hashed_readname = hash(mapping.query_name)
         #read_names.add(hashed_readname)
         
@@ -100,7 +101,8 @@ def run_stat(
                     total_match += 1
                     if int(all_cigars[cnt]) >= 50:
                         total_match_large += 1
-    
+    gaf_file.close()
+
     #avg_total_seq_identity = 0.0
     #avg_total_map_ratio = 0.0
     avg_highest_seq_identity = 0.0

@@ -33,7 +33,7 @@ def run(gaf_path,
 
     timers = StageTimer()
     if output == None:
-        output = gaf_path+".gai"
+        output = gaf_path+".gvi"
     
     #Detecting if GAF has stable or unstable coordinate
     if utils.is_file_gzipped(gaf_path):

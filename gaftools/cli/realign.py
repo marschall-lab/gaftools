@@ -11,6 +11,7 @@ from gaftools.cli import log_memory_usage
 from gaftools.cli import CommandLineError
 from gaftools.timer import StageTimer
 from gaftools.GFA import GFA
+from gaftools.gaf import GAF, Alignment
 from pywfa.align import (WavefrontAligner, cigartuples_to_str)
 
 logger = logging.getLogger(__name__)
@@ -178,7 +179,8 @@ def realign_gaf(gaf, graph, fasta, output, extended):
     graph_obj = GFA(graph)
     
     aln = {}
-    for cnt, line in enumerate(gaftools.gaf.parse_gaf(gaf)):
+    gaf_file = GAF(gaf)
+    for cnt, line in enumerate(gaf_file.read_file()):
         path_sequence = graph_obj.extract_path(line.path)
 
         if extended:
@@ -206,7 +208,7 @@ def realign_gaf(gaf, graph, fasta, output, extended):
             ref = path_sequence[line.path_start:line.path_end]
             query = fastafile.fetch(line.query_name, line.query_start, line.query_end)
             wfa_alignment([], line, ref, query, 0, output, False)
-
+    gaf_file.close()
     fastafile.close()
 
     if extended:

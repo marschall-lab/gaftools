@@ -87,10 +87,9 @@ def main(argv=sys.argv[1:]):
         try:
             module.main(args)
         except CommandLineError as e:
-            logger.error("gaftools error: %s", str(e))
+            logger.error(str(e), exc_info=True)
             logger.debug("Command line error. Traceback:", exc_info=True)
             sys.exit(1)
-
 
 if __name__ == "__main__":
     main()

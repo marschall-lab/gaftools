@@ -2,12 +2,13 @@
 Tests for gaf.py.
 """
 
-from gaftools.gaf import parse_gaf, Alignment
+from gaftools.gaf import Alignment, GAF
 
 
 def test_parse_gaf():
     #gaftools realign alignments.gaf smallgraph.gfa reads.fa
-    gaf_lines = list(parse_gaf('tests/data/alignments-graphaligner.gaf'))
+    gaf = GAF('tests/data/alignments-graphaligner.gaf')
+    gaf_lines = list(gaf.read_file())
     assert len(gaf_lines) == 2
     for gaf_line in gaf_lines:
         assert isinstance(gaf_line, Alignment)
