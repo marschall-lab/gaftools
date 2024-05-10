@@ -14,6 +14,7 @@ from gaftools.timer import StageTimer
 from gaftools.gaf import GAF, Alignment
 from gaftools.gfa import GFA
 from pywfa.align import WavefrontAligner, cigartuples_to_str
+from gaftools.gaf import GAF, Alignment
 
 logger = logging.getLogger(__name__)
 

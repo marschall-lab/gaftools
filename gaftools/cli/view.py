@@ -15,7 +15,7 @@ from gaftools.cli import log_memory_usage, CommandLineError
 from gaftools.utils import search_intervals
 from gaftools.timer import StageTimer
 from gaftools.gaf import GAF
-from gaftools.GFA import GFA
+from gaftools.gfa import GFA
 from gaftools.conversion import StableNode, Node1, stable_to_unstable, unstable_to_stable, to_stable, to_unstable
 
 
