@@ -274,7 +274,7 @@ def is_file_gzipped(src):
 def gfa_sort_basic(gfa_path):
     '''This function sorts the given gfa file based on the contig name and start position within the
     contig. Note that it only sorts S lines and leaves the others.
-    This can be called from the command line or from another funtion by providing "True" to the
+    This can be called from the command line or from another function by providing "True" to the
     return_list argument.
     '''
 
@@ -283,7 +283,6 @@ def gfa_sort_basic(gfa_path):
     import functools
     import gzip
     import os
-
 
     gfa_lines = []
     path = "part*.gfa"

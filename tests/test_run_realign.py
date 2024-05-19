@@ -2,6 +2,7 @@
 Tests for 'gaftools realign'
 """
 
+from time import sleep
 from gaftools.gaf import parse_gaf
 from gaftools.cli.realign import run_realign
 
@@ -15,7 +16,8 @@ def test_order_gfa(tmp_path):
         graph = 'tests/data/smallgraph.gfa',
         fasta = 'tests/data/reads.fa',
         output = output_gaf,
-        ext=False
+        ext=False,
+        cores=1
     )
 
     gaf_lines = list(parse_gaf(output_gaf))

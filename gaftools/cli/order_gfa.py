@@ -5,23 +5,21 @@ Adds BO and NO tags to GFA
 import sys
 import os
 import logging
-import gzip
 import time
 from collections import namedtuple, defaultdict
-from gaftools.GFA import GFA
-from argparse import ArgumentParser
+from gaftools.gfa import GFA
 
-# default_chromosome_order = 'chr1,chr2,chr3,chr4,chr5,chr6,chr7,chr8,chr9,chr10,chr11,chr12,chr13,chr14,chr15,chr16,chr17,chr18,chr19,chr20,chr21,chr22,chrX,chrY,chrM'
 logger = logging.getLogger(__name__)
 
+DEFAULT_CHROMOSOME = {"chr1", "chr2", "chr3", "chr4", "chr5", "chr6", "chr7", "chr8", "chr9", "chr10", "chr11", "chr12", "chr13", "chr14", "chr15", "chr16", "chr17", "chr18", "chr19", "chr20", "chr21", "chr22", "chrX", "chrY", "chrM"}
 def run_order_gfa(
-    gfa_filename,
-    outdir,
-    chromosome_order=None,
-    with_sequence=False,
+        gfa_filename,
+        outdir,
+        chromosome_order=None,
+        with_sequence=False,
 ):
-
-    if not chromosome_order == "":
+    
+    if not chromosome_order is None:
         chromosome_order = chromosome_order.split(sep=",")
 
     if not os.path.isdir(outdir):
@@ -38,18 +36,25 @@ def run_order_gfa(
 
     components = graph.all_components()
     logger.info(f"Connected components: {len(components)}")
+
     # name_comps checks the most frequent SN tag for the node in the component
     # and returns a dict of chromosome_name: {nodes...}
     components = name_comps(graph, components)
-    if not chromosome_order == "":  # user gave a list
+    if not chromosome_order is None:  # user gave a list
         for c in chromosome_order:
             if c not in set(components.keys()):
-                logger.info(f"The chromosome name provided {c} did not match with a component in the graph")
-                logger.info(f" What was Found: {','.join(sorted(components.keys()))}")
+                logger.error(f"The chromosome name provided {c} did not match with a component in the graph")
+                logger.error(f" What was Found: {','.join(sorted(components.keys()))}")
                 sys.exit(1)
 
-    else:  # user did not give a list
-        chromosome_order = set(components.keys())
+    else:  # user did not give a
+        try:
+            assert set(components.keys()) == DEFAULT_CHROMOSOME
+        except AssertionError:
+            logger.error(f"chromosome order was not provided, so the default was taken, but the default did not match"
+                         f"what was found in the graph, which is {','.join(sorted(components.keys()))}")
+            sys.exit(1)
+        chromosome_order = DEFAULT_CHROMOSOME
     # running index for the bubble index (BO) already used
     bo = 0
     total_bubbles = 0
@@ -59,11 +64,12 @@ def run_order_gfa(
         # Initialize files
         # f_gfa = open(outdir+'/'+gfa_filename.split("/")[-1][:-4]+'-'+chromosome+'.gfa', 'w')
 
-        scaffold_nodes, inside_nodes, node_order, bo, bubble_count = decompose_and_order(graph, component_nodes, chromosome, bo)
+        scaffold_nodes, inside_nodes, node_order, bo, bubble_count = decompose_and_order(graph, component_nodes,
+                                                                                         chromosome, bo)
         # skip a chromosome if something went wrong
         if scaffold_nodes:
-            f_gfa = outdir+'/'+gfa_filename.split("/")[-1][:-4]+'-'+chromosome+'.gfa'
-            f_colors = open(outdir+'/'+gfa_filename.split("/")[-1][:-4]+'-'+chromosome+'.csv', 'w')
+            f_gfa = outdir + '/' + gfa_filename.split("/")[-1][:-4] + '-' + chromosome + '.gfa'
+            f_colors = open(outdir + '/' + gfa_filename.split("/")[-1][:-4] + '-' + chromosome + '.csv', 'w')
             f_colors.write('Name,Color,SN,SO,BO,NO\n')
             total_bubbles += bubble_count
             for node_name in sorted(component_nodes):
@@ -80,7 +86,6 @@ def run_order_gfa(
                 else:
                     color = 'gray'
 
-                # Needs to be replaced by a better design later
                 if "SN" in node.tags:
                     sn_tag = node.tags['SN'][1]
                 else:
@@ -89,7 +94,7 @@ def run_order_gfa(
                     so_tag = node.tags['SO'][1]
                 else:
                     so_tag = "NA"
-                f_colors.write('{},{},{},{},{},{}\n'.format(node_name,color,sn_tag, so_tag, bo_tag, no_tag))
+                f_colors.write('{},{},{},{},{},{}\n'.format(node_name, color, sn_tag, so_tag, bo_tag, no_tag))
 
             graph.write_gfa(set_of_nodes=component_nodes, output_file=f_gfa, append=False, order_bo=True)
 
@@ -104,9 +109,9 @@ def run_order_gfa(
 def tag_to_str(tag):
     name, value = tag
     if type(value) is int:
-        return ':'.join([name,'i',str(value)])
+        return ':'.join([name, 'i', str(value)])
     elif type(value) is str:
-        return ':'.join([name,'Z',value])
+        return ':'.join([name, 'Z', value])
     else:
         assert False
 
@@ -120,6 +125,7 @@ def parse_tag(s):
         return name, value
     else:
         assert False
+
 
 def decompose_and_order(graph, component, component_name, bo_start=0):
     """
@@ -145,6 +151,7 @@ def decompose_and_order(graph, component, component_name, bo_start=0):
     inside_nodes = set()
 
     for bc in all_biccs:
+        # the components still have the articulation nodes in, need to be removed
         bc_inside_nodes = bc.difference(artic_points)
         bc_end_nodes = bc.intersection(artic_points)
         inside_nodes.update(bc_inside_nodes)
@@ -161,43 +168,44 @@ def decompose_and_order(graph, component, component_name, bo_start=0):
             scaffold_node_types[str(bubble_index)] = 'b'
             for end_node in bc_end_nodes:
                 scaffold_graph.add_edge(str(bubble_index), "+", end_node, "+", 0)
-    
-    logger.info('  Bubbles: %d', len(bubbles))
-    logger.info('  Scaffold graph: %d nodes', len(scaffold_graph))
+
+    logger.info(f"  Bubbles: {len(bubbles)}")
+    logger.info(f"  Scaffold graph: {len(scaffold_graph)} nodes")
 
     # Find start/end points of the line by looking for nodes with degree 1
     degree_one = [x.id for x in scaffold_graph.nodes.values() if len(x.neighbors()) == 1]
     degree_two = [x.id for x in scaffold_graph.nodes.values() if len(x.neighbors()) == 2]
 
-    # Perform DFS traversal
     try:
         assert len(degree_one) == 2
     except AssertionError:
-        logger.warning(f"Error: In Chromosome {component_name}, we found more or less than two nodes with degree 1. Skipping this chromosome")
+        logger.warning(
+            f"Error: In Chromosome {component_name}, we found more or less than two nodes with degree 1. Skipping this chromosome")
         # hacky but for now maybe ok
         return None, None, None, None, None
 
     try:
         assert len(degree_two) == len(scaffold_graph) - 2
     except AssertionError:
-        logger.warning(f"Error: In Chromosome {component_name}, the number of nodes with degree 2 did not mach the expected number")
+        logger.warning(
+            f"Error: In Chromosome {component_name}, the number of nodes with degree 2 did not mach the expected number")
         return None, None, None, None, None
 
+    # the scaffold graph should be a line graph here
     traversal = scaffold_graph.dfs(degree_one[0])
-
     traversal_scaffold_only = [node_name for node_name in traversal if scaffold_node_types[node_name] == 's']
     # check that all scaffold nodes carry the same sequence name (SN), i.e. all came for the linear reference
-    assert len(set(new_graph[n].tags['SN'] for n in  traversal_scaffold_only)) == 1
+    assert len(set(new_graph[n].tags['SN'] for n in traversal_scaffold_only)) == 1
     # I save tags as key:(type, value), so "SO":(i, '123')
-    coordinates = list(int(new_graph[n].tags['SO'][1]) for n in  traversal_scaffold_only)
+    coordinates = list(int(new_graph[n].tags['SO'][1]) for n in traversal_scaffold_only)
 
-    # make sure to that the traversal is in ascending order
+    # make sure that the traversal is in ascending order
     if coordinates[0] > coordinates[-1]:
         traversal.reverse()
         traversal_scaffold_only.reverse()
         coordinates.reverse()
-    for i in range(len(coordinates)-1):
-        assert coordinates[i] < coordinates[i+1]
+    for i in range(len(coordinates) - 1):
+        assert coordinates[i] < coordinates[i + 1]
     # compute dictionary mapping each node name to the corresponding "bubble order" and "node order" (BO,NO)
     node_order = dict()
     bo = bo_start
@@ -207,7 +215,7 @@ def decompose_and_order(graph, component, component_name, bo_start=0):
             node_order[node] = (bo, 0)
         elif node_type == 'b':
             for i, n in enumerate(sorted(bubbles[int(node)])):
-                node_order[n] = (bo, i+1)
+                node_order[n] = (bo, i + 1)
         else:
             assert False
         bo += 1
@@ -224,6 +232,7 @@ def count_sn(graph, comp):
             continue
         counts[graph[n].tags["SN"][1]] += 1
     return counts
+
 
 def name_comps(graph, components):
     """
@@ -248,11 +257,12 @@ def add_arguments(parser):
     arg = parser.add_argument
     arg('--chromosome_order', default="",
         help='Order in which to arrange chromosomes in terms of BO sorting. '
-        'Expecting comma-separated list. Default: chr1,...,chr22,chrX,chrY,chrM')
+             'Expecting comma-separated list. Default: chr1,...,chr22,chrX,chrY,chrM')
     arg('--with-sequence', default=False, action='store_true',
         help='Retain sequences in output (default is to strip sequences)')
     arg('gfa_filename', metavar='GRAPH', help='Input GFA file')
-    arg('--outdir', default="./out", help='Output Directory to store all the GFA and CSV files. Default location is a "out" folder from the directory of execution.')
+    arg('--outdir', default="./out",
+        help='Output Directory to store all the GFA and CSV files. Default location is a "out" folder from the directory of execution.')
 
 
 def main(args):
