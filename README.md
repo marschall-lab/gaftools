@@ -148,6 +148,7 @@ The `index` command produces a file which has information of the positions of no
 
 ### <a id="order_gfa"></a> Subcommand: order_gfa
 
+More explanation on how this is done can be found [here](Docs/order_gfa.md)
 ```sh
 $ gaftools order_gfa --help
 usage: gaftools order_gfa [-h] [--chromosome_order CHROMOSOME_ORDER] [--with-sequence] [--outdir OUTDIR] GRAPH

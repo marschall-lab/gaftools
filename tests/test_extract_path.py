@@ -1,7 +1,7 @@
 """
 Tests for 'gaftools realign'
 """
-from gaftools.GFA import GFA
+from gaftools.gfa import GFA
 
 
 def test_realign_gaf():

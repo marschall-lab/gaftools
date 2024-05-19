@@ -1,5 +1,4 @@
-from gaftools.GFA import GFA
-import pdb
+from gaftools.gfa import GFA
 
 """
 The example graph I am using looks like this
@@ -12,6 +11,7 @@ node_1 --->                   ---->node_4
 node 1 connects to end of node 3
 node 4 connect to beginning of node 3
 """
+
 
 def test_load_gfa():
     graph = GFA("tests/data/test_GFA_class.gfa")
@@ -63,10 +63,12 @@ def test_node_tags():
     assert graph['1'].tags['SG'] == ("Z", "testing_tags")
     assert len(graph['2'].tags) == 2
 
+
 def test_delete_node():
     graph = GFA("tests/data/test_GFA_class.gfa")
     del graph['1']
     assert '1' not in graph.nodes
+    # checking that the edges were also removed properly
     assert '1' not in graph['2'].neighbors()
     assert '1' not in graph['3'].neighbors()
 
@@ -121,3 +123,15 @@ def test_bicc():
     biccs, artic_points = graph.biccs()
     assert set(artic_points) == {'s8', 's6', 's4', 's2'}
     assert len(biccs) == 5
+
+
+def test_contig_length():
+    graph = GFA("tests/data/smallgraph.gfa")
+    assert 21837 == graph.get_contig_length("chr1")
+
+
+def test_dfs():
+    graph = GFA("tests/data/test_GFA_class.gfa")
+    ordered_dfs = graph.dfs("1")
+    assert ordered_dfs == ['1', '3', '4', '2']
+
