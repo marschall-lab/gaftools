@@ -100,7 +100,7 @@ def run_order_gfa(
 
     logger.info('Total bubbles: %d', total_bubbles)
 
-
+# TODO: Delete(?)
 def tag_to_str(tag):
     name, value = tag
     if type(value) is int:
@@ -110,7 +110,7 @@ def tag_to_str(tag):
     else:
         assert False
 
-
+# TODO: Delete(?)
 def parse_tag(s):
     name, type_id, value = s.split(':')
     assert len(name) == 2

@@ -2,16 +2,12 @@
 Scripts for converting stable to unstable coordinates and vice-versa.
 """
 import logging
-import sys
 import re
 import copy
 
 import gaftools.utils as utils
-from gaftools import __version__
-from gaftools.cli import log_memory_usage
 from gaftools.cli import CommandLineError
-from gaftools.timer import StageTimer
-from gaftools.gaf import GAF, parse_gaf
+from gaftools.gaf import GAF
 
 
 logger = logging.getLogger(__name__)
@@ -31,20 +27,6 @@ class Node2:
     
     def to_string(self, orient):
         return "%s%s:%d-%d"%(orient,self.contig_id,self.start,self.end)
-    
-
-def run(gaf_file, gfa_file, output=sys.stdout, unstable=False, stable=False):
-
-    timers = StageTimer()
-    assert (unstable != stable)
-    if (unstable):
-        stable_to_unstable(gaf_file, gfa_file, output)
-    else:
-        unstable_to_stable(gaf_file, gfa_file, output)
-    logger.info("\n== SUMMARY ==")
-    total_time = timers.total()
-    log_memory_usage()
-    logger.info("Total time:                                  %9.2f s", total_time)
 
 
 def merge_nodes(node1, node2, orient1, orient2):
@@ -69,7 +51,7 @@ def stable_to_unstable(gaf_path, reference):
     '''
     gaf_input = GAF(gaf_path)
     for gaf_line in gaf_input.read_file():
-        print(to_unstable(gaf_line, reference))
+        yield to_unstable(gaf_line, reference)
     gaf_input.close()
 
 def unstable_to_stable(gaf_path, nodes, ref_contig, contig_len):
@@ -78,7 +60,7 @@ def unstable_to_stable(gaf_path, nodes, ref_contig, contig_len):
     '''
     gaf_input = GAF(gaf_path)
     for gaf_line in gaf_input.read_file():
-        print(to_stable(gaf_line, nodes, ref_contig, contig_len))
+        yield to_stable(gaf_line, nodes, ref_contig, contig_len)
     gaf_input.close()
 
 
@@ -238,10 +220,8 @@ def to_stable(gaf_line, nodes, ref_contig, contig_len):
 # TODO: This needs to go into the GFA object.
 def making_reference_object(gfa_path):
     '''Needs to sort the gfa to use logn time binary search'''
-    from gaftools.cli.sort import gfa_sort_basic
-
-    logger.info("INFO: Sorting the GFA file...")
-    gfa_lines = gfa_sort_basic(gfa_path)
+    
+    gfa_lines = utils.gfa_sort_basic(gfa_path)
 
     '''We load the GFA into memory for fast execution. GFA is not very large
     so it does not seem to be a big issue... This creates a dictionary where each element is a
@@ -314,29 +294,3 @@ def read_gfa_unstable_to_stable(gfa_path):
     gfa_file.close()
 
     return nodes, contig_len, ref_contig
-
-
-# fmt: off
-def add_arguments(parser):
-    arg = parser.add_argument
-    # Positional arguments
-    arg('gaf_file', metavar='GAF', help='GAF File whose coordinates have to be changed')
-    arg('gfa_file', metavar='rGFA', help='Input rGFA file to convert the coordinates')
-    arg('-o', '--output', default=sys.stdout,
-        help='Output GAF file. If omitted, use standard output.')
-    arg('--unstable', dest='unstable', default=False, action='store_true',
-        help='Convert to Unstable Coordinates')
-    arg('--stable', dest='stable', default=False, action='store_true',
-        help='Convert to Stable Coordinates')
-
-
-# fmt: on
-def validate(args, parser):
-    if not args.unstable and not args.stable:
-        parser.error("Either --unstable or --stable has to be provided")
-    if args.unstable and args.stable:
-        parser.error("Specify --unstable or --stable; both cannot be provided")
-
-
-def main(args):
-    run(**vars(args))

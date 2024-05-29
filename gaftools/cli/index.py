@@ -2,9 +2,15 @@
 Index the GAF File
 """
 
+import gzip
+import copy
+import re
+import pickle
+from pysam import libcbgzf
 import logging
-import gaftools.utils as utils
 
+import gaftools.utils as utils
+from gaftools.gaf import GAF
 from gaftools import __version__
 from gaftools.timer import StageTimer
 from gaftools.cli import log_memory_usage, CommandLineError
@@ -20,16 +26,9 @@ logger = logging.getLogger(__name__)
 
 
 def run(gaf_path, 
-        reference, 
+        gfa_path, 
         output=None
        ):
-    
-    import gzip
-    import copy
-    import re
-    from gaftools.cli.sort import gfa_sort_basic
-    import pickle
-    from pysam import libcbgzf
 
     timers = StageTimer()
     if output == None:
@@ -50,16 +49,13 @@ def run(gaf_path,
     ref = {}
     ref_contig = []
     if not unstable:
-        logger.info("INFO: Detected stable coordinates in the GAF file.")
-        
+        # TODO: Need to remove this gfa sorting part. It can probably be incorporated into the GFA class
         with timers("sort_gfa"):
             logger.info("INFO: Sorting GFA File")
-            gfa_lines = gfa_sort_basic(reference)
+            gfa_lines = utils.gfa_sort_basic(gfa_path)
         contig_name = None
         
         with timers("store_contig_info"):
-            logger.info("INFO: Storing Contig Information")
-            
             for gfa_line in gfa_lines:
                 tmp_contig_name = [k for k in gfa_line if k.startswith("SN:Z:")][0][5:]
                 
@@ -85,42 +81,39 @@ def run(gaf_path,
                 else:
                     assert (rank == 0)
     else:
-        logger.info("INFO: Detected unstable coordinates in the GAF file.")
-        gz_flag = reference[-2:] == "gz"
+        gz_flag = gfa_path[-2:] == "gz"
         if gz_flag:
-            gfa_file = gzip.open(reference,"r")
+            gfa_file = gzip.open(gfa_path,"r")
         else:
-            gfa_file = open(reference,"r")
-        for gfa_line in gfa_file:
-            if gz_flag:
-                gfa_line = gfa_line.decode("utf-8")
-            if gfa_line[0] != "S":
-                break
-            gfa_line = gfa_line.rstrip().split('\t')
-            contig_name = [k for k in gfa_line if k.startswith("SN:Z:")][0][5:]
-            start_pos = int([k for k in gfa_line if k.startswith("SO:i:")][0][5:])
-            end_pos = int([k for k in gfa_line if k.startswith("LN:i:")][0][5:]) + start_pos
-            rank = int([k for k in gfa_line if k.startswith("SR:i:")][0][5:])
-            try:
+            gfa_file = open(gfa_path,"r")
+        with timers("store_contig_info"):
+            for gfa_line in gfa_file:
+                if gz_flag:
+                    gfa_line = gfa_line.decode("utf-8")
+                if gfa_line[0] != "S":
+                    break
+                gfa_line = gfa_line.rstrip().split('\t')
+                contig_name = [k for k in gfa_line if k.startswith("SN:Z:")][0][5:]
+                start_pos = int([k for k in gfa_line if k.startswith("SO:i:")][0][5:])
+                end_pos = int([k for k in gfa_line if k.startswith("LN:i:")][0][5:]) + start_pos
                 rank = int([k for k in gfa_line if k.startswith("SR:i:")][0][5:])
-            except IndexError:
-                raise CommandLineError("ERROR: No Rank present in the reference GFA File. Input rGFA file should have SR field.")
-            nodes[gfa_line[1]] = (gfa_line[1], contig_name, start_pos, end_pos)
-            if contig_name not in ref_contig:
-                if rank == 0:
-                    ref_contig.append(contig_name)
-            else:
-                assert (rank == 0)
+                try:
+                    rank = int([k for k in gfa_line if k.startswith("SR:i:")][0][5:])
+                except IndexError:
+                    raise CommandLineError("ERROR: No Rank present in the reference GFA File. Input rGFA file should have SR field.")
+                nodes[gfa_line[1]] = (gfa_line[1], contig_name, start_pos, end_pos)
+                if contig_name not in ref_contig:
+                    if rank == 0:
+                        ref_contig.append(contig_name)
+                else:
+                    assert (rank == 0)
     
     if utils.is_file_gzipped(gaf_path):
-        logger.info("INFO: GAF file compression detected. BGZF compression needed for optimal performance. Generating appropriate index (using virtual offsets defined by the BGZF compression).")
         gaf_file = libcbgzf.BGZFile(gaf_path,"rb")
     else:
-        logger.info("INFO: Uncompressed GAF file detected. Generating appropriate index (using offset values).")
         gaf_file = open(gaf_path,"rt")
     
     out_dict = {}
-    logger.info("INFO: Indexing the file")
     offset = 0
     while True:
         offset = gaf_file.tell()
@@ -153,12 +146,12 @@ def run(gaf_path,
     logger.info("\n== SUMMARY ==")
     total_time = timers.total()
     log_memory_usage()
+    logger.info("Time to sort gfa:                            %9.2f s", timers.elapsed('sort_gfa'))
+    logger.info("Time to store contig info:                   %9.2f s", timers.elapsed('store_contig_info'))
     logger.info("Total time:                                  %9.2f s", total_time)
 
 
 def convert_coord(line, ref):
-    
-    from gaftools.cli.utils import search_intervals
 
     unstable_coord = []
     gaf_contigs = list(filter(None, re.split('(>)|(<)', line[5])))
@@ -175,7 +168,7 @@ def convert_coord(line, ref):
             query_contig_name = nd
         
         '''Find the matching nodes from the reference genome here'''
-        start, end = search_intervals(ref[query_contig_name], int(query_start), int(query_end), 0, len(ref[query_contig_name]))
+        start, end = utils.search_intervals(ref[query_contig_name], int(query_start), int(query_end), 0, len(ref[query_contig_name]))
 
         for i in ref[query_contig_name][start:end+1]:
             cases = -1
@@ -197,8 +190,8 @@ def add_arguments(parser):
     arg = parser.add_argument
     # Positional arguments
     arg('gaf_path', metavar='GAF', help='Input GAF file (can be gzip-compressed)')
-    arg('reference', metavar='rGFA', help='Reference rGFA file has to be input.')
-    arg('-o', '--output', default=None, help='Output Indexed GAF file. If omitted, use <GAF File>.gai.')
+    arg('gfa_path', metavar='rGFA', help='Reference rGFA file has to be input.')
+    arg('-o', '--output', default=None, help='Output Indexed GAF file. If omitted, use <GAF File>.gvi.')
     
 # fmt: on
 def validate(args, parser):

@@ -4,27 +4,35 @@ View the GAF File based on parameters
 import logging
 import pickle
 import os
+import copy
+import re
+import sys
 
 from gaftools import __version__
-from gaftools.cli import log_memory_usage
-from gaftools.cli import CommandLineError
+from gaftools.cli import log_memory_usage, CommandLineError
+from gaftools.utils import search_intervals
 from gaftools.timer import StageTimer
 from gaftools.gaf import GAF
-from gaftools.conversion import stable_to_unstable, unstable_to_stable, making_reference_object, read_gfa_unstable_to_stable, to_stable, to_unstable
+from gaftools.conversion import Node1, stable_to_unstable, unstable_to_stable, making_reference_object, read_gfa_unstable_to_stable, to_stable, to_unstable
 
 
 logger = logging.getLogger(__name__)
 
 def run(gaf_path,
-        gfa=None, 
+        gfa=None,
+        output=None,
         index=None, 
-        nodes=None,
-        regions=None,
+        nodes=[],
+        regions=[],
         format=None
     ):
     
     timers = StageTimer()
     
+    if output == None:
+        writer = sys.stdout
+    else:
+        writer = open(output, 'w')
     # Need to detect the format of the input gaf
     gaf=GAF(gaf_path)
     gaf_format=None
@@ -61,19 +69,19 @@ def run(gaf_path,
         ind = None
         with open(index, 'rb') as tmp:
             ind = pickle.load(tmp)
-       
+        
         ind_key = sorted(list(ind.keys()), key = lambda x: (x[1], x[2]))
         ind_dict = {}
         for i in ind_key:
             ind_dict[i[0]] = i
+        
         if regions:
-            assert nodes == None
+            assert nodes == []
             nodes = get_unstable(regions, ind)
-        node_id = [n[0] for n in nodes]
-        offsets=ind[nodes[0]]
+        offsets=ind[ind_dict[nodes[0]]]
         for nd in nodes[1:]:
             # extracting all the lines that touches at least one of the nodes
-            offsets = list(set(offsets) | set(ind[nd]))
+            offsets = list(set(offsets) | set(ind[ind_dict[nd]]))
         offsets.sort()
         if len(offsets) == 0:
             raise CommandLineError("No alignments found for the given nodes/regions")
@@ -83,34 +91,36 @@ def run(gaf_path,
             if format == 'stable':
                 for ofs in offsets:
                     line = gaf.read_line(ofs)
-                    print(to_stable(line, gfa_nodes, ref_contig, contig_len))
+                    print(to_stable(line, gfa_nodes, ref_contig, contig_len), file=writer)
             else:
                 assert format == 'unstable'
                 for ofs in offsets:
                     line = gaf.read_line(ofs)
-                    print(to_unstable(line, reference))
+                    print(to_unstable(line, reference), file=writer)
         # if no format given, then just print the selected lines
         else:
             for ofs in offsets:
                 line = gaf.read_line(ofs)
-                print(line)
+                print(line, file=writer)
         gaf.close()
     else:
         # No nodes or regions indicates the entire file will be viewed
         # converting the format of the entire file
         if format:
             if format == 'stable':
-                unstable_to_stable(gaf_path, gfa_nodes, ref_contig, contig_len)
+                for line in unstable_to_stable(gaf_path, gfa_nodes, ref_contig, contig_len):
+                    print(line, file=writer)
             else:
-                stable_to_unstable(gaf_path, reference)            
+                for line in stable_to_unstable(gaf_path, reference):
+                    print(line, file=writer)
         else:
             # No format also given. So just need to print the file.
             gaf = GAF(gaf_path)
             for line in gaf.file:
                 if gaf.gz_flag:
-                    print(line.decode("utf-8").rstrip())
+                    print(line.decode("utf-8").rstrip(), file=writer)
                 else:
-                    print(line.rstrip())
+                    print(line.rstrip(), file=writer)
 
     
     logger.info("\n== SUMMARY ==")
@@ -120,10 +130,7 @@ def run(gaf_path,
 
 
 def change_format(a, show_node_id, node_id, ind, ind_dict, fa):
-    import re
     
-    #if utils.is_unstable(a):
-    #    convert_to_unstable(a,ind)
     x = list(filter(None, re.split('(>)|(<)', a[5])))
     isStable = False
     if len(x) == 1:
@@ -236,11 +243,6 @@ def change_format(a, show_node_id, node_id, ind, ind_dict, fa):
 
 def convert_to_unstable(x, ind):
     
-    import copy
-    from gaftools.cli.convert import Node1
-    from gaftools.cli.utils import search_intervals
-    import re
-    
     reference = {}    
     contig_name = None
     for n in ind:
@@ -330,18 +332,19 @@ def get_unstable(regions, index):
         
         node = search([contig[n], start[n], end[n]], node_list)
         if len(node) > 1:
-            logger.info("INFO: Region %s spans multiple nodes.\nThe nodes are:"%(nodes[n]))
+            logger.info("INFO: Region %s spans multiple nodes.\nThe nodes are:"%(node[n]))
             for n in node:
                 logger.info("INFO: %s\t%s\t%d\t%d"%(n[0],n[1],n[2],n[3]))
         
-        result.extend(node)
+        result.append(node[0][0])
     
     return result    
 
 def search(node, node_list):
     """ Find the unstable node id from the region """
-
+    
     s = 0
+    pos = 0
     e = len(node_list)-1
     q_s = int(node[1])
     q_e = int(node[2])
@@ -355,7 +358,8 @@ def search(node, node_list):
         else:
             e = m-1
         pos = s
-    
+    # if there is only one node for the entire contig (case for non-reference nodes)
+    # then the above loop is not executed and we extract the only node with pos=0
     result = [node_list[pos]]
     while True:
         if q_e < node_list[pos][3]:
@@ -372,7 +376,8 @@ def add_arguments(parser):
     # Positional arguments
     arg('gaf_path', metavar='GAF', help='Input GAF file (can be gzip-compressed)')
     arg('-g', '--gfa', dest='gfa', metavar='GFA', default=None, help='Input GFA file (can be gzip-compressed). Required when converting from one coordinate system to another.')
-    arg('-i', '--index', default=None, help='Path to GAF Index file. This index is created using gaftools index. If path is not provided, it is assumed to be in the same directory as GAF file with the same name and .gvi extension (default location of the index script)')
+    arg('-o', '--output', dest='output', metavar='OUTPUT', default=None, help='Output file. Default is stdout.')
+    arg('-i', '--index', default=None, help='Path to GAF Index file. This index is created using gaftools index. If path is not provided, it is assumed to be in the same directory as GAF file with the same name and .gvi extension (default location of the index script).\nIt is required if nodes or regions are specified.')
     arg('-n', '--node', dest='nodes', metavar='NODE', default=[], action='append', help='Nodes to search for. Multiple can be provided.')
     arg('-r', '--region', dest='regions', metavar='REGION', default=[], action='append', help='Regions to search for. Multiple can be provided.')
     arg('-f', '--format', dest='format', metavar='FORMAT', help='format of output path (unstable | stable)')

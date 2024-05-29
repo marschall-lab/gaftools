@@ -1,4 +1,9 @@
 import re
+import glob
+from heapq import merge
+import functools
+import gzip
+import os
 
 complement = str.maketrans('ACGT', 'TGCA')
 tag_regex = r"^[A-Za-z][A-Za-z][:][AifZHB][:][ !-~]*$"
@@ -78,12 +83,6 @@ def gfa_sort_basic(gfa_path):
     return_list argument.
     '''
 
-    import glob
-    from heapq import merge
-    import functools
-    import gzip
-    import os
-
     gfa_lines = []
     path = "part*.gfa"
     chunk_size = 250000
@@ -107,7 +106,6 @@ def gfa_sort_basic(gfa_path):
                 for line_count, line in enumerate(gfa_lines):
                     f_out.write('\t'.join(line) + '\n') 
             
-                logger.info('INFO: Splitting %d' %chunk_id)
                 f_out.close()
                 gfa_lines = []
                 chunk_id += 1
@@ -115,7 +113,6 @@ def gfa_sort_basic(gfa_path):
 
 
         if gfa_lines:
-            logger.info('INFO: Splitting %d' %chunk_id)
             gfa_lines.sort(key=functools.cmp_to_key(compare_gfa_lines))
             for line_count, line in enumerate(gfa_lines):
                 f_out.write('\t'.join(line) + '\n') 
@@ -137,3 +134,35 @@ def gfa_sort_basic(gfa_path):
             os.remove(part_file)
 
     return gfa_s
+
+def compare_gfa_lines(ln1, ln2):
+    
+    if not ln1[0] == "S" and not ln2[0] == "S":
+        #If both are not S lines, then leave it
+        return -1
+    elif ln1[0] == "S" and not ln2[0] == "S":
+        return -1
+    elif not ln1[0] == "S" and ln2[0] == "S":
+        return 1
+
+    chr1 = [k for k in ln1 if k.startswith("SN:Z:")][0][5:]
+    chr2 = [k for k in ln2 if k.startswith("SN:Z:")][0][5:]
+    start1 = int([k for k in ln1 if k.startswith("SO:i:")][0][5:])
+    start2 = int([k for k in ln2 if k.startswith("SO:i:")][0][5:])
+
+    if chr1 == chr2:
+        if start1 < start2:
+            return -1
+        else:
+            return 1
+    if chr1 < chr2:
+        return -1
+    else:
+        return 1
+
+
+def compare_gfa_merge(ln1, ln2):
+
+    ln1 = ln1.rstrip().split('\t')
+    ln2 = ln2.rstrip().split('\t')
+    return compare_gfa_lines(ln1, ln2) 

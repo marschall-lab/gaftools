@@ -4,7 +4,6 @@ import logging
 from pysam import libcbgzf
 import gaftools.utils as utils
 from gaftools import __version__
-from collections import defaultdict
 
 logger = logging.getLogger(__name__)
 
@@ -88,7 +87,8 @@ class GAF:
             yield self.parse_gaf_line(line)
 
     def read_line(self, offset):
-        return self.parse_gaf_line(self.file.seek(offset).readline())
+        self.file.seek(offset)
+        return self.parse_gaf_line(self.file.readline())
 
     def parse_gaf_line(self, line):
         if not self.gz_flag:
@@ -152,79 +152,7 @@ class GAF:
                         path_length, path_start, path_end, residue_matches, alignment_block_length,
                         mapping_quality, is_primary, cigar, tags=tags)
 
-def parse_gaf(filename):
-   
-    gz_flag = False
-    if utils.is_file_gzipped(filename):
-        file = gzip.open(filename,"r")
-        gz_flag = True
-    else:
-        file = open(filename,"r") 
-    
-    for line in file:
-        if not gz_flag:
-            fields = line.rstrip().split('\t')
-        else:
-            fields = line.decode("utf-8").rstrip().split('\t')
-        
-        #If the query name has spaces (e.g., GraphAligner), we get rid of the segment after the space
-        query_name = fields[0].split(' ')[0]
-        if fields[1].isdigit():
-            query_length = int(fields[1])
-        else:
-            continue
-        if fields[2].isdigit():
-            query_start = int(fields[2])
-        else:
-            continue
-        if fields[3].isdigit():
-            query_end = int(fields[3])
-        else:
-            continue
-        strand = fields[4]
-        path = fields[5]
-
-        if fields[6].isdigit():
-            path_length = int(fields[6])
-        else:
-            continue
-        if fields[7].isdigit():
-            path_start = int(fields[7])
-        else:
-            continue
-        if fields[8].isdigit():
-            path_end = int(fields[8])
-        else:
-            continue
-        residue_matches = int(fields[9])
-        alignment_block_length = int(fields[10])
-        mapping_quality = int(fields[11])
-        is_primary = True
-        cigar = ""
-
-        #Check if there are additional tags
-        tags = {}
-        for k in fields:
-            if re.match("[A-Za-z][A-Za-z0-9]:[AifZHB]:[A-Za-z0-9]+", k):
-                pattern = re.findall(r"([A-Za-z][A-Za-z0-9]:[AifZHB]:)[A-Za-z0-9]+", k)[0]
-                if pattern == "cg:Z:":
-                    val = re.findall(r"[A-Za-z][A-Za-z0-9]:[AifZHB]:([A-Za-z0-9=]+)", k)[0]
-                    cigar = val
-                    tags[pattern] = val
-                else:
-                    val = re.findall(r"[A-Za-z][A-Za-z0-9]:[AifZHB]:([A-Za-z0-9.]+)", k)[0]
-                    if pattern not in tags:
-                        tags[pattern] = val
-
-                    if pattern == "tp:A" and (val != "P" or val != "p"):
-                        is_primary = False
-                       
-        yield Alignment(query_name, query_length, query_start, query_end, strand, path,
-                        path_length, path_start, path_end, residue_matches, alignment_block_length,
-                        mapping_quality, is_primary, cigar, tags=tags)
-    return
-
-
+# TODO: Delete(?)
 def parse_gfa(gfa_filename, with_sequence=False):
     nodes = {}
 
@@ -240,7 +168,7 @@ def parse_gfa(gfa_filename, with_sequence=False):
             nodes[name] = sequence
     return nodes
 
-
+# TODO: Delete(?)
 def get_path(nodes, path):
     l = []
     for s in re.findall('[><][^><]+', path):
@@ -253,7 +181,7 @@ def get_path(nodes, path):
             assert False
     return ''.join(l)
 
-
+# TODO: Delete(?)
 def parse_tag(s):
     name, type_id, value = s.split(':')
     assert len(name) == 2
