@@ -1,0 +1,4 @@
+"""
+Test for gaftools index.
+"""
+
