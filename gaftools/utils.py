@@ -2,6 +2,11 @@ import re
 import tracemalloc
 import linecache
 
+import glob
+from heapq import merge
+import functools
+import gzip
+import os
 
 complement = str.maketrans('ACGT', 'TGCA')
 tag_regex = r"^[A-Za-z][A-Za-z][:][AifZHB][:][ !-~]*$"

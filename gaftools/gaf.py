@@ -87,7 +87,8 @@ class GAF:
             yield self.parse_gaf_line(line)
 
     def read_line(self, offset):
-        return self.parse_gaf_line(self.file.seek(offset).readline())
+        self.file.seek(offset)
+        return self.parse_gaf_line(self.file.readline())
 
     def parse_gaf_line(self, line):
         if not self.gz_flag:
@@ -151,6 +152,7 @@ class GAF:
                         path_length, path_start, path_end, residue_matches, alignment_block_length,
                         mapping_quality, is_primary, cigar, tags=tags)
 
+<<<<<<< HEAD
 def parse_gaf(filename):
     gz_flag = False
     if utils.is_file_gzipped(filename):
@@ -228,6 +230,47 @@ def parse_gaf(filename):
         return Alignment(query_name, query_length, query_start, query_end, strand, path,
                         path_length, path_start, path_end, residue_matches, alignment_block_length,
                         mapping_quality, is_primary, cigar, tags=tags)
+=======
+# TODO: Delete(?)
+def parse_gfa(gfa_filename, with_sequence=False):
+    nodes = {}
+
+    for nr, line in enumerate(open(gfa_filename)):
+        fields = line.split('\t')
+        if fields[0] == 'S':
+            name = fields[1]
+            #tags = dict(parse_tag(s) for s in fields[3:])
+            sequence = None
+            if with_sequence and (fields[2] != '*'):
+                sequence = fields[2]
+            #nodes[name] = Node(name,tags,sequence)
+            nodes[name] = sequence
+    return nodes
+
+# TODO: Delete(?)
+def get_path(nodes, path):
+    l = []
+    for s in re.findall('[><][^><]+', path):
+        node_seq = nodes[s[1:]]
+        if s[0] == '>':
+            l.append(node_seq)
+        elif s[0] == '<':
+            l.append(node_seq[::-1].translate(complement))
+        else:
+            assert False
+    return ''.join(l)
+
+# TODO: Delete(?)
+def parse_tag(s):
+    name, type_id, value = s.split(':')
+    assert len(name) == 2
+    if type_id == 'i':
+        return name, int(value)
+    elif type_id == 'Z':
+        return name, value
+    else:
+        assert False
+>>>>>>> f00e349 (reshuffling code and making minor changes to the GAF class. View command has been altered to include the convert function.)
 
 
 def compare_aln(ln1, ln2):
