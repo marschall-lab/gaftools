@@ -388,6 +388,8 @@ class GFA:
                 continue
             if not e_tags:  # no tags
                 e_tags = [0]
+            # TODO this function might be taking too much time when called too many times
+            #     reading a graph in GFASubgraph for example is faster
             self.add_edge(*e, e_tags)
 
     def sort_bo_no(self, set_of_nodes):
@@ -700,15 +702,15 @@ class GFA:
                 return ""
         return "".join(seq)
 
-    def get_bubbles(self, only_simple=False):
-        """
-        calls the find_bubbles function and returns the dictionary of all bubbles found
-        """
-        from gaftools.find_bubbles import find_bubbles
-        logging.info("starting to find bubbles in the graph")
-        bubbles = find_bubbles(self, only_simple)
-        logging.info(f"finished finding bubbles and found {len(bubbles)}")
-        return bubbles
+    # def get_bubbles(self, only_simple=False):
+    #     """
+    #     calls the find_bubbles function and returns the dictionary of all bubbles found
+    #     """
+    #     from gaftools.find_bubbles import find_bubbles
+    #     logging.info("starting to find bubbles in the graph")
+    #     bubbles = find_bubbles(self, only_simple)
+    #     logging.info(f"finished finding bubbles and found {len(bubbles)}")
+    #     return bubbles
 
     def dfs(self, start_node):
         """
