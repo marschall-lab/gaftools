@@ -442,13 +442,19 @@ class GFA:
                 logging.warning("Trying to append to a non-existent file\n"
                                 "creating an output file")
                 f = open(output_file, "w+")
+
+        # going through nodes twice to have the final output as all S line then all L lines
+        for n in sorted_set_of_nodes:
+            if n not in self.nodes:
+                logging.warning("Node {} does not exist in the graph, skipped in output".format(n1))
+                continue
+            line = self.nodes[n].to_gfa_line()
+            f.write(line + "\n")
+
         for n1 in sorted_set_of_nodes:
             if n1 not in self.nodes:
                 logging.warning("Node {} does not exist in the graph, skipped in output".format(n1))
                 continue
-
-            line = self.nodes[n1].to_gfa_line()
-            f.write(line + "\n")
 
             # writing edges
             edges = []
@@ -673,7 +679,7 @@ class GFA:
         """
         sorted_nodes = self.get_path(chrom)
         if not sorted_nodes:
-            logging.error("Was not able to return the length of the chromosome, check warning message")
+            logging.error("Was not able to return the length of the chromosome, check warning message(s)")
             sys.exit(1)
         else:
             return sum([self.nodes[x].seq_len for x in sorted_nodes])

@@ -11,7 +11,7 @@ from gaftools.gfa import GFA
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_CHROMOSOME = {"chr1", "chr2", "chr3", "chr4", "chr5", "chr6", "chr7", "chr8", "chr9", "chr10", "chr11", "chr12", "chr13", "chr14", "chr15", "chr16", "chr17", "chr18", "chr19", "chr20", "chr21", "chr22", "chrX", "chrY", "chrM"}
+DEFAULT_CHROMOSOME = ["chr1", "chr2", "chr3", "chr4", "chr5", "chr6", "chr7", "chr8", "chr9", "chr10", "chr11", "chr12", "chr13", "chr14", "chr15", "chr16", "chr17", "chr18", "chr19", "chr20", "chr21", "chr22", "chrX", "chrY", "chrM"]
 def run_order_gfa(
         gfa_filename,
         outdir,
@@ -23,8 +23,13 @@ def run_order_gfa(
         chromosome_order = chromosome_order.split(sep=",")
 
     if not os.path.isdir(outdir):
-        logging.error(f"The directory {outdir} does not exist")
-        sys.exit()
+        logging.warning(f"The directory {outdir} does not exist, creating one")
+        try:
+            os.makedirs(outdir)
+        except:  # I know broad exceptions are not recommended but I think for here it's fine
+            logging.error("were not able to create directory")
+            sys.exit()
+
     logger.info(f"Reading {gfa_filename}")
     if with_sequence:
         graph = GFA(gfa_filename, low_memory=False)
@@ -40,7 +45,8 @@ def run_order_gfa(
     # name_comps checks the most frequent SN tag for the node in the component
     # and returns a dict of chromosome_name: {nodes...}
     components = name_comps(graph, components)
-    if not chromosome_order is None:  # user gave a list
+    # if not chromosome_order is None:  # user gave a list
+    if chromosome_order != ['']:  # user gave a list
         for c in chromosome_order:
             if c not in set(components.keys()):
                 logger.error(f"The chromosome name provided {c} did not match with a component in the graph")
@@ -49,15 +55,17 @@ def run_order_gfa(
 
     else:  # user did not give a
         try:
-            assert set(components.keys()) == DEFAULT_CHROMOSOME
+            assert set(components.keys()) == set(DEFAULT_CHROMOSOME)
         except AssertionError:
             logger.error(f"chromosome order was not provided, so the default was taken, but the default did not match"
-                         f"what was found in the graph, which is {','.join(sorted(components.keys()))}")
+                         f" what was found in the graph, which is {','.join(sorted(components.keys()))}")
             sys.exit(1)
         chromosome_order = DEFAULT_CHROMOSOME
     # running index for the bubble index (BO) already used
     bo = 0
     total_bubbles = 0
+    # todo output final GFA with all the chromosomes ordered
+    out_files = []
     for chromosome in chromosome_order:
         logger.info('Processing %s', chromosome)
         component_nodes = components[chromosome]
@@ -66,10 +74,12 @@ def run_order_gfa(
 
         scaffold_nodes, inside_nodes, node_order, bo, bubble_count = decompose_and_order(graph, component_nodes,
                                                                                          chromosome, bo)
+
         # skip a chromosome if something went wrong
         if scaffold_nodes:
-            f_gfa = outdir + '/' + gfa_filename.split("/")[-1][:-4] + '-' + chromosome + '.gfa'
-            f_colors = open(outdir + '/' + gfa_filename.split("/")[-1][:-4] + '-' + chromosome + '.csv', 'w')
+            f_gfa = outdir + os.sep + gfa_filename.split(os.sep)[-1].split(".")[0] + '-' + chromosome + ".gfa"
+            out_files.append(f_gfa)
+            f_colors = open(outdir + os.sep + gfa_filename.split(os.sep)[-1][:-4] + '-' + chromosome + '.csv', 'w')
             f_colors.write('Name,Color,SN,SO,BO,NO\n')
             total_bubbles += bubble_count
             for node_name in sorted(component_nodes):
@@ -102,6 +112,20 @@ def run_order_gfa(
 
         else:
             logger.warning(f"Chromosome {chromosome} was skipped")
+    final_gfa = outdir + os.sep + gfa_filename.split(os.sep)[-1].split(".")[0] + '-complete' + ".gfa"
+    with open(final_gfa, "w") as outfile:
+        # outputting all the S lines first
+        for f in out_files:
+            with open(f, "r") as infile:
+                for l in infile:
+                    if l.startswith("S"):
+                        outfile.write(l)
+        # outputting all the S lines
+        for f in out_files:
+            with open(f, "r") as infile:
+                for l in infile:
+                    if l.startswith("L"):
+                        outfile.write(l)
 
     logger.info('Total bubbles: %d', total_bubbles)
 
