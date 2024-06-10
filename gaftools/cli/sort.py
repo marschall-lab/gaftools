@@ -32,10 +32,7 @@ from collections import defaultdict, namedtuple
 
 import gaftools.utils as utils
 from gaftools.timer import StageTimer
-<<<<<<< HEAD
-from gaftools.GFA import GFA
-=======
->>>>>>> f00e349 (reshuffling code and making minor changes to the GAF class. View command has been altered to include the convert function.)
+from gaftools.gfa import GFA
 
 logger = logging.getLogger(__name__)
 timers = StageTimer()
@@ -135,44 +132,7 @@ def sort(gaf, nodes, writer, index_dict, index_file):
             pkl.dump(index_dict, ind)
     reader.close()
 
-<<<<<<< HEAD
-=======
-# TODO: Integrate into GFA class
-def read_gfa(gfa, node):
-    
-    logger.info("Parsing GFA file and reading sort key information")
-    if utils.is_file_gzipped(gfa):
-        reader = gzip.open(gfa, 'rt')
-    else:
-        reader = open(gfa, 'r')
-    
-    total_nodes = 0
-    tagged_nodes = 0
-    while True:
-        line = reader.readline()
-        if not line:
-            break
-        if line[0] != 'S':
-            continue
-        total_nodes += 1
-        fields = line.split("\t")
-        for f in fields:
-            if f.startswith("BO:i:"):
-                node[fields[1]][0] = int(f[5:])
-                tagged_nodes += 1
-            if f.startswith("NO:i:"):
-                node[fields[1]][1] = int(f[5:])
-            if f.startswith("SR:i:"):
-                node[fields[1]][2] = int(f[5:])
-            if f.startswith("SN:Z:"):
-                node[fields[1]][3] = f[5:]
-            
-    logger.info("\tTotal Nodes Processed: %d"%(total_nodes))
-    logger.info("\tNodes with tags: %d"%(tagged_nodes))
-    reader.close()
 
-
->>>>>>> f00e349 (reshuffling code and making minor changes to the GAF class. View command has been altered to include the convert function.)
 def process_alignment(line, nodes, offset):
     path = list(filter(None, re.split('(>)|(<)', line[5])))
     orient = None

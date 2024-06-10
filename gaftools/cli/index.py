@@ -6,26 +6,21 @@ This script creates an inverse look-up table where:
     - value: the offsets in the GAF file where the node is present 
 """
 
-<<<<<<< HEAD
 import re
 import pickle
 from pysam import libcbgzf
 from collections import defaultdict
-=======
 import gzip
 import copy
 import re
 import pickle
 from pysam import libcbgzf
->>>>>>> f00e349 (reshuffling code and making minor changes to the GAF class. View command has been altered to include the convert function.)
+
 import logging
 
 import gaftools.utils as utils
 from gaftools.gaf import GAF
-<<<<<<< HEAD
-from gaftools.GFA import GFA
-=======
->>>>>>> f00e349 (reshuffling code and making minor changes to the GAF class. View command has been altered to include the convert function.)
+from gaftools.gfa import GFA
 from gaftools import __version__
 from gaftools.timer import StageTimer
 from gaftools.cli import log_memory_usage
@@ -57,7 +52,6 @@ def run(gaf_path,
     nodes = {}
     reference = defaultdict(lambda: [])
     ref_contig = []
-<<<<<<< HEAD
     
     gfa_file = GFA(graph_file=gfa_path, low_memory=True)
     contigs = list(gfa_file.contigs.keys())
@@ -70,67 +64,6 @@ def run(gaf_path,
                 reference[contig].append(gfa_file[node])
         nodes = gfa_file.nodes
     del gfa_file
-=======
-    if not unstable:
-        # TODO: Need to remove this gfa sorting part. It can probably be incorporated into the GFA class
-        with timers("sort_gfa"):
-            logger.info("INFO: Sorting GFA File")
-            gfa_lines = utils.gfa_sort_basic(gfa_path)
-        contig_name = None
-        
-        with timers("store_contig_info"):
-            for gfa_line in gfa_lines:
-                tmp_contig_name = [k for k in gfa_line if k.startswith("SN:Z:")][0][5:]
-                
-                if tmp_contig_name != contig_name:
-                    contig_name = copy.deepcopy(tmp_contig_name)
-                    if contig_name not in ref:
-                        ref[contig_name] = []
-
-                start_pos = int([k for k in gfa_line if k.startswith("SO:i:")][0][5:])
-                end_pos = int([k for k in gfa_line if k.startswith("LN:i:")][0][5:]) + start_pos
-                tmp = Node1(gfa_line[1], start_pos, end_pos)
-                rank = int([k for k in gfa_line if k.startswith("SR:i:")][0][5:])
-                try:
-                    rank = int([k for k in gfa_line if k.startswith("SR:i:")][0][5:])
-                except IndexError:
-                    logger.error("No Rank present in the reference GFA File. Input rGFA file should have SR field.")
-                    exit()
-                ref[contig_name].append(tmp)
-                nodes[gfa_line[1]] = (gfa_line[1], tmp_contig_name, start_pos, end_pos)
-                if tmp_contig_name not in ref_contig:
-                    if rank == 0:
-                        ref_contig.append(contig_name)
-                else:
-                    assert (rank == 0)
-    else:
-        gz_flag = gfa_path[-2:] == "gz"
-        if gz_flag:
-            gfa_file = gzip.open(gfa_path,"r")
-        else:
-            gfa_file = open(gfa_path,"r")
-        with timers("store_contig_info"):
-            for gfa_line in gfa_file:
-                if gz_flag:
-                    gfa_line = gfa_line.decode("utf-8")
-                if gfa_line[0] != "S":
-                    break
-                gfa_line = gfa_line.rstrip().split('\t')
-                contig_name = [k for k in gfa_line if k.startswith("SN:Z:")][0][5:]
-                start_pos = int([k for k in gfa_line if k.startswith("SO:i:")][0][5:])
-                end_pos = int([k for k in gfa_line if k.startswith("LN:i:")][0][5:]) + start_pos
-                rank = int([k for k in gfa_line if k.startswith("SR:i:")][0][5:])
-                try:
-                    rank = int([k for k in gfa_line if k.startswith("SR:i:")][0][5:])
-                except IndexError:
-                    raise CommandLineError("ERROR: No Rank present in the reference GFA File. Input rGFA file should have SR field.")
-                nodes[gfa_line[1]] = (gfa_line[1], contig_name, start_pos, end_pos)
-                if contig_name not in ref_contig:
-                    if rank == 0:
-                        ref_contig.append(contig_name)
-                else:
-                    assert (rank == 0)
->>>>>>> f00e349 (reshuffling code and making minor changes to the GAF class. View command has been altered to include the convert function.)
     
     if utils.is_file_gzipped(gaf_path):
         gaf_file = libcbgzf.BGZFile(gaf_path,"rb")

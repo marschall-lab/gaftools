@@ -8,23 +8,15 @@ import os
 import copy
 import re
 import sys
-<<<<<<< HEAD
 from collections import defaultdict
-=======
->>>>>>> f00e349 (reshuffling code and making minor changes to the GAF class. View command has been altered to include the convert function.)
 
 from gaftools import __version__
 from gaftools.cli import log_memory_usage, CommandLineError
 from gaftools.utils import search_intervals
 from gaftools.timer import StageTimer
 from gaftools.gaf import GAF
-<<<<<<< HEAD
 from gaftools.gfa import GFA
 from gaftools.conversion import StableNode, Node1, stable_to_unstable, unstable_to_stable, to_stable, to_unstable
-=======
-from gaftools.conversion import Node1, stable_to_unstable, unstable_to_stable, making_reference_object, read_gfa_unstable_to_stable, to_stable, to_unstable
->>>>>>> f00e349 (reshuffling code and making minor changes to the GAF class. View command has been altered to include the convert function.)
-
 
 logger = logging.getLogger(__name__)
 
@@ -152,192 +144,6 @@ def run(gaf_path,
     logger.info("Total time:                                  %9.2f s", total_time)
 
 
-<<<<<<< HEAD
-=======
-def change_format(a, show_node_id, node_id, ind, ind_dict, fa):
-    
-    x = list(filter(None, re.split('(>)|(<)', a[5])))
-    isStable = False
-    if len(x) == 1:
-        isStable = True
-    elif ":" in x[1]:
-        isStable = True
-    if isStable:
-        x = convert_to_unstable(a, ind)
-    
-    tmp = None
-    out_str = ""
-    if len(node_id) == 1:
-        
-        if show_node_id:
-            for nd in x:
-                out_str += nd
-        else:
-            tmp = [x[0], list(ind_dict[x[1]])]
-            for i,nd in enumerate(x):
-                if i == 0 or i == 1:
-                    continue 
-                if nd == ">" or nd == "<":
-                    orient = nd
-                    continue
-                n = ind_dict[nd]
-                if orient == tmp[-2] and n[1] == tmp[-1][1]:
-                    if orient == ">" and n[2] == tmp[-1][3]:
-                        tmp[-1][3] = n[3]
-                        continue
-                    if orient == "<" and n[3] == tmp[-1][2]:
-                        tmp[-1][2] = n[2]
-                        continue
-                tmp.append(orient)
-                tmp.append(list(ind_dict[nd]))
-            for nd in tmp:
-                if nd == ">" or nd == "<":
-                    out_str += nd
-                else:
-                    out_str += "%s:%d-%d"%(nd[1],nd[2],nd[3])
-        return out_str
-    if not fa:
-        orient=None
-        tmp = []
-        toStart = False
-        end = None
-        for nd in x:
-            if nd == ">" or nd == "<":
-                orient = nd
-                continue
-            if nd not in node_id and not toStart:
-                continue
-            if nd in node_id:
-                toStart=True
-                tmp.extend([orient, list(ind_dict[nd])])
-                end = len(tmp)
-                continue
-            tmp.extend([orient, list(ind_dict[nd])])
-        result = [tmp[0], tmp[1]]
-        orient=None
-        for i,nd in enumerate(tmp[:end]):
-            if i == 0 or i == 1:
-                continue 
-            if nd == ">" or nd == "<":
-                orient = nd
-                continue
-            n = nd
-            if orient == result[-2] and n[1] == result[-1][1]:
-                if orient == ">" and n[2] == result[-1][3]:
-                    result[-1][3] = n[3]
-                    continue
-                if orient == "<" and n[3] == result[-1][2]:
-                    result[-1][2] = n[2]
-                    continue
-            result.append(orient)
-            result.append(nd)
-        for nd in result:
-            if nd == ">" or nd == "<":
-                out_str += nd
-            else:
-                out_str += "%s:%d-%d"%(nd[1],nd[2],nd[3])
-    else:
-        if show_node_id:
-            for nd in x:
-                out_str += nd
-        else:
-            tmp = [x[0], list(ind_dict[x[1]])]
-            for i,nd in enumerate(x):
-                if i == 0 or i == 1:
-                    continue 
-                if nd == ">" or nd == "<":
-                    orient = nd
-                    continue
-                n = ind_dict[nd]
-                if orient == tmp[-2] and n[1] == tmp[-1][1]:
-                    if orient == ">" and n[2] == tmp[-1][3]:
-                        tmp[-1][3] = n[3]
-                        continue
-                    if orient == "<" and n[3] == tmp[-1][2]:
-                        tmp[-1][2] = n[2]
-                        continue
-                tmp.append(orient)
-                tmp.append(list(ind_dict[nd]))
-            for nd in tmp:
-                if nd == ">" or nd == "<":
-                    out_str += nd
-                else:
-                    out_str += "%s:%d-%d"%(nd[1],nd[2],nd[3])
-    return out_str
-
-
-def convert_to_unstable(x, ind):
-    
-    reference = {}    
-    contig_name = None
-    for n in ind:
-        tmp_contig_name = n[1]
-        
-        if tmp_contig_name != contig_name:
-            contig_name = copy.deepcopy(tmp_contig_name)
-            if contig_name not in reference:
-                reference[contig_name] = []
-
-        start_pos = n[2]
-        end_pos = n[3]
-        tmp = Node1(n[0], start_pos, end_pos)
-        reference[contig_name].append(tmp)
-    gaf_contigs = list(filter(None, re.split('(>)|(<)', x[5])))
-    unstable_coord = []
-    orient = None
-
-    for nd in gaf_contigs:
-        if nd == ">" or nd == "<":
-            orient = nd
-            continue
-        if ':' in nd and '-' in nd:
-            tmp = nd.rstrip().split(':')
-            query_contig_name = tmp[0]
-            (query_start, query_end) = tmp[1].rstrip().split('-')
-        else:
-            query_start = x[7]
-            query_end = x[8] 
-            query_contig_name = nd
-        if not orient:
-            orient = ">"
-
-        start, end = search_intervals(reference[query_contig_name], int(query_start), int(query_end), 0, len(reference[query_contig_name]))
-        tmp = []
-        for i in reference[query_contig_name][start:end+1]:
-            cases = -1
-            if i.start <= int(query_start) < i.end:
-                cases = 1
-            elif i.start < int(query_end) <= i.end:
-                cases = 2
-            elif int(query_start) < i.start < i.end < int(query_end):
-                cases = 3
-            if cases != -1:
-                if orient == "<":
-                    tmp.insert(0, orient)
-                    tmp.insert(1, i.node_id)
-                elif orient == ">":
-                    tmp.append(orient)
-                    tmp.append(i.node_id)    
-        for t in tmp:
-            unstable_coord.append(t)
-            
-    return unstable_coord
-            
-
-def detect_format(node):
-    """
-    Detect whether node IDs or regions are given 
-    """
-
-    if all(":" in n for n in node):
-        return True
-    if all(":" not in n for n in node):
-        return False
-    
-    logger.warning("All the input nodes should be of the same format type: node ids or regions")
-
-
->>>>>>> f00e349 (reshuffling code and making minor changes to the GAF class. View command has been altered to include the convert function.)
 def get_unstable(regions, index):
     """ Takes the regions and returns the node IDs """
 
