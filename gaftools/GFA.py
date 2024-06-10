@@ -1,5 +1,6 @@
 import sys
 import logging
+from collections import defaultdict
 import gzip
 import re
 import os
@@ -140,11 +141,12 @@ class GFA:
     """
     Graph object containing the important information about the graph
     """
-    __slots__ = ['nodes', 'low_memory', 'edge_tags']
+    __slots__ = ['nodes', 'low_memory', 'edge_tags', 'contigs']
 
     def __init__(self, graph_file=None, low_memory=False):
         self.nodes = dict()
         self.edge_tags = dict()
+        self.contigs = defaultdict(lambda: None)   # storing contigs with their SR tag to determine primary contig
         self.low_memory = low_memory
         if graph_file:
             if not os.path.exists(graph_file):
@@ -263,10 +265,15 @@ class GFA:
                     raise ValueError(f"The tag {tag} for node {node_id} did not match the specifications, check sam specification on tags")
                 tag = tag.split(":")
                 # I am adding the tags as key:value, key is tag_name:type and value is the value at the end
-                # e.g. SN:i:10 will be {"SN:i": 10}
+                # e.g. SN:i:10 will be {"SN": ('i', '10')}
                 self[node_id].tags[tag[0]] = (tag[1], tag[2])  # (type, value)
-                # self[node_id].tags[f"{tag[0]}:{tag[1]}"] = tag[2]
-
+            if 'SN' in self[node_id].tags and 'SR' in self[node_id].tags:
+                contig_name = self[node_id].tags['SN'][1]
+                contig_rank = int(self[node_id].tags['SR'][1])
+                if self.contigs[contig_name] == None:
+                    self.contigs[contig_name] = contig_rank
+                else:
+                    assert self.contigs[contig_name] == contig_rank
         else:
             logging.warning(f"You are trying to add node {node_id} and it already exists in the graph")
 

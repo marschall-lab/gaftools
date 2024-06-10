@@ -1,12 +1,10 @@
 """
-Scripts for converting stable to unstable coordinates and vice-versa.
+Core scripts for converting coordinates.
 """
 import logging
 import re
-import copy
 
 import gaftools.utils as utils
-from gaftools.cli import CommandLineError
 from gaftools.gaf import GAF
 
 
@@ -18,8 +16,9 @@ class Node1:
         self.start = start
         self.end = end
 
-
-class Node2:
+# Stable Node representation of the Nodes.
+# Used in the coversion from unstable to stable coordinate system.
+class StableNode:
     def __init__(self, contig_id, start, end):
         self.contig_id = contig_id
         self.start = start
@@ -38,9 +37,9 @@ def merge_nodes(node1, node2, orient1, orient2):
     if (orient1 == "<") and (node1.start != node2.end):
         return False
     if (orient1 == "<"):
-        node = Node2(node1.contig_id, node2.start, node1.end)
+        node = StableNode(node1.contig_id, node2.start, node1.end)
     else:
-        node = Node2(node1.contig_id, node1.start, node2.end)
+        node = StableNode(node1.contig_id, node1.start, node2.end)
     return [node, orient1]
 
 
@@ -213,84 +212,4 @@ def to_stable(gaf_line, nodes, ref_contig, contig_len):
     for k in gaf_line.tags.keys():
         new_line+="\t%s%s"%(k,gaf_line.tags[k])
 
-    return new_line 
-
-
-# Required for converting stable coordinates to unstable coordinates
-# TODO: This needs to go into the GFA object.
-def making_reference_object(gfa_path):
-    '''Needs to sort the gfa to use logn time binary search'''
-    
-    gfa_lines = utils.gfa_sort_basic(gfa_path)
-
-    '''We load the GFA into memory for fast execution. GFA is not very large
-    so it does not seem to be a big issue... This creates a dictionary where each element is a
-    contig that keeps the list of start and end locations with node name(S).
-    '''
-    logger.info("INFO: Loading the rGFA file into memory...")
-    # the reference object needs to be given as a input here and not made here
-    reference = {}    
-    contig_name = None
-    for gfa_line in gfa_lines:
-        tmp_contig_name = [k for k in gfa_line if k.startswith("SN:Z:")][0][5:]
-        
-        if tmp_contig_name != contig_name:
-            contig_name = copy.deepcopy(tmp_contig_name)
-            if contig_name not in reference:
-                reference[contig_name] = []
-
-        start_pos = int([k for k in gfa_line if k.startswith("SO:i:")][0][5:])
-        end_pos = int([k for k in gfa_line if k.startswith("LN:i:")][0][5:]) + start_pos
-        tmp = Node1(gfa_line[1], start_pos, end_pos)
-        reference[contig_name].append(tmp)
-    
-    return reference
-
-# Required for converting unstable coordinates to stable coordinates
-# TODO: This needs to go into the GFA object.
-def read_gfa_unstable_to_stable(gfa_path):
-    # reading GFA file
-    
-    import gzip
-
-    nodes = {}
-    contig_len = {}
-    ref_contig = []
-    contig_name = None
-    
-    gz_flag = gfa_path[-2:] == "gz"
-    if gz_flag:
-        gfa_file = gzip.open(gfa_path,"r")
-    else:
-        gfa_file = open(gfa_path,"r")
-
-    for gfa_line in gfa_file:
-        if gz_flag:
-            gfa_line = gfa_line.decode("utf-8")
-        if gfa_line[0] != "S":
-            continue
-        
-        gfa_line = gfa_line.rstrip().split('\t')
-        contig_name = [k for k in gfa_line if k.startswith("SN:Z:")][0][5:]
-        start_pos = int([k for k in gfa_line if k.startswith("SO:i:")][0][5:])
-        end_pos = int([k for k in gfa_line if k.startswith("LN:i:")][0][5:]) + start_pos
-        try:
-            rank = int([k for k in gfa_line if k.startswith("SR:i:")][0][5:])
-        except IndexError:
-            raise CommandLineError("No Rank present in the reference GFA File. Input rGFA file should have SR field.")
-        if contig_name not in ref_contig:
-            if rank == 0:
-                ref_contig.append(contig_name)
-        else:
-            assert (rank == 0)
-
-        tmp = Node2(contig_name, start_pos, end_pos)
-        nodes[gfa_line[1]] = tmp
-
-        try:
-            contig_len[contig_name] += end_pos - start_pos
-        except KeyError:
-            contig_len[contig_name] = end_pos-start_pos
-    gfa_file.close()
-
-    return nodes, contig_len, ref_contig
+    return new_line

@@ -32,6 +32,7 @@ from collections import defaultdict, namedtuple
 
 import gaftools.utils as utils
 from gaftools.timer import StageTimer
+from gaftools.GFA import GFA
 
 logger = logging.getLogger(__name__)
 timers = StageTimer()
@@ -49,13 +50,12 @@ def run_sort(gfa, gaf, outgaf=None, outind=None, bgzip=False):
         if outind:
             index_file = outind
         else:
-            index_file = outgaf+".gai"
-    nodes = defaultdict(lambda: [-1,-1,-1,-1])
+            index_file = outgaf+".gsi"
     index_dict = defaultdict(lambda: [None, None])
     with timers("read_gfa"):
-        read_gfa(gfa, nodes)
+        gfa_file = GFA(graph_file=gfa, low_memory=True)
     with timers("total_sort"):
-        sort(gaf, nodes, writer, index_dict, index_file)
+        sort(gaf, gfa_file.nodes, writer, index_dict, index_file)
     writer.close()
     
     
@@ -132,47 +132,11 @@ def sort(gaf, nodes, writer, index_dict, index_file):
             pkl.dump(index_dict, ind)
     reader.close()
 
-# TODO: Integrate into GFA class
-def read_gfa(gfa, node):
-    
-    logger.info("Parsing GFA file and reading sort key information")
-    if utils.is_file_gzipped(gfa):
-        reader = gzip.open(gfa, 'rt')
-    else:
-        reader = open(gfa, 'r')
-    
-    total_nodes = 0
-    tagged_nodes = 0
-    while True:
-        line = reader.readline()
-        if not line:
-            break
-        if line[0] != 'S':
-            continue
-        total_nodes += 1
-        fields = line.split("\t")
-        for f in fields:
-            if f.startswith("BO:i:"):
-                node[fields[1]][0] = int(f[5:])
-                tagged_nodes += 1
-            if f.startswith("NO:i:"):
-                node[fields[1]][1] = int(f[5:])
-            if f.startswith("SR:i:"):
-                node[fields[1]][2] = int(f[5:])
-            if f.startswith("SN:Z:"):
-                node[fields[1]][3] = f[5:]
-            
-    logger.info("\tTotal Nodes Processed: %d"%(total_nodes))
-    logger.info("\tNodes with tags: %d"%(tagged_nodes))
-    reader.close()
-
-
 def process_alignment(line, nodes, offset):
     path = list(filter(None, re.split('(>)|(<)', line[5])))
     orient = None
     # If there is no scaffold node present in the alignment, then assuming that it is in the correct orientation.
     # TODO: Need to find a way to deal with such alignments.
-    rv = False
     bo = None
     no = None
     start = None
@@ -184,17 +148,22 @@ def process_alignment(line, nodes, offset):
             orient = n
             continue
         
+        sn_tag = nodes[n].tags['SN'][1]
+        bo_tag = int(nodes[n].tags['BO'][1])
+        no_tag = int(nodes[n].tags['NO'][1])
+        sr_tag = int(nodes[n].tags['SR'][1])
+
         # Finding the chromosome where the alignment is
-        if sn == None and nodes[n][2] == 0:
-            sn = nodes[n][3]
-        elif nodes[n][2] == 0:
-            assert sn == nodes[n][3]
+        if sn == None and sr_tag == 0:
+            sn = sn_tag
+        elif sr_tag == 0:
+            assert sn == sn_tag
         
-        if nodes[n][0] == -1 or nodes[n][1] == -1:
+        if bo_tag == -1 or no_tag == -1:
             logger.debug("[ERR]\tOF:i:%d\tND:Z:%s"%(offset,n))
             continue
         # Skipping the non-scaffold nodes
-        if nodes[n][1] != 0:
+        if no_tag != 0:
             continue
         # Only keeping the orientation of the scaffold nodes in the path matching
         orient_list.append(orient)
@@ -209,13 +178,13 @@ def process_alignment(line, nodes, offset):
         e = int(line[8])
         start = l-e
         n = path[-1]
-        bo = nodes[n][0]
-        no = nodes[n][1]
+        bo = int(nodes[n].tags['BO'][1])
+        no = int(nodes[n].tags['NO'][1])
     else:
         start = int(line[7])
         n = path[1]
-        bo = nodes[n][0]
-        no = nodes[n][1]
+        bo = int(nodes[n].tags['BO'][1])
+        no = int(nodes[n].tags['NO'][1])
     if sn == None:
         sn = "unknown"
     return bo, no, start, inv, sn
@@ -273,7 +242,7 @@ def add_arguments(parser):
     arg("gfa", metavar='GFA', help="GFA file with the sort keys (BO and NO tagged)")
     
     arg("--outgaf", default=None, help="Output GAF File path (Default: sys.stdout)")
-    arg("--outind", default=None, help="Output Index File path for the GAF file. (When --outgaf is not given, no index is created. If it is given and --outind is not specified, it will have same file name with .gai extension)")
+    arg("--outind", default=None, help="Output Index File path for the GAF file. (When --outgaf is not given, no index is created. If it is given and --outind is not specified, it will have same file name with .gsi extension)")
     arg("--bgzip", action='store_true', help="Flag to bgzip the output. Can only be given with --output.")
     
 # fmt: on
