@@ -18,11 +18,11 @@ class StageTimer:
 
     def start(self, stage):
         """Start measuring elapsed time for a stage"""
-        self._start[stage] = time.time()
+        self._start[stage] = time.perf_counter()
 
     def stop(self, stage):
         """Stop measuring elapsed time for a stage."""
-        t = time.time() - self._start[stage]
+        t = time.perf_counter() - self._start[stage]
         assert t > 0
         self._elapsed[stage] += t
         del self._start[stage]

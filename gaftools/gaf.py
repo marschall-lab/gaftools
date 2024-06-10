@@ -46,21 +46,20 @@ class Read:
 
 
 def parse_gaf(filename):
-   
     gz_flag = False
     if utils.is_file_gzipped(filename):
-        gaf_file = gzip.open(filename,"r")
+        gaf_file = gzip.open(filename, "r")
         gz_flag = True
     else:
-        gaf_file = open(filename,"r") 
-    
+        gaf_file = open(filename, "r")
+
     for line in gaf_file:
         if not gz_flag:
             fields = line.rstrip().split('\t')
         else:
             fields = line.decode("utf-8").rstrip().split('\t')
-        
-        #If the query name has spaces (e.g., GraphAligner), we get rid of the segment after the space
+
+        # If the query name has spaces (e.g., GraphAligner), we get rid of the segment after the space
         query_name = fields[0].split(' ')[0]
         if fields[1].isdigit():
             query_length = int(fields[1])

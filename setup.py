@@ -21,7 +21,9 @@ def CppExtension(name, sources):
         undef_macros=["NDEBUG"],
     )
 
+
 extensions = []
+
 
 class BuildExt(Cython.Build.build_ext):
     def build_extensions(self):
@@ -37,6 +39,7 @@ class BuildExt(Cython.Build.build_ext):
         except (AttributeError, ValueError):
             pass
         super().build_extensions()
+
 
 # Avoid compilation if we are being installed within Read The Docs
 if os.environ.get("READTHEDOCS") == "True":

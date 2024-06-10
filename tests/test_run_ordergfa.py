@@ -2,9 +2,7 @@
 Tests for 'gaftools order_gfa'
 """
 
-from collections import namedtuple
-import pdb
-from gaftools.GFA import GFA
+from gaftools.gfa import GFA
 from gaftools.cli.order_gfa import run_order_gfa
 
 
