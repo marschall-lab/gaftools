@@ -62,18 +62,6 @@ def reverse_cigar(cg):
     return new_cigar
 
 
-def is_unstable(line):
-    g = list(filter(None, re.split('(>)|(<)', line.rstrip().split('\t')[5])))
-    
-    if len(g) == 1:
-        return False
-    
-    if ":" in g[1]:
-        return False
-    
-    return True
-
-
 def display_top(snapshot, key_type='lineno', limit=3):
     snapshot = snapshot.filter_traces((
         tracemalloc.Filter(False, "<frozen importlib._bootstrap>"),

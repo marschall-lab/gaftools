@@ -5,7 +5,6 @@ Realign GAF file using wavefront alignment algorithm (WFA)
 import logging
 import sys
 import pysam
-import time
 import gaftools.gaf
 import multiprocessing as mp
 from gaftools.utils import display_top

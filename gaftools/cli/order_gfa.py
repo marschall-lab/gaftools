@@ -129,27 +129,6 @@ def run_order_gfa(
 
     logger.info('Total bubbles: %d', total_bubbles)
 
-# TODO: Delete(?)
-def tag_to_str(tag):
-    name, value = tag
-    if type(value) is int:
-        return ':'.join([name, 'i', str(value)])
-    elif type(value) is str:
-        return ':'.join([name, 'Z', value])
-    else:
-        assert False
-
-# TODO: Delete(?)
-def parse_tag(s):
-    name, type_id, value = s.split(':')
-    assert len(name) == 2
-    if type_id == 'i':
-        return name, int(value)
-    elif type_id == 'Z':
-        return name, value
-    else:
-        assert False
-
 
 def decompose_and_order(graph, component, component_name, bo_start=0):
     """

@@ -12,8 +12,6 @@ from pysam import libcbgzf
 from collections import defaultdict
 import re
 import pickle
-from pysam import libcbgzf
-
 import logging
 
 import gaftools.utils as utils
