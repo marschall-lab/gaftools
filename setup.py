@@ -56,10 +56,8 @@ else:
                 install_requires.append(line.strip())
     else:
         install_requires = [
-            "pyfaidx",
             "pysam",
-            "pywfa",
-            "six"
+            "pywfa"
         ]
 
 setup(
