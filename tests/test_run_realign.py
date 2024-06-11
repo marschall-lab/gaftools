@@ -3,7 +3,6 @@ Tests for 'gaftools realign'
 """
 
 from gaftools.gaf import GAF
-from time import sleep
 from gaftools.cli.realign import run_realign
 
 

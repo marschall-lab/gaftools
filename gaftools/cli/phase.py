@@ -7,7 +7,6 @@ import sys
 
 from gaftools import __version__
 from gaftools.cli import log_memory_usage
-from gaftools.cli import CommandLineError
 from gaftools.timer import StageTimer
 from gaftools.gaf import GAF
 

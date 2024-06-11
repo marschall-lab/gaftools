@@ -278,7 +278,8 @@ def realign_gaf(gaf, graph, fasta, output, cores=1):
 
     seq_batch = []
     batch_size = 1000
-    for line in gaftools.gaf.parse_gaf(gaf):
+    gaf_file = GAF(gaf)
+    for line in gaf_file.read_file():
         path_sequence = graph_obj.extract_path(line.path)
         ref = path_sequence[line.path_start:line.path_end]
         query = fastafile.fetch(line.query_name, line.query_start, line.query_end)
@@ -307,6 +308,7 @@ def realign_gaf(gaf, graph, fasta, output, cores=1):
                 p.join()
             processes = []
             queue = mp.Queue()
+    gaf_file.close()
 
     if len(seq_batch) > 0:  # leftover alignments to re-align
         processes.append(mp.Process(target=wfa_alignment, args=(seq_batch, queue,)))
@@ -402,6 +404,7 @@ def realign_gaf_old(gaf, graph, fasta, output, extended, cores=1):
                 p.join()
             processes = []
             queue = mp.Queue()
+    gaf_file.close()
 
 
     # leftover alignments

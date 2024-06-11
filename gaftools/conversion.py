@@ -10,12 +10,6 @@ from gaftools.gaf import GAF
 
 logger = logging.getLogger(__name__)
 
-class Node1:
-    def __init__(self, node_id, start, end):
-        self.node_id = node_id
-        self.start = start
-        self.end = end
-
 # Stable Node representation of the Nodes.
 # Used in the coversion from unstable to stable coordinate system.
 class StableNode:
@@ -62,7 +56,6 @@ def unstable_to_stable(gaf_path, nodes, ref_contig, contig_len):
         yield to_stable(gaf_line, nodes, ref_contig, contig_len)
     gaf_input.close()
 
-
 # separate function for converting lines to unstable coordinate
 def to_unstable(gaf_line, reference):
     gaf_contigs = list(filter(None, re.split('(>)|(<)', gaf_line.path)))
@@ -97,22 +90,24 @@ def to_unstable(gaf_line, reference):
         start, end = utils.search_intervals(reference[query_contig_name], int(query_start), int(query_end), 0, len(reference[query_contig_name]))
         nodes_tmp = []
         for i in reference[query_contig_name][start:end+1]:
+            s = int(i.tags['SO'][1])
+            e = int(i.tags['SO'][1]) + int(i.tags['LN'][1])
             cases = -1
-            if i.start <= int(query_start) < i.end:
+            if s <= int(query_start) < e:
                 cases = 1
                 if new_start == -1:
                     if split_contig:
                         new_start = int(query_start)
                     else:
-                        new_start = int(query_start) - i.start
-            elif i.start < int(query_end) <= i.end:
+                        new_start = int(query_start) - s
+            elif s < int(query_end) <= e:
                 cases = 2
-            elif int(query_start) < i.start < i.end < int(query_end):
+            elif int(query_start) < s < e < int(query_end):
                 cases = 3
             
             if cases != -1:
-                nodes_tmp.append(i.node_id)
-                new_total += (i.end - i.start)
+                nodes_tmp.append(i.id)
+                new_total += (e - s)
         
         if orient == "<":
             for i in reversed(nodes_tmp):

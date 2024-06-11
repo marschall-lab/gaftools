@@ -682,7 +682,7 @@ class GFA:
             logging.error("Was not able to return the length of the chromosome, check warning message(s)")
             sys.exit(1)
         else:
-            return sum([self.nodes[x].seq_len for x in sorted_nodes])
+            return sum([int(self.nodes[x].tags['LN'][1]) for x in sorted_nodes])
 
     def extract_path(self, path):
         """

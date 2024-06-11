@@ -4,7 +4,6 @@ Statistics of a GAF File
 
 import sys
 import logging
-import gzip
 import itertools
 from gaftools.gaf import GAF, Read
 from gaftools.cli import log_memory_usage

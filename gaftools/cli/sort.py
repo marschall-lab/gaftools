@@ -23,7 +23,6 @@ It adds some tags into the sorted gaf file. The tags are:
 import sys
 import logging
 import functools
-import gzip
 import re
 import resource
 import pickle as pkl

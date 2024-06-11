@@ -10,8 +10,6 @@ import re
 import pickle
 from pysam import libcbgzf
 from collections import defaultdict
-import gzip
-import copy
 import re
 import pickle
 from pysam import libcbgzf

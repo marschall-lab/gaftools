@@ -1,5 +1,4 @@
 import re
-import gzip
 import logging
 from pysam import libcbgzf
 import gaftools.utils as utils

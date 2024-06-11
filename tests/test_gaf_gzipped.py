@@ -2,9 +2,7 @@
 Tests for gaf.py.
 """
 
-import gzip
 from gaftools.gaf import GAF, Alignment
-
 
 def test_parse_gaf_gz():
     #gaftools realign alignments.gaf smallgraph.gfa reads.fa

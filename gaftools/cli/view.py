@@ -5,18 +5,15 @@ View the GAF file based on parameters
 import logging
 import pickle
 import os
-import copy
-import re
 import sys
 from collections import defaultdict
 
 from gaftools import __version__
 from gaftools.cli import log_memory_usage, CommandLineError
-from gaftools.utils import search_intervals
 from gaftools.timer import StageTimer
 from gaftools.gaf import GAF
 from gaftools.gfa import GFA
-from gaftools.conversion import StableNode, Node1, stable_to_unstable, unstable_to_stable, to_stable, to_unstable
+from gaftools.conversion import StableNode, stable_to_unstable, unstable_to_stable, to_stable, to_unstable
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +44,9 @@ def run(gaf_path,
         assert gaf_format==gaf_line.detect_path_format()
     gaf.close()
 
+    ref_contig=[]
+    gfa_nodes=None
+    contig_len={}
     # if format is given, prepare some objects for use later
     if format:
         if format == 'stable':
@@ -56,9 +56,10 @@ def run(gaf_path,
             gfa_nodes = {id: StableNode(contig_id=gfa_file[id].tags['SN'][1], start=int(gfa_file[id].tags['SO'][1]), end=int(gfa_file[id].tags['SO'][1])+int(gfa_file[id].tags['LN'][1])) for id in gfa_file.nodes}
             ref_contig = [contig for contig in gfa_file.contigs if gfa_file.contigs[contig] == 0]
             # TODO: Update based on Fawaz's branch
-            contig_len = gfa_file.contig_lens
+            for contig in gfa_file.contigs:
+                contig_len[contig] = gfa_file.get_contig_length(contig)
+            print(contig_len)
             del gfa_file
-            # gfa_nodes, contig_len, ref_contig = read_gfa_unstable_to_stable(gfa)
         else:
             assert format == 'unstable'
             if gaf_format == False:
@@ -72,7 +73,6 @@ def run(gaf_path,
                 for node in path:
                     reference[contig].append(gfa_file[node])
             del gfa_file
-            # reference = making_reference_object(gfa)
 
     # now find out what lines to view and how to view
     if len(nodes) != 0 or len(regions) != 0:

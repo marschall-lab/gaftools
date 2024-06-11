@@ -4,7 +4,6 @@ Tests for gaf.py.
 
 from gaftools.gaf import Alignment, GAF
 
-
 def test_parse_gaf():
     #gaftools realign alignments.gaf smallgraph.gfa reads.fa
     gaf = GAF('tests/data/alignments-graphaligner.gaf')
