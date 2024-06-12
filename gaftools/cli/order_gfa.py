@@ -129,7 +129,7 @@ def run_order_gfa(
 
     logger.info('Total bubbles: %d', total_bubbles)
 
-
+    
 def decompose_and_order(graph, component, component_name, bo_start=0):
     """
     This function takes the graph and a component

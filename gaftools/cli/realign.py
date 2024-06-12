@@ -5,15 +5,18 @@ Realign GAF file using wavefront alignment algorithm (WFA)
 import logging
 import sys
 import pysam
+import time
 import gaftools.gaf
 import multiprocessing as mp
+
 from gaftools.utils import display_top
 from gaftools.cli import log_memory_usage
 from gaftools.timer import StageTimer
 from gaftools.gaf import GAF, Alignment
 from gaftools.gfa import GFA
 from pywfa.align import WavefrontAligner, cigartuples_to_str
-from gaftools.gaf import GAF, Alignment
+
+
 
 logger = logging.getLogger(__name__)
 
@@ -349,6 +352,7 @@ def realign_gaf_old(gaf, graph, fasta, output, extended, cores=1):
     queue = mp.Queue()
 
     aln = {}
+
     gaf_file = GAF(gaf)
     for cnt, line in enumerate(gaf_file.read_file()):
         path_sequence = graph_obj.extract_path(line.path)
@@ -404,7 +408,6 @@ def realign_gaf_old(gaf, graph, fasta, output, extended, cores=1):
             processes = []
             queue = mp.Queue()
     gaf_file.close()
-
 
     # leftover alignments
     if len(processes) != 0:

@@ -2,6 +2,7 @@
 Tests for 'gaftools realign'
 """
 
+
 from gaftools.gaf import GAF
 from gaftools.cli.realign import run_realign
 

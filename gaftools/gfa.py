@@ -1,6 +1,7 @@
 import sys
 import logging
 from collections import defaultdict
+
 import gzip
 import re
 import os
@@ -147,6 +148,7 @@ class GFA:
     """
     Graph object containing the important information about the graph
     """
+
     __slots__ = ['nodes', 'low_memory', 'edge_tags', 'contigs']
 
     def __init__(self, graph_file=None, low_memory=False):
@@ -683,6 +685,7 @@ class GFA:
             sys.exit(1)
         else:
             return sum([int(self.nodes[x].tags['LN'][1]) for x in sorted_nodes])
+
 
     def extract_path(self, path):
         """

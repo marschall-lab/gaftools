@@ -9,6 +9,7 @@ Link to WhatsHap: https://github.com/whatshap/whatshap
 import os
 from setuptools import setup
 
+
 extensions = []
 
 # Avoid compilation if we are being installed within Read The Docs

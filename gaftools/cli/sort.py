@@ -234,6 +234,7 @@ def write_to_file(line, writer):
     except TypeError:
         writer.write(str.encode(line))
 
+        
 # fmt: off
 def add_arguments(parser):
     arg = parser.add_argument
