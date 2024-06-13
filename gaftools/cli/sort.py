@@ -21,17 +21,17 @@ It adds some tags into the sorted gaf file. The tags are:
 '''
 
 import sys
-import argparse
 import logging
-import gaftools.utils as utils
 import functools
-import gzip
 import re
 import resource
 import pickle as pkl
 from pysam import libcbgzf
-from gaftools.timer import StageTimer
 from collections import defaultdict, namedtuple
+
+import gaftools.utils as utils
+from gaftools.timer import StageTimer
+from gaftools.gfa import GFA
 
 logger = logging.getLogger(__name__)
 timers = StageTimer()
@@ -49,25 +49,24 @@ def run_sort(gfa, gaf, outgaf=None, outind=None, bgzip=False):
         if outind:
             index_file = outind
         else:
-            index_file = outgaf+".gai"
-    nodes = defaultdict(lambda: [-1,-1,-1,-1])
+            index_file = outgaf+".gsi"
     index_dict = defaultdict(lambda: [None, None])
     with timers("read_gfa"):
-        read_gfa(gfa, nodes)
+        gfa_file = GFA(graph_file=gfa, low_memory=True)
     with timers("total_sort"):
-        sort(gaf, nodes, writer, index_dict, index_file)
+        sort(gaf, gfa_file.nodes, writer, index_dict, index_file)
     writer.close()
     
     
     memory_kb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
     logger.info("\nMemory Information")
-    logger.info("  Maximum memory usage: %.3f GB", memory_kb / 1e6)
+    logger.info("  Maximum memory usage:              %.3f GB", memory_kb / 1e6)
     logger.info("\nTime Summary:")
-    logger.info("  Time to parse GFA file: %.3f seconds"%(timers.elapsed("read_gfa")))
-    logger.info("  Total time to sort GAF file: %.3f seconds"%(timers.elapsed("total_sort")))
-    logger.info("    Time to parse GAF file: %.3f seconds"%(timers.elapsed("read_gaf")))
-    logger.info("    Time to sort GAF file: %.3f seconds"%(timers.elapsed("sort_gaf")))
-    logger.info("    Time to write GAF file: %.3f seconds"%(timers.elapsed("write_gaf")))
+    logger.info("  Time to parse GFA file:            %.3f seconds"%(timers.elapsed("read_gfa")))
+    logger.info("  Total time to sort GAF file:       %.3f seconds"%(timers.elapsed("total_sort")))
+    logger.info("    Time to parse GAF file:          %.3f seconds"%(timers.elapsed("read_gaf")))
+    logger.info("    Time to sort GAF file:           %.3f seconds"%(timers.elapsed("sort_gaf")))
+    logger.info("    Time to write GAF file:          %.3f seconds"%(timers.elapsed("write_gaf")))
     
 
 def sort(gaf, nodes, writer, index_dict, index_file):
@@ -133,46 +132,11 @@ def sort(gaf, nodes, writer, index_dict, index_file):
     reader.close()
 
 
-def read_gfa(gfa, node):
-    
-    logger.info("Parsing GFA file and reading sort key information")
-    if utils.is_file_gzipped(gfa):
-        reader = gzip.open(gfa, 'rt')
-    else:
-        reader = open(gfa, 'r')
-    
-    total_nodes = 0
-    tagged_nodes = 0
-    while True:
-        line = reader.readline()
-        if not line:
-            break
-        if line[0] != 'S':
-            continue
-        total_nodes += 1
-        fields = line.split("\t")
-        for f in fields:
-            if f.startswith("BO:i:"):
-                node[fields[1]][0] = int(f[5:])
-                tagged_nodes += 1
-            if f.startswith("NO:i:"):
-                node[fields[1]][1] = int(f[5:])
-            if f.startswith("SR:i:"):
-                node[fields[1]][2] = int(f[5:])
-            if f.startswith("SN:Z:"):
-                node[fields[1]][3] = f[5:]
-            
-    logger.info("\tTotal Nodes Processed: %d"%(total_nodes))
-    logger.info("\tNodes with tags: %d"%(tagged_nodes))
-    reader.close()
-
-
 def process_alignment(line, nodes, offset):
     path = list(filter(None, re.split('(>)|(<)', line[5])))
     orient = None
     # If there is no scaffold node present in the alignment, then assuming that it is in the correct orientation.
     # TODO: Need to find a way to deal with such alignments.
-    rv = False
     bo = None
     no = None
     start = None
@@ -184,17 +148,22 @@ def process_alignment(line, nodes, offset):
             orient = n
             continue
         
+        sn_tag = nodes[n].tags['SN'][1]
+        bo_tag = int(nodes[n].tags['BO'][1])
+        no_tag = int(nodes[n].tags['NO'][1])
+        sr_tag = int(nodes[n].tags['SR'][1])
+
         # Finding the chromosome where the alignment is
-        if sn == None and nodes[n][2] == 0:
-            sn = nodes[n][3]
-        elif nodes[n][2] == 0:
-            assert sn == nodes[n][3]
+        if sn == None and sr_tag == 0:
+            sn = sn_tag
+        elif sr_tag == 0:
+            assert sn == sn_tag
         
-        if nodes[n][0] == -1 or nodes[n][1] == -1:
+        if bo_tag == -1 or no_tag == -1:
             logger.debug("[ERR]\tOF:i:%d\tND:Z:%s"%(offset,n))
             continue
         # Skipping the non-scaffold nodes
-        if nodes[n][1] != 0:
+        if no_tag != 0:
             continue
         # Only keeping the orientation of the scaffold nodes in the path matching
         orient_list.append(orient)
@@ -209,13 +178,13 @@ def process_alignment(line, nodes, offset):
         e = int(line[8])
         start = l-e
         n = path[-1]
-        bo = nodes[n][0]
-        no = nodes[n][1]
+        bo = int(nodes[n].tags['BO'][1])
+        no = int(nodes[n].tags['NO'][1])
     else:
         start = int(line[7])
         n = path[1]
-        bo = nodes[n][0]
-        no = nodes[n][1]
+        bo = int(nodes[n].tags['BO'][1])
+        no = int(nodes[n].tags['NO'][1])
     if sn == None:
         sn = "unknown"
     return bo, no, start, inv, sn
@@ -265,114 +234,7 @@ def write_to_file(line, writer):
     except TypeError:
         writer.write(str.encode(line))
 
-
-def is_file_gzipped(src):
-    with open(src, "rb") as inp:
-        return inp.read(2) == b'\x1f\x8b'
-
-
-def gfa_sort_basic(gfa_path):
-    '''This function sorts the given gfa file based on the contig name and start position within the
-    contig. Note that it only sorts S lines and leaves the others.
-    This can be called from the command line or from another function by providing "True" to the
-    return_list argument.
-    '''
-
-    import glob
-    from heapq import merge
-    import functools
-    import gzip
-    import os
-
-    gfa_lines = []
-    path = "part*.gfa"
-    chunk_size = 250000
-    chunk_id = 1
-
-    if is_file_gzipped(gfa_path):
-       open_gfa = gzip.open
-       is_gzipped = True
-    else:
-        open_gfa = open
-    
-    with open_gfa(gfa_path, 'rt') as gfa_file:
-        f_out = open('part_{}.gfa'.format(chunk_id), 'w')
         
-        for line_num, mapping in enumerate(gfa_file, 1):
-            val = mapping.rstrip().split('\t')
-            gfa_lines.append(val)
-        
-            if not line_num % chunk_size:
-                gfa_lines.sort(key=functools.cmp_to_key(compare_gfa_lines))
-                
-                for line_count, line in enumerate(gfa_lines):
-                    f_out.write('\t'.join(line) + '\n') 
-            
-                logger.info('INFO: Splitting %d' %chunk_id)
-                f_out.close()
-                gfa_lines = []
-                chunk_id += 1
-                f_out = open('part_{}.gfa'.format(chunk_id), 'w')
-
-
-        if gfa_lines:
-            logger.info('INFO: Splitting %d' %chunk_id)
-            gfa_lines.sort(key=functools.cmp_to_key(compare_gfa_lines))
-            for line_count, line in enumerate(gfa_lines):
-                f_out.write('\t'.join(line) + '\n') 
-            f_out.close()
-            gfa_lines = []
-
-    chunks = []
-    for filename in glob.glob(path):
-        chunks += [open(filename, 'r')]
-     
-    gfa_s = []
-    tmp = merge(*chunks, key=functools.cmp_to_key(compare_gfa_merge))
-    for i in tmp:
-        if i[0] == "S":
-            gfa_s.append(i.rstrip().split('\t'))
-        
-    for part_file in glob.glob(path):
-        if os.path.isfile(part_file):
-            os.remove(part_file)
-
-    return gfa_s
- 
-
-def compare_gfa_lines(ln1, ln2):
-    
-    if not ln1[0] == "S" and not ln2[0] == "S":
-        #If both are not S lines, then leave it
-        return -1
-    elif ln1[0] == "S" and not ln2[0] == "S":
-        return -1
-    elif not ln1[0] == "S" and ln2[0] == "S":
-        return 1
-
-    chr1 = [k for k in ln1 if k.startswith("SN:Z:")][0][5:]
-    chr2 = [k for k in ln2 if k.startswith("SN:Z:")][0][5:]
-    start1 = int([k for k in ln1 if k.startswith("SO:i:")][0][5:])
-    start2 = int([k for k in ln2 if k.startswith("SO:i:")][0][5:])
-
-    if chr1 == chr2:
-        if start1 < start2:
-            return -1
-        else:
-            return 1
-    if chr1 < chr2:
-        return -1
-    else:
-        return 1
-
-
-def compare_gfa_merge(ln1, ln2):
-
-    ln1 = ln1.rstrip().split('\t')
-    ln2 = ln2.rstrip().split('\t')
-    return compare_gfa_lines(ln1, ln2)  
-
-
 # fmt: off
 def add_arguments(parser):
     arg = parser.add_argument
@@ -381,7 +243,7 @@ def add_arguments(parser):
     arg("gfa", metavar='GFA', help="GFA file with the sort keys (BO and NO tagged)")
     
     arg("--outgaf", default=None, help="Output GAF File path (Default: sys.stdout)")
-    arg("--outind", default=None, help="Output Index File path for the GAF file. (When --outgaf is not given, no index is created. If it is given and --outind is not specified, it will have same file name with .gai extension)")
+    arg("--outind", default=None, help="Output Index File path for the GAF file. (When --outgaf is not given, no index is created. If it is given and --outind is not specified, it will have same file name with .gsi extension)")
     arg("--bgzip", action='store_true', help="Flag to bgzip the output. Can only be given with --output.")
     
 # fmt: on

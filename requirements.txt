@@ -1,5 +1,2 @@
-Cython==0.29.34
-pyfaidx==0.7.1
-pysam==0.20.0
+pysam==0.22.1
 pywfa==0.5.1
-six==1.16.0

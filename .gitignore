@@ -1,10 +1,8 @@
 build/
-test_files/
 *.fai
 venv/
 *.pyc
 *~
-tests/
 .*.kate-swp
 .snakemake/
 ^data/

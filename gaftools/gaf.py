@@ -1,9 +1,8 @@
 import re
-import gzip
 import logging
+from pysam import libcbgzf
 import gaftools.utils as utils
 from gaftools import __version__
-from collections import defaultdict
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +31,28 @@ class Alignment:
         self.is_primary = is_primary
         self.duplicate = False
         self.tags = tags
+    
+    # detect whether the paths are in stable or unstable coordinates
+    # returns True for stable
+    def detect_path_format(self):
+        if ':' in self.path:
+            # this is possible for paths of the form <contig>:<start>-<end>
+            return True
+        if '>' in self.path or '<' in self.path:
+            # if : is not present, then path can be of form <contig> or unstable coordinate. Check unstable by looking for > or <
+            return False
+        # only possibility left is of form <contig>
+        return True
+    
+    # return the alignment as a string
+    def __str__(self):
+        line = "%s\t%s\t%s\t%s\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d"%(self.query_name, self.query_length, self.query_start, self.query_end,
+                        self.strand, self.path, self.path_length, self.path_start, self.path_end, self.residue_matches,
+                        self.alignment_block_length, self.mapping_quality)
+        self.tags['cg:Z:'] = self.cigar
+        for k in self.tags.keys():
+            line += "\t%s%s"%(k,self.tags[k])
+        return line
 
 
 class Read:
@@ -45,16 +66,31 @@ class Read:
         self.total_seq_identity = seq_identity
 
 
-def parse_gaf(filename):
-    gz_flag = False
-    if utils.is_file_gzipped(filename):
-        gaf_file = gzip.open(filename, "r")
-        gz_flag = True
-    else:
-        gaf_file = open(filename, "r")
+class GAF:
+    def __init__(self, filename):
+        self.file = None
+        self.gz_flag = False
+        if utils.is_file_gzipped(filename):
+            # gaf file has to be gzipped with bgzip to access blocks 
+            self.file = libcbgzf.BGZFile(filename,"rb")
+            self.gz_flag = True
+        else:
+            self.file = open(filename,"r") 
+    
+    # closing the file
+    def close(self):
+        self.file.close()
 
-    for line in gaf_file:
-        if not gz_flag:
+    def read_file(self):
+        for line in self.file:
+            yield self.parse_gaf_line(line)
+
+    def read_line(self, offset):
+        self.file.seek(offset)
+        return self.parse_gaf_line(self.file.readline())
+
+    def parse_gaf_line(self, line):
+        if not self.gz_flag:
             fields = line.rstrip().split('\t')
         else:
             fields = line.decode("utf-8").rstrip().split('\t')
@@ -64,30 +100,30 @@ def parse_gaf(filename):
         if fields[1].isdigit():
             query_length = int(fields[1])
         else:
-            continue
+            return
         if fields[2].isdigit():
             query_start = int(fields[2])
         else:
-            continue
+            return
         if fields[3].isdigit():
             query_end = int(fields[3])
         else:
-            continue
+            return
         strand = fields[4]
         path = fields[5]
 
         if fields[6].isdigit():
             path_length = int(fields[6])
         else:
-            continue
+            return
         if fields[7].isdigit():
             path_start = int(fields[7])
         else:
-            continue
+            return
         if fields[8].isdigit():
             path_end = int(fields[8])
         else:
-            continue
+            return
         residue_matches = int(fields[9])
         alignment_block_length = int(fields[10])
         mapping_quality = int(fields[11])
@@ -110,51 +146,10 @@ def parse_gaf(filename):
 
                     if pattern == "tp:A" and (val != "P" or val != "p"):
                         is_primary = False
-                       
-        yield Alignment(query_name, query_length, query_start, query_end, strand, path,
+                        
+        return Alignment(query_name, query_length, query_start, query_end, strand, path,
                         path_length, path_start, path_end, residue_matches, alignment_block_length,
                         mapping_quality, is_primary, cigar, tags=tags)
-    return
-
-
-def parse_gfa(gfa_filename, with_sequence=False):
-    nodes = {}
-
-    for nr, line in enumerate(open(gfa_filename)):
-        fields = line.split('\t')
-        if fields[0] == 'S':
-            name = fields[1]
-            #tags = dict(parse_tag(s) for s in fields[3:])
-            sequence = None
-            if with_sequence and (fields[2] != '*'):
-                sequence = fields[2]
-            #nodes[name] = Node(name,tags,sequence)
-            nodes[name] = sequence
-    return nodes
-
-
-def get_path(nodes, path):
-    l = []
-    for s in re.findall('[><][^><]+', path):
-        node_seq = nodes[s[1:]]
-        if s[0] == '>':
-            l.append(node_seq)
-        elif s[0] == '<':
-            l.append(node_seq[::-1].translate(complement))
-        else:
-            assert False
-    return ''.join(l)
-
-
-def parse_tag(s):
-    name, type_id, value = s.split(':')
-    assert len(name) == 2
-    if type_id == 'i':
-        return name, int(value)
-    elif type_id == 'Z':
-        return name, value
-    else:
-        assert False
 
 
 def compare_aln(ln1, ln2):

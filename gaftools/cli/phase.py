@@ -7,9 +7,8 @@ import sys
 
 from gaftools import __version__
 from gaftools.cli import log_memory_usage
-from gaftools.cli import CommandLineError
 from gaftools.timer import StageTimer
-from gaftools.gaf import parse_gaf
+from gaftools.gaf import GAF
 
 class Node:
     def __init__(self, chr_name, haplotype, phase_set):
@@ -54,7 +53,8 @@ def add_phase_info(gaf_path, tsv_path, out_path):
     line_count = 0
     missing_in_tsv = 0
     phased = 0
-    for gaf_line in parse_gaf(gaf_path):
+    gaf_file = GAF(gaf_path)
+    for gaf_line in gaf_file.read_file():
         
         if line_count != 0:
             gaf_out.write("\n")
@@ -85,7 +85,7 @@ def add_phase_info(gaf_path, tsv_path, out_path):
         gaf_out.write("\t%s"%gaf_line.cigar)
     
     logger.info("INFO: Added phasing info (ps:Z and ht:Z) for %d reads out of %d GAF lines - (%d reads are missing in .tsv)" %(phased, line_count, missing_in_tsv))
-
+    gaf_file.close()
     tsv_file.close()
     gaf_out.close()
 

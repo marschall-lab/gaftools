@@ -2,7 +2,6 @@ import re
 import tracemalloc
 import linecache
 
-
 complement = str.maketrans('ACGT', 'TGCA')
 tag_regex = r"^[A-Za-z][A-Za-z][:][AifZHB][:][ !-~]*$"
 
@@ -40,12 +39,12 @@ def search_intervals(intervals, query_start, query_end, start, end):
     searches for the given (query_start, query_end) matches. (query_start, query_end) is the start
     and end location of a mapping in the gaf file.
     '''
-
+    
     if start <= end:    
         mid = start + (end - start) // 2
-        if query_end <= intervals[mid].start:
+        if query_end <= int(intervals[mid].tags['SO'][1]):
             return search_intervals(intervals, query_start, query_end, start, mid - 1)
-        elif query_start >= intervals[mid].end:
+        elif query_start >= int(intervals[mid].tags['SO'][1]) + int(intervals[mid].tags['LN'][1]):
             return search_intervals(intervals, query_start, query_end, mid + 1, end)
         else:
             return start, end
@@ -61,18 +60,6 @@ def reverse_cigar(cg):
     for i in range(len(all_cigars), 0, -2):
         new_cigar += str(all_cigars[i-2]) + str(all_cigars[i-1])
     return new_cigar
-
-
-def is_unstable(line):
-    g = list(filter(None, re.split('(>)|(<)', line.rstrip().split('\t')[5])))
-    
-    if len(g) == 1:
-        return False
-    
-    if ":" in g[1]:
-        return False
-    
-    return True
 
 
 def display_top(snapshot, key_type='lineno', limit=3):
