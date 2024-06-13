@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=43", "setuptools_scm"]
+requires = ["setuptools>=43", "setuptools_scm[toml]"]
 build-backend = "setuptools.build_meta"
 
 
@@ -16,7 +16,7 @@ readme = 'README.md'
 requires-python = ">=3.10"
 license = {text = "MIT"}
 classifiers = [
-    "Development Status :: 3 - Alpha"
+    "Development Status :: 4 - Beta",
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
@@ -25,14 +25,13 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Bio-Informatics"
 ]
 dynamic = ["version", "dependencies"]
-keywords = [""]
+keywords = ["bioinformatics", "genomics", "pangenome", "toolkit"]
 
 
 [project.urls]
 "Homepage" = "https://github.com/marschall-lab/gaftools"
 "Issues" = "https://github.com/marschall-lab/gaftools/issues"
 "Changelog" = "https://github.com/marschall-lab/gaftools/blob/main/CHANGES.rst"
-"Documentation" = TODO
 
 
 [project.scripts]
@@ -45,13 +44,15 @@ dev = [
     "coverage",
     "sphinx",
     "sphinx-issues",
-    "sphinx_rtd_theme"
+    "sphinx-rtd-theme",
+    "sphinx-better-subsection",
+    "setuptools_scm"
 ]
 docs = [
     "sphinx",
-    "sphinx_rtd_theme",
+    "sphinx-rtd-theme",
     "sphinx-issues",
-    "sphinx_better_subsection"
+    "sphinx-better-subsection"
 ]
 
 

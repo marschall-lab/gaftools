@@ -1,2 +1,2 @@
-pysam==0.22.1
+pysam
 pywfa==0.5.1

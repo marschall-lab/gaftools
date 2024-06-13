@@ -10,7 +10,6 @@ tmp/
 *.bak
 MANIFEST
 raw/
-doc/_build
 dist/
 gaftools.egg-info/
 .tox
@@ -18,3 +17,4 @@ gaftools.egg-info/
 /.pytest_cache
 .eggs/
 gaftools/_version.py
+docs/_build

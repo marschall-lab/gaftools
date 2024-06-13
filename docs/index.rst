@@ -26,7 +26,7 @@ GAFtools can be installed by building from source::
 
 We recommend installing inside a conda environment to allow easy removal::
 
-    conda create -n gaftools-env python=3.10 pytest coverage
+    conda create -n gaftools-env python=3.10
     conda activate gaftools-env
     pip install git+https://github.com/marschall-lab/gaftools
 
@@ -38,9 +38,9 @@ To install GAFtools in editable mode, the following steps can be followed::
 
     git clone git@github.com:marschall-lab/gaftools.git
     cd gaftools
-    conda create -n gaftools-env python=3.10 pytest coverage
+    conda create -n gaftools-env python=3.10
     conda activate gaftools-env
-    pip install -e .
+    pip install -e .[dev]
 
 
 Table of Contents

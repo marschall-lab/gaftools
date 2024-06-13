@@ -25,12 +25,6 @@ master_doc = "index"
 authors = "Arda Soylev, Samarendra Pani, Fawaz Dabbaghie and Tobias Marschall"
 project = "gaftools"
 copyright = "2022"
-
-# The version info for the project you're documenting, acts as replacement for
-# |version| and |release|, also used in various other places throughout the
-# built documents.
-#
-
 version = get_version(root="..", relative_to=__file__)
 
 # Read The Docs modifies the conf.py script and we therefore get

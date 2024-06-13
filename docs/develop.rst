@@ -13,9 +13,9 @@ Conda environment can be used using these commands::
 
     git clone git@github.com:marschall-lab/gaftools.git
     cd gaftools
-    conda create -n gaftools-dev python=3.10 pytest coverage
+    conda create -n gaftools-dev python=3.10
     conda activate gaftools-dev
-    pip install -e .
+    pip install -e .[dev]
 
 Executing Test Cases
 --------------------
@@ -40,6 +40,9 @@ and is translated by `Sphinx <http://www.sphinx-doc.org/>`_ into HTML format.
 The documentation is found under `docs`
 
 The documentation is hosted on `Read the Docs <https://readthedocs.org/>`_.
+
+For testing the documentation, go under `docs` and run `make html`. This creates the htmls for the
+files under `_build`.
 
 
 Adding a new subcommand
