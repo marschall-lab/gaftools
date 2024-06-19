@@ -1,3 +1,64 @@
 [build-system]
-requires = ["setuptools>=43", "setuptools_scm", "cython~=0.29.20"]
+requires = ["setuptools>=43", "setuptools_scm[toml]"]
 build-backend = "setuptools.build_meta"
+
+
+[project]
+name = "gaftools"
+authors = [
+    {name = "Arda Soylev"},
+    {name = "Samarendra Pani", email = "samarendra.pani@hhu.de"},
+    {name = "Fawaz Dabbaghie"},
+    {name = "Tobias Marschall"}
+]
+description = "general purpose utility tool for working with GAF files"
+readme = 'README.md'
+requires-python = ">=3.10"
+license = {text = "MIT"}
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Environment :: Console",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Bio-Informatics"
+]
+dynamic = ["version", "dependencies"]
+keywords = ["bioinformatics", "genomics", "pangenome", "toolkit"]
+
+
+[project.urls]
+"Homepage" = "https://github.com/marschall-lab/gaftools"
+"Issues" = "https://github.com/marschall-lab/gaftools/issues"
+"Changelog" = "https://github.com/marschall-lab/gaftools/blob/main/CHANGES.rst"
+
+
+[project.scripts]
+gaftools = "gaftools.__main__:main"
+
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "coverage",
+    "sphinx",
+    "sphinx-issues",
+    "sphinx-rtd-theme",
+    "sphinx-better-subsection",
+    "setuptools_scm"
+]
+docs = [
+    "sphinx",
+    "sphinx-rtd-theme",
+    "sphinx-issues",
+    "sphinx-better-subsection"
+]
+
+
+[tool.setuptools.packages.find]
+include = ["gaftools*"]
+
+
+[tool.setuptools_scm]
+write_to = "gaftools/_version.py"

@@ -1,0 +1,5 @@
+sphinx
+sphinx-rtd-theme
+sphinx-issues
+sphinx-better-subsection
+setuptools-scm
