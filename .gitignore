@@ -18,3 +18,4 @@ gaftools.egg-info/
 .eggs/
 gaftools/_version.py
 docs/_build
+.coverage

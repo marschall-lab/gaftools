@@ -3,7 +3,8 @@ GAFtools
 
 GAFtools is a collection of programs for interacting and working with GAF files and their underlying GFA files.
 
-`GitHub repository <https://github.com/marschall-lab/gaftools/tree/main>`_
+`Link to GitHub <https://github.com/marschall-lab/gaftools/tree/main>`_
+`Link to Preprint <>`_ TODO
 
 
 Features
