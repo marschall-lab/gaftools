@@ -1,5 +1,8 @@
 """
-Adds BO and NO tags to GFA
+Ordeing the bubble of the GFA by adding BO and NO tags.
+
+The BO (Bubble Order) tags order the bubbles in the GFA.
+The NO (Node Order) tags order the nodes in a bubble (in a lexicographic order).
 """
 
 import sys
@@ -263,7 +266,8 @@ def add_arguments(parser):
              'Expecting comma-separated list. Default: chr1,...,chr22,chrX,chrY,chrM')
     arg('--with-sequence', default=False, action='store_true',
         help='Retain sequences in output (default is to strip sequences)')
-    arg('gfa_filename', metavar='GRAPH', help='Input GFA file')
+    arg('gfa_filename', metavar='GRAPH', 
+        help='Input rGFA file')
     arg('--outdir', default="./out",
         help='Output Directory to store all the GFA and CSV files. Default location is a "out" folder from the directory of execution.')
 

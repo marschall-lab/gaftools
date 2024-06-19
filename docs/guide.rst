@@ -3,7 +3,7 @@
 User Guide
 ==========
 
-The following subcommands are available in GAFtools
+The following subcommands are available in gaftools
 
 * :ref:`index <gaftools-index>` - indexing a GAF file for the view command.
 * :ref:`order_gfa <gaftools-order-gfa>` - Ordering GFA file using BO and NO tags.
@@ -19,7 +19,7 @@ To get help for all the subcommands, please use::
 
 Requirements:
 
-* GAFtools assumes that the GFA file provided is an rGFA and requires tags like :code:`SN`, :code:`SO`, :code:`LN`, and :code:`SR`.
+* gaftools assumes that the GFA file provided is an rGFA and requires tags like :code:`SN`, :code:`SO`, :code:`LN`, and :code:`SR`.
 
 Links to related resources:
 

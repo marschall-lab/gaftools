@@ -1,10 +1,9 @@
-GAFtools
+gaftools
 ========
 
-GAFtools is a collection of programs for interacting and working with GAF files and their underlying GFA files.
+gaftools is a collection of programs for interacting and working with GAF files and their underlying GFA files.
 
 `Link to GitHub <https://github.com/marschall-lab/gaftools/tree/main>`_
-`Link to Preprint <>`_ TODO
 
 
 Features
@@ -21,7 +20,7 @@ Features
 Installation
 ------------
 
-GAFtools can be installed by building from source::
+gaftools can be installed by building from source::
 
     pip install git+https://github.com/marschall-lab/gaftools
 
@@ -31,17 +30,23 @@ We recommend installing inside a conda environment to allow easy removal::
     conda activate gaftools-env
     pip install git+https://github.com/marschall-lab/gaftools
 
-To remove GAFtools, the conda environment needs to be removed using::
+To remove gaftools, the conda environment needs to be removed using::
 
     conda env remove -n gaftools-env
 
-To install GAFtools in editable mode, the following steps can be followed::
 
-    git clone git@github.com:marschall-lab/gaftools.git
-    cd gaftools
-    conda create -n gaftools-env python=3.10
-    conda activate gaftools-env
-    pip install -e .[dev]
+Requirements
+------------
+
+gaftools has the following requirement:
+
+* python
+* pysam
+* pywfa
+
+The documentation is built using :code:`sphinx`.
+
+The users do not need to explicitly install the requirements. The requirements are installed as part of the pip installation step.
 
 
 Table of Contents

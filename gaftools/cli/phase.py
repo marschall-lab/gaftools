@@ -1,5 +1,8 @@
 """
-Add phasing information to the bam file
+Add phasing information to the GAF file from a haplotag TSV file.
+
+The script uses the TSV file containing the haplotag information generated from WhatsHap's haplotag command.
+The H1 and H2 labels for each read are then added to the reads in the GAF file.
 """
 
 import logging
@@ -95,10 +98,12 @@ def add_arguments(parser):
     arg = parser.add_argument
     
     # Positional arguments
-    arg('gaf_file', metavar='GAF', help='GAF File')
-    arg('tsv_file', metavar='phase', help='WhatsHap Haplotag file (.tsv)')
+    arg('gaf_file', metavar='GAF', 
+        help='Input GAF file (can be bgzip-compressed)')
+    arg('tsv_file', metavar='phase', 
+        help='WhatsHap haplotag TSV file. Refer to https://whatshap.readthedocs.io/en/latest/guide.html#whatshap-haplotag')
     arg('-o', '--output', default=sys.stdout,
-        help='Output GAF file. If omitted, use standard output.')
+        help='Output GAF file. If omitted, output is directed to standard output.')
 
 # fmt: on
 def validate(args, parser):

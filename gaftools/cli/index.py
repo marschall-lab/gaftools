@@ -142,9 +142,12 @@ def convert_coord(line, ref):
 def add_arguments(parser):
     arg = parser.add_argument
     # Positional arguments
-    arg('gaf_path', metavar='GAF', help='Input GAF file (can be gzip-compressed)')
-    arg('gfa_path', metavar='rGFA', help='Reference rGFA file has to be input.')
-    arg('-o', '--output', default=None, help='Output Indexed GAF file. If omitted, use <GAF File>.gvi.')
+    arg('gaf_path', metavar='GAF', 
+        help='Input GAF file (can be bgzip-compressed)')
+    arg('gfa_path', metavar='rGFA', 
+        help='Reference rGFA file')
+    arg('-o', '--output', default=None, 
+        help='Path to the output Indexed GAF file. If omitted, use <GAF File>.gvi')
     
 # fmt: on
 def validate(args, parser):

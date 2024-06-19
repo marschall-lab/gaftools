@@ -1,19 +1,10 @@
 '''
 Sorting GAF alignments using BO and NO tags of the corresponding graph
-'''
-'''
-Scaffold Sort:
 
-The basis of the script is the BO and NO tags defined by Tobias Marschall in his order_gfa.py script. The script defines scaffold nodes as nodes whose removal increases total number of connected components.
-Using this definition of scaffold nodes, the sorting has been done.
+The script uses the BO and NO tags defined by the order_gfa command. Using the bubble ordering done, the alignments are sorted.
 
-The main difference between this sorting and the bubble-sort.py script is that here the the entire alignment is processed and used to determine whether the alignment is reveresed.
-Here inversions are not taken into account.
+The index is dictionary created using pickle library which contains the reference contig names as keys and the offset the alignments begin and end..
 
-Index file created:
-The index is dictionary created using pickle library which contains the reference contig names as keys and the offset the alignments begin and end as a list of size 2.
-
-Other things the code does:
 It adds some tags into the sorted gaf file. The tags are:
     1. bo:i: - This is the BO tags from the GFA carried forward. The sorting uses a BO tag for each alignment, the BO tag for the start node (or end node based on overall orientation) of the alignment path.
     2. sn:Z: - The name of the reference contig it mapped to.
@@ -239,12 +230,18 @@ def write_to_file(line, writer):
 def add_arguments(parser):
     arg = parser.add_argument
     # Positional arguments
-    arg("gaf", metavar='GAF', help="Input GAF File (can be bgzipped)")
-    arg("gfa", metavar='GFA', help="GFA file with the sort keys (BO and NO tagged)")
-    
-    arg("--outgaf", default=None, help="Output GAF File path (Default: sys.stdout)")
-    arg("--outind", default=None, help="Output Index File path for the GAF file. (When --outgaf is not given, no index is created. If it is given and --outind is not specified, it will have same file name with .gsi extension)")
-    arg("--bgzip", action='store_true', help="Flag to bgzip the output. Can only be given with --output.")
+    arg("gaf", metavar='GAF', 
+        help="Input GAF File (can be bgzip-compressed)")
+    arg("gfa", metavar='GFA', 
+        help="GFA file with the sort keys (BO and NO tagged). This is done with gaftools order_gfa")
+    arg("--outgaf", default=None, 
+        help="Output GAF File path (Default: sys.stdout)")
+    arg("--outind", default=None, 
+        help="Output Index File path for the GAF file. "
+        "When --outgaf is not given, no index is created. "
+        "If it is given and --outind is not specified, it will have same file name with .gsi extension)")
+    arg("--bgzip", action='store_true', 
+        help="Flag to bgzip the output. Can only be given with --output.")
     
 # fmt: on
 def validate(args, parser):

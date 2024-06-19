@@ -3,10 +3,12 @@
 Developing
 ==========
 
+Documentation is inspired from `WhatsHap <https://whatshap.readthedocs.io/en/latest/>`_
+
 Developer's Installation
 ------------------------
 
-For installation GAFtools for the purpose of development,
+For installation gaftools for the purpose of development,
 please use a conda environment.
 
 Conda environment can be used using these commands::
@@ -24,7 +26,7 @@ Adding a new subcommand
 For creating a new subcommand under gaftools, add a new script under :code:`gaftools/cli/`.
 Make sure to follow the same format and add test cases for the subcommand under :code:`tests`.
 
-Since GAFtools is purely written in Python, adding a script is enough. 
+Since gaftools is purely written in Python, adding a script is enough. 
 If the new script adds external dependencies, then add the dependencies to :code:`requirements.txt`.
 
 
@@ -50,7 +52,7 @@ Before creating a pull request
 Writing Documentation
 ---------------------
 
-The documentation for GAFtools is written in
+The documentation for gaftools is written in
 `reStructuredText format <http://docutils.sourceforge.net/docs/user/rst/quickref.html>`_
 and is translated by `Sphinx <http://www.sphinx-doc.org/>`_ into HTML format.
 The documentation is found under :code:`docs`

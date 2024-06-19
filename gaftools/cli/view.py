@@ -1,5 +1,7 @@
 """
-View the GAF file based on parameters
+View the GAF file (subsetting and converting GAF format available). GAF file should first be index using gaftools index.
+
+The view command allows subsetting the GAF file based on node IDs or regions available.
 """
 
 import logging
@@ -206,13 +208,23 @@ def search(node, node_list):
 def add_arguments(parser):
     arg = parser.add_argument
     # Positional arguments
-    arg('gaf_path', metavar='GAF', help='Input GAF file (can be gzip-compressed)')
-    arg('-g', '--gfa', dest='gfa', metavar='GFA', default=None, help='Input GFA file (can be gzip-compressed). Required when converting from one coordinate system to another.')
-    arg('-o', '--output', dest='output', metavar='OUTPUT', default=None, help='Output file. Default is stdout.')
-    arg('-i', '--index', default=None, help='Path to GAF Index file. This index is created using gaftools index. If path is not provided, it is assumed to be in the same directory as GAF file with the same name and .gvi extension (default location of the index script).\nIt is required if nodes or regions are specified.')
-    arg('-n', '--node', dest='nodes', metavar='NODE', default=[], action='append', help='Nodes to search for. Multiple can be provided.')
-    arg('-r', '--region', dest='regions', metavar='REGION', default=[], action='append', help='Regions to search for. Multiple can be provided.')
-    arg('-f', '--format', dest='format', metavar='FORMAT', help='format of output path (unstable | stable)')
+    arg('gaf_path', metavar='GAF', 
+        help='Input GAF file (can be bgzip-compressed)')
+    arg('-g', '--gfa', dest='gfa', metavar='GFA', default=None, 
+        help='Input GFA file (can be gzip-compressed). Required when converting from one coordinate system to another.')
+    arg('-o', '--output', dest='output', metavar='OUTPUT', default=None, 
+        help='Output file. Default is stdout.')
+    arg('-i', '--index', default=None, 
+        help='Path to GAF Index file. This index is created using gaftools index. '
+        'If path is not provided, it is assumed to be in the same directory as GAF file with the same name and .gvi extension (default location of the index script)')
+    arg('-n', '--node', dest='nodes', metavar='NODE', default=[], action='append', 
+        help='Nodes to search. '
+        'Multiple can be provided (Eg. gaftools view .... -n s1 -n s2 -n s3 .....).')
+    arg('-r', '--region', dest='regions', metavar='REGION', default=[], action='append', 
+        help='Regions to search. '
+        'Multiple can be provided (Eg. gaftools view .... -r chr1:10-20 -r chr1:50-60 .....).')
+    arg('-f', '--format', dest='format', metavar='FORMAT', 
+        help='format of output path (unstable | stable)')
     
 # fmt: on
 

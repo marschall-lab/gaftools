@@ -436,12 +436,16 @@ def realign_gaf_old(gaf, graph, fasta, output, extended, cores=1):
 def add_arguments(parser):
     arg = parser.add_argument
     # Positional arguments
-    arg('gaf', metavar='GAF', help='GAF File')
-    arg('graph', metavar='GFA', help='Input GFA file')
-    arg('fasta', metavar='FASTA', help='Input FASTA file')
-    arg('-o', '--output', default=None, help='Output file. If omitted, use standard output.')
-    # arg("--ext", action='store_true', help="Extend the aligned path (use for Minigraph alignments).")
-    arg("-c", "--cores", metavar="CORES", default=1, type=int, help="Number of cores to use for alignments.")
+    arg('gaf', metavar='GAF', 
+        help='Input GAF file (can be bgzip-compressed)')
+    arg('graph', metavar='rGFA', 
+        help='reference rGFA file')
+    arg('fasta', metavar='FASTA', 
+        help='Input FASTA file of the read')
+    arg('-o', '--output', default=None, 
+        help='Output GAF file. If omitted, use standard output.')
+    arg("-c", "--cores", metavar="CORES", default=1, type=int, 
+        help="Number of cores to use for alignments.")
 
 
 def main(args):

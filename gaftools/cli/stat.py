@@ -147,9 +147,12 @@ def run_stat(
 def add_arguments(parser):
     arg = parser.add_argument
     # Positional arguments
-    arg('gaf_path', metavar='GAF', help='Input GAF file')
-    arg('-o', '--output', default=None, help='Output file. If omitted, use standard output.')
-    arg('--cigar', dest='cigar_stat', default=False, action='store_true', help='Outputs cigar related statistics (takes a lot long)')
+    arg('gaf_path', metavar='GAF', 
+        help='Input GAF file (can be bgzip-compressed)')
+    arg('-o', '--output', default=None, 
+        help='Output file. If omitted, use standard output.')
+    arg('--cigar', dest='cigar_stat', default=False, action='store_true', 
+        help='Outputs cigar related statistics (requires more time)')
 
 
 def validate(args, parser):
