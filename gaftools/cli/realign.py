@@ -17,27 +17,19 @@ from gaftools.gfa import GFA
 from pywfa.align import WavefrontAligner, cigartuples_to_str
 
 
-
 logger = logging.getLogger(__name__)
 
 
-def run_realign(
-        gaf,
-        graph,
-        fasta,
-        output=None,
-        ext=False,
-        cores=1
-):
+def run_realign(gaf, graph, fasta, output=None, ext=False, cores=1):
     timers = StageTimer()
 
     if output is None:
         output = sys.stdout
     else:
-        output = open(output, 'w')
+        output = open(output, "w")
 
     if cores > mp.cpu_count():
-        logger.warning('Number of cores requested is greater than the total number of CPU cores.')
+        logger.warning("Number of cores requested is greater than the total number of CPU cores.")
         cores = min(mp.cpu_count() - 1, cores)
 
     # realign_gaf(gaf, graph, fasta, output, ext, cores)
@@ -73,7 +65,9 @@ def filter_duplicates(aln):
                 if cnt == cnt2 or line2.duplicate == True:
                     continue
 
-                sim = overlap_ratio(line.query_start, line.query_end, line2.query_start, line2.query_end)
+                sim = overlap_ratio(
+                    line.query_start, line.query_end, line2.query_start, line2.query_end
+                )
 
                 if sim > 0.75:
                     if line.score > line2.score:
@@ -91,14 +85,23 @@ def write_alignments(aln, output):
         for gaf_line in mappings:
             if not gaf_line.duplicate:
                 # Write the alignment back to the GAF
-                output.write("%s\t%d\t%d\t%d\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d" % (gaf_line.query_name,
-                                                                                 gaf_line.query_length,
-                                                                                 gaf_line.query_start,
-                                                                                 gaf_line.query_end, gaf_line.strand,
-                                                                                 gaf_line.path, gaf_line.path_length,
-                                                                                 gaf_line.path_start, gaf_line.path_end,
-                                                                                 match, cigar_len,
-                                                                                 gaf_line.mapping_quality))
+                output.write(
+                    "%s\t%d\t%d\t%d\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d"
+                    % (
+                        gaf_line.query_name,
+                        gaf_line.query_length,
+                        gaf_line.query_start,
+                        gaf_line.query_end,
+                        gaf_line.strand,
+                        gaf_line.path,
+                        gaf_line.path_length,
+                        gaf_line.path_start,
+                        gaf_line.path_end,
+                        match,
+                        cigar_len,
+                        gaf_line.mapping_quality,
+                    )
+                )
 
                 for k in gaf_line.tags.keys():
                     output.write("\t%s%s" % (k, gaf_line.tags[k]))
@@ -115,10 +118,12 @@ def wfa_alignment(seq_batch, queue):
     # Thus, we write the original alignment back to the GAF instead of realignment
     for gaf_line, ref, query in seq_batch:
         if gaf_line.query_end - gaf_line.query_start > 60_000:
-            out_string = (f"{gaf_line.query_name}\t{gaf_line.query_length}\t{gaf_line.query_start}\t"
-                          f"{gaf_line.query_end}\t{gaf_line.strand}\t{gaf_line.path}\t{gaf_line.path_length}\t"
-                          f"{gaf_line.path_start}\t{gaf_line.path_end}\t{gaf_line.residue_matches}"
-                          f"\t{gaf_line.alignment_block_length}\t{gaf_line.mapping_quality}")
+            out_string = (
+                f"{gaf_line.query_name}\t{gaf_line.query_length}\t{gaf_line.query_start}\t"
+                f"{gaf_line.query_end}\t{gaf_line.strand}\t{gaf_line.path}\t{gaf_line.path_length}\t"
+                f"{gaf_line.path_start}\t{gaf_line.path_end}\t{gaf_line.residue_matches}"
+                f"\t{gaf_line.alignment_block_length}\t{gaf_line.mapping_quality}"
+            )
             for k in gaf_line.tags.keys():
                 out_string += f"\t{k}{gaf_line.tags[k]}"
             queue.put(out_string + "\n")
@@ -149,10 +154,12 @@ def wfa_alignment(seq_batch, queue):
                     assert False
                 cigar_len += op_len
 
-            out_string = (f"{gaf_line.query_name}\t{gaf_line.query_length}\t{gaf_line.query_start}\t"
-                          f"{gaf_line.query_end}\t{gaf_line.strand}\t{gaf_line.path}\t{gaf_line.path_length}\t"
-                          f"{gaf_line.path_start}\t{gaf_line.path_end}\t{match}"
-                          f"\t{cigar_len}\t{gaf_line.mapping_quality}")
+            out_string = (
+                f"{gaf_line.query_name}\t{gaf_line.query_length}\t{gaf_line.query_start}\t"
+                f"{gaf_line.query_end}\t{gaf_line.strand}\t{gaf_line.path}\t{gaf_line.path_length}\t"
+                f"{gaf_line.path_start}\t{gaf_line.path_end}\t{match}"
+                f"\t{cigar_len}\t{gaf_line.mapping_quality}"
+            )
             cigar = aligner.cigarstring.replace("M", "=")
             gaf_line.tags["cg:Z:"] = cigar
             # queue.put(out_string + "\n")
@@ -173,14 +180,20 @@ def wfa_alignment_old(aln, gaf_line, ref, query, path_start, extended, queue):
         #                 gaf_line.query_length, gaf_line.query_start, gaf_line.query_end, gaf_line.strand,
         #                 gaf_line.path, gaf_line.path_length, gaf_line.path_start, gaf_line.path_end,
         #                 gaf_line.residue_matches, gaf_line.alignment_block_length, gaf_line.mapping_quality))
-        out_string = "%s\t%d\t%d\t%d\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d" % (gaf_line.query_name,
-                                                                         gaf_line.query_length, gaf_line.query_start,
-                                                                         gaf_line.query_end, gaf_line.strand,
-                                                                         gaf_line.path, gaf_line.path_length,
-                                                                         gaf_line.path_start, gaf_line.path_end,
-                                                                         gaf_line.residue_matches,
-                                                                         gaf_line.alignment_block_length,
-                                                                         gaf_line.mapping_quality)
+        out_string = "%s\t%d\t%d\t%d\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d" % (
+            gaf_line.query_name,
+            gaf_line.query_length,
+            gaf_line.query_start,
+            gaf_line.query_end,
+            gaf_line.strand,
+            gaf_line.path,
+            gaf_line.path_length,
+            gaf_line.path_start,
+            gaf_line.path_end,
+            gaf_line.residue_matches,
+            gaf_line.alignment_block_length,
+            gaf_line.mapping_quality,
+        )
 
         for k in gaf_line.tags.keys():
             # output.write("\t%s%s"%(k, gaf_line.tags[k]))
@@ -192,7 +205,9 @@ def wfa_alignment_old(aln, gaf_line, ref, query, path_start, extended, queue):
     else:
         aligner = WavefrontAligner(ref)
         if extended:
-            res = aligner(query, clip_cigar=True, min_aligned_bases_left=30, min_aligned_bases_right=30)
+            res = aligner(
+                query, clip_cigar=True, min_aligned_bases_left=30, min_aligned_bases_right=30
+            )
         else:
             res = aligner(query, clip_cigar=False)
 
@@ -224,19 +239,47 @@ def wfa_alignment_old(aln, gaf_line, ref, query, path_start, extended, queue):
                 queue.put("NA")
 
             if gaf_line.query_name in aln:
-                aln[gaf_line.query_name].append(gaftools.gaf.Alignment("", gaf_line.query_length, res.text_start,
-                                                                       res.text_end, gaf_line.strand, gaf_line.path,
-                                                                       gaf_line.path_length,
-                                                                       path_start + res.pattern_start,
-                                                                       path_start + res.pattern_end, match, 0, 0, False,
-                                                                       cigar,
-                                                                       cigar_len, res.score))
+                aln[gaf_line.query_name].append(
+                    gaftools.gaf.Alignment(
+                        "",
+                        gaf_line.query_length,
+                        res.text_start,
+                        res.text_end,
+                        gaf_line.strand,
+                        gaf_line.path,
+                        gaf_line.path_length,
+                        path_start + res.pattern_start,
+                        path_start + res.pattern_end,
+                        match,
+                        0,
+                        0,
+                        False,
+                        cigar,
+                        cigar_len,
+                        res.score,
+                    )
+                )
             else:
-                aln[gaf_line.query_name] = [gaftools.gaf.Alignment("", gaf_line.query_length, res.text_start,
-                                                                   res.text_end, gaf_line.strand, gaf_line.path,
-                                                                   gaf_line.path_length, path_start + res.pattern_start,
-                                                                   path_start + res.pattern_end, match, 0, 0, False,
-                                                                   cigar, cigar_len, res.score)]
+                aln[gaf_line.query_name] = [
+                    gaftools.gaf.Alignment(
+                        "",
+                        gaf_line.query_length,
+                        res.text_start,
+                        res.text_end,
+                        gaf_line.strand,
+                        gaf_line.path,
+                        gaf_line.path_length,
+                        path_start + res.pattern_start,
+                        path_start + res.pattern_end,
+                        match,
+                        0,
+                        0,
+                        False,
+                        cigar,
+                        cigar_len,
+                        res.score,
+                    )
+                ]
         else:
             cigar = aligner.cigarstring.replace("M", "=")
 
@@ -245,13 +288,20 @@ def wfa_alignment_old(aln, gaf_line, ref, query, path_start, extended, queue):
             #                 gaf_line.query_length, gaf_line.query_start, gaf_line.query_end, gaf_line.strand,
             #                 gaf_line.path, gaf_line.path_length, gaf_line.path_start, gaf_line.path_end,
             #                 match, cigar_len, gaf_line.mapping_quality))
-            out_string = "%s\t%d\t%d\t%d\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d" % (gaf_line.query_name,
-                                                                             gaf_line.query_length,
-                                                                             gaf_line.query_start, gaf_line.query_end,
-                                                                             gaf_line.strand,
-                                                                             gaf_line.path, gaf_line.path_length,
-                                                                             gaf_line.path_start, gaf_line.path_end,
-                                                                             match, cigar_len, gaf_line.mapping_quality)
+            out_string = "%s\t%d\t%d\t%d\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d" % (
+                gaf_line.query_name,
+                gaf_line.query_length,
+                gaf_line.query_start,
+                gaf_line.query_end,
+                gaf_line.strand,
+                gaf_line.path,
+                gaf_line.path_length,
+                gaf_line.path_start,
+                gaf_line.path_end,
+                match,
+                cigar_len,
+                gaf_line.mapping_quality,
+            )
             # queue.put(out_string + "\n")
 
             for k in gaf_line.tags.keys():
@@ -283,7 +333,7 @@ def realign_gaf(gaf, graph, fasta, output, cores=1):
     gaf_file = GAF(gaf)
     for line in gaf_file.read_file():
         path_sequence = graph_obj.extract_path(line.path)
-        ref = path_sequence[line.path_start:line.path_end]
+        ref = path_sequence[line.path_start : line.path_end]
         query = fastafile.fetch(line.query_name, line.query_start, line.query_end)
 
         seq_batch.append((line, ref, query))
@@ -291,7 +341,15 @@ def realign_gaf(gaf, graph, fasta, output, cores=1):
             continue
         else:
             # logger.info(f"{time.time()} finished preparing one batch and adding a process for it")
-            processes.append(mp.Process(target=wfa_alignment, args=(seq_batch, queue,)))
+            processes.append(
+                mp.Process(
+                    target=wfa_alignment,
+                    args=(
+                        seq_batch,
+                        queue,
+                    ),
+                )
+            )
             seq_batch = []
 
         if len(processes) == cores:
@@ -313,7 +371,15 @@ def realign_gaf(gaf, graph, fasta, output, cores=1):
     gaf_file.close()
 
     if len(seq_batch) > 0:  # leftover alignments to re-align
-        processes.append(mp.Process(target=wfa_alignment, args=(seq_batch, queue,)))
+        processes.append(
+            mp.Process(
+                target=wfa_alignment,
+                args=(
+                    seq_batch,
+                    queue,
+                ),
+            )
+        )
     # leftover batches
     if len(processes) != 0:
         # logger.info("in the leftovers")
@@ -333,6 +399,7 @@ def realign_gaf(gaf, graph, fasta, output, cores=1):
     # snapshot = tracemalloc.take_snapshot()
     # display_top(snapshot, limit=5)
     fastafile.close()
+
 
 def realign_gaf_old(gaf, graph, fasta, output, extended, cores=1):
     """
@@ -380,13 +447,36 @@ def realign_gaf_old(gaf, graph, fasta, output, extended, cores=1):
 
             # making a process
             processes.append(
-                mp.Process(target=wfa_alignment_old, args=(aln, line, ref, query, path_start, output, extended, queue,)))
+                mp.Process(
+                    target=wfa_alignment_old,
+                    args=(
+                        aln,
+                        line,
+                        ref,
+                        query,
+                        path_start,
+                        output,
+                        extended,
+                        queue,
+                    ),
+                )
+            )
 
             # wfa_alignment(aln, line, ref, query, path_start, output, extended)
         else:
-            ref = path_sequence[line.path_start:line.path_end]
+            ref = path_sequence[line.path_start : line.path_end]
             query = fastafile.fetch(line.query_name, line.query_start, line.query_end)
-            processes.append(mp.Process(target=wfa_alignment, args=(line, ref, query, queue,)))
+            processes.append(
+                mp.Process(
+                    target=wfa_alignment,
+                    args=(
+                        line,
+                        ref,
+                        query,
+                        queue,
+                    ),
+                )
+            )
             # wfa_alignment([], line, ref, query, 0, output, False)
         if len(processes) == cores:
             # start running the processes and checking when they're done before starting the next batch
@@ -431,6 +521,7 @@ def realign_gaf_old(gaf, graph, fasta, output, extended, cores=1):
     if extended:
         filter_duplicates(aln)
         write_alignments(aln, output)
+
 
 # fmt: off
 def add_arguments(parser):
