@@ -63,8 +63,6 @@ def one_is_alive(processes):
 def all_exited(processes):
     for p in processes:
         if p.exitcode != 0:
-            print([x.pid for x in processes])
-            print([x.exitcode for x in processes])
             return False
     return True
 
@@ -213,7 +211,7 @@ def realign_gaf(gaf, graph, fasta, output, cores=1):
                         # all_exited returns false if one exited with non-zero code
                         if not all_exited(processes):
                             logger.error(
-                                "One of the processes had a none-zero exit code"
+                                "One of the processes had a none-zero exit code. One reason could be that one of the processes consumed too much memory and was killed"
                             )
                             sys.exit(1)
                 if (
