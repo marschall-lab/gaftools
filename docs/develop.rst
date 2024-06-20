@@ -58,9 +58,9 @@ To check for proper documentation build, proper syntax and styling, and pytest o
 
 Before creating a pull request
 
-#. write test cases for the new code.
-#. run :code:`tox` after fixing formatting and syntax with :code:`black` and :code:`flake8`.
-#. create the pull request, if the tox check passes with your local python version.
+#. write test cases for the new code
+#. run :code:`tox` after fixing formatting and syntax with :code:`ruff`
+#. create the pull request, if the tox check passes with your local python version
 
 
 Using Pre-Commit
@@ -84,6 +84,9 @@ all the file using::
 
     pre-commit run --all-files
 
+When the staged files fail the conditions defined in the pre-commit conditions, :code:`ruff` formatting
+will attempt to fix it. After adding the files updated by :code:`ruff`, attempt to commit again. If it fails,
+then the errors have to be manually fixed.
 
 Writing Documentation
 ---------------------
@@ -110,6 +113,8 @@ Accordingly this documentation for developing will have to be changed.
 
 Making a Release
 ----------------
+
+[No releases made yet. This text is a template.]
 
 #. Update ``CHANGES.rst``: Set the correct version number and ensure that
    all nontrivial, user-visible changes are listed.
