@@ -3,14 +3,16 @@ repos:
   rev: "v4.5.0"
   hooks:
     - id: end-of-file-fixer
+      exclude: .attic
     - id: trailing-whitespace
+      exclude: .attic
 - repo: https://github.com/astral-sh/ruff-pre-commit
   # Ruff version.
   rev: v0.4.9
   hooks:
     # Run the linter.
     - id: ruff
-      entry: ruff check gaftools/ tests/ setup.py
+      exclude: .attic
     # Run the formatter.
     - id: ruff-format
-      args: [gaftools/, tests/, setup.py]
+      exclude: .attic
