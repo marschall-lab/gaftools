@@ -63,14 +63,26 @@ Before creating a pull request
 #. create the pull request, if the tox check passes with your local python version.
 
 
-Enabling Pre-Commit
--------------------
+Using Pre-Commit
+----------------
 
 The tox pipeline has been integrated into GitHub as a CI/CD pipeline.
 Instead of doing all the checks locally, the checks can be done online.
 
 There is also pre-commit support which also allows developers to skip the
 formatting and syntax checking using :code:`ruff`.
+
+To install :code:`pre-commit`, run::
+
+    pip install pre-commit
+    cd <directory of git repository>
+    pre-commit install
+
+Now you :code:`pre-commit` will run everytime you commit to the repository. But the pre-commit
+run is restricted to the staged files. As an optional step, you can run :code:`pre-commit` on
+all the file using::
+
+    pre-commit run --all-files
 
 
 Writing Documentation
