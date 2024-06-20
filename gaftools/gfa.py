@@ -12,7 +12,7 @@ E_DIR = {("+", "+"): (1, 0), ("+", "-"): (1, 1), ("-", "+"): (0, 0), ("-", "-"):
 
 
 class Node:
-    __slots__ = ('id', 'seq', 'seq_len', 'start', 'end', 'visited', 'tags')
+    __slots__ = ("id", "seq", "seq_len", "start", "end", "visited", "tags")
 
     def __init__(self, identifier):
         self.id = identifier
@@ -81,7 +81,9 @@ class Node:
                 return True
             return False
         else:
-            raise ValueError(f"Trying to access a wrong direction in node {self.id}, give 0 for start or 1 for end")
+            raise ValueError(
+                f"Trying to access a wrong direction in node {self.id}, give 0 for start or 1 for end"
+            )
 
     def children(self, direction):
         """
@@ -92,7 +94,9 @@ class Node:
         elif direction == 1:
             return [x[0] for x in self.end]
         else:
-            raise ValueError(f"Trying to access a wrong direction in node {self.id}, give 0 for start or 1 for end")
+            raise ValueError(
+                f"Trying to access a wrong direction in node {self.id}, give 0 for start or 1 for end"
+            )
 
     def remove_from_start(self, neighbor, side, overlap):
         """
@@ -103,7 +107,8 @@ class Node:
             self.start.remove((neighbor, side, overlap))
         except KeyError:
             logging.warning(
-                f"Could not remove edge {(neighbor, side, overlap)} from {self.id}'s start as it does not exist")
+                f"Could not remove edge {(neighbor, side, overlap)} from {self.id}'s start as it does not exist"
+            )
 
     def remove_from_end(self, neighbor, side, overlap):
         """
@@ -114,7 +119,8 @@ class Node:
             self.end.remove((neighbor, side, overlap))
         except KeyError:
             logging.warning(
-                f"Could not remove edge {(neighbor, side, overlap)} from {self.id}'s end as it does not exist")
+                f"Could not remove edge {(neighbor, side, overlap)} from {self.id}'s end as it does not exist"
+            )
 
     def add_from_start(self, neighbor, side, overlap):
         """
@@ -149,12 +155,14 @@ class GFA:
     Graph object containing the important information about the graph
     """
 
-    __slots__ = ['nodes', 'low_memory', 'edge_tags', 'contigs']
+    __slots__ = ["nodes", "low_memory", "edge_tags", "contigs"]
 
     def __init__(self, graph_file=None, low_memory=False):
         self.nodes = dict()
         self.edge_tags = dict()
-        self.contigs = defaultdict(lambda: None)   # storing contigs with their SR tag to determine primary contig
+        self.contigs = defaultdict(
+            lambda: None
+        )  # storing contigs with their SR tag to determine primary contig
         self.low_memory = low_memory
         if graph_file:
             if not os.path.exists(graph_file):
@@ -218,7 +226,7 @@ class GFA:
             return False
         for n_id, node1 in self.nodes.items():
             node2 = other[n_id]
-            if node2 == None:  # n_id not in other graph, so not equal graphs
+            if node2 is None:  # n_id not in other graph, so not equal graphs
                 return False
             if not node1.is_equal_to(node2, only_topo):
                 return False
@@ -229,7 +237,7 @@ class GFA:
         remove a node and its corresponding edges
         """
 
-        edges_to_remove = []
+        # edges_to_remove = []
         starts = [x for x in self.nodes[n_id].start]
         for n_start in starts:
             overlap = n_start[2]
@@ -276,20 +284,23 @@ class GFA:
             for tag in tags:
                 if not is_correct_tag(tag):
                     raise ValueError(
-                        f"The tag {tag} for node {node_id} did not match the specifications, check sam specification on tags")
+                        f"The tag {tag} for node {node_id} did not match the specifications, check sam specification on tags"
+                    )
                 tag = tag.split(":")
                 # I am adding the tags as key:value, key is tag_name:type and value is the value at the end
                 # e.g. SN:i:10 will be {"SN": ('i', '10')}
                 self[node_id].tags[tag[0]] = (tag[1], tag[2])  # (type, value)
-            if 'SN' in self[node_id].tags and 'SR' in self[node_id].tags:
-                contig_name = self[node_id].tags['SN'][1]
-                contig_rank = int(self[node_id].tags['SR'][1])
-                if self.contigs[contig_name] == None:
+            if "SN" in self[node_id].tags and "SR" in self[node_id].tags:
+                contig_name = self[node_id].tags["SN"][1]
+                contig_rank = int(self[node_id].tags["SR"][1])
+                if self.contigs[contig_name] is None:
                     self.contigs[contig_name] = contig_rank
                 else:
                     assert self.contigs[contig_name] == contig_rank
         else:
-            logging.warning(f"You are trying to add node {node_id} and it already exists in the graph")
+            logging.warning(
+                f"You are trying to add node {node_id} and it already exists in the graph"
+            )
 
     def add_edge(self, node1, node1_dir, node2, node2_dir, overlap, tags=None):
         assert node1_dir in {"+", "-"}
@@ -316,10 +327,9 @@ class GFA:
         for i in nodes_to_remove:
             self.remove_node(i)
 
-    def write_graph(self, set_of_nodes=None,
-                    output_file="output_graph.gfa",
-                    append=False,
-                    order_bo=False):
+    def write_graph(
+        self, set_of_nodes=None, output_file="output_graph.gfa", append=False, order_bo=False
+    ):
         """
         writes a graph file as GFA
         Can be given a set of nodes to only write those nodes with their edges
@@ -328,8 +338,13 @@ class GFA:
         if not output_file.endswith(".gfa"):
             output_file += ".gfa"
         # print("I am here")
-        self.write_gfa(self, set_of_nodes=set_of_nodes, output_file=output_file,
-                       append=append, order_bo=order_bo)
+        self.write_gfa(
+            self,
+            set_of_nodes=set_of_nodes,
+            output_file=output_file,
+            append=append,
+            order_bo=order_bo,
+        )
 
     def output_components(self, output_dir):
         """
@@ -400,15 +415,16 @@ class GFA:
         """
         separate_bubbles = dict()
         for n in set_of_nodes:
-            if self[n].tags['BO'][1] not in separate_bubbles:
-                separate_bubbles[self[n].tags['BO'][1]] = [n]
+            if self[n].tags["BO"][1] not in separate_bubbles:
+                separate_bubbles[self[n].tags["BO"][1]] = [n]
             else:
-                separate_bubbles[self[n].tags['BO'][1]].append(n)
+                separate_bubbles[self[n].tags["BO"][1]].append(n)
         bo_ids = []
         for bo, n_list in separate_bubbles.items():
             bo_ids.append(bo)
-            separate_bubbles[bo] = sorted(separate_bubbles[bo],
-                                          key=lambda x: int(self.nodes[x].tags['NO'][1]))  # sorting the BO bucket by NO
+            separate_bubbles[bo] = sorted(
+                separate_bubbles[bo], key=lambda x: int(self.nodes[x].tags["NO"][1])
+            )  # sorting the BO bucket by NO
 
         sorted_set_of_nodes = []
         for bo in sorted(bo_ids):
@@ -416,7 +432,9 @@ class GFA:
                 sorted_set_of_nodes.append(n_id)
         return sorted_set_of_nodes
 
-    def write_gfa(self, set_of_nodes=None, output_file="output_file.gfa", append=False, order_bo=False):
+    def write_gfa(
+        self, set_of_nodes=None, output_file="output_file.gfa", append=False, order_bo=False
+    ):
         """
         Write a gfa out
 
@@ -441,14 +459,15 @@ class GFA:
             if os.path.exists(output_file):
                 f = open(output_file, "a")
             else:
-                logging.warning("Trying to append to a non-existent file\n"
-                                "creating an output file")
+                logging.warning(
+                    "Trying to append to a non-existent file\n" "creating an output file"
+                )
                 f = open(output_file, "w+")
 
         # going through nodes twice to have the final output as all S line then all L lines
         for n in sorted_set_of_nodes:
             if n not in self.nodes:
-                logging.warning("Node {} does not exist in the graph, skipped in output".format(n1))
+                logging.warning("Node {} does not exist in the graph, skipped in output".format(n))
                 continue
             line = self.nodes[n].to_gfa_line()
             f.write(line + "\n")
@@ -471,10 +490,14 @@ class GFA:
                         if tags[0] == 0:
                             tags = []
                         if n[1] == 0:
-                            edge = str("\t".join(["L", str(n1), "-", str(n[0]), "+", overlap] + tags))
+                            edge = str(
+                                "\t".join(["L", str(n1), "-", str(n[0]), "+", overlap] + tags)
+                            )
                             edges.append(edge)
                         else:
-                            edge = str("\t".join(["L", str(n1), "-", str(n[0]), "-", overlap] + tags))
+                            edge = str(
+                                "\t".join(["L", str(n1), "-", str(n[0]), "-", overlap] + tags)
+                            )
                             edges.append(edge)
 
             for n in self.nodes[n1].end:
@@ -489,10 +512,14 @@ class GFA:
                         if tags[0] == 0:
                             tags = []
                         if n[1] == 0:
-                            edge = str("\t".join(["L", str(n1), "+", str(n[0]), "+", overlap] + tags))
+                            edge = str(
+                                "\t".join(["L", str(n1), "+", str(n[0]), "+", overlap] + tags)
+                            )
                             edges.append(edge)
                         else:
-                            edge = str("\t".join(["L", str(n1), "+", str(n[0]), "-", overlap] + tags))
+                            edge = str(
+                                "\t".join(["L", str(n1), "+", str(n[0]), "-", overlap] + tags)
+                            )
                             edges.append(edge)
 
             for e in edges:
@@ -663,16 +690,18 @@ class GFA:
                     nodes_of_chrom.append(n)
             else:
                 logging.warning(
-                    f"Not able to get path for {chrom}, because node {n} doesn't have an SN tag. Stopping! Returning empty list")
+                    f"Not able to get path for {chrom}, because node {n} doesn't have an SN tag. Stopping! Returning empty list"
+                )
                 return list()
         # sorting based on SO tags, so we get start to end of chromosome
-        sorted_nodes = sorted(nodes_of_chrom, key=lambda x: int(self.nodes[x].tags['SO'][1]))
+        sorted_nodes = sorted(nodes_of_chrom, key=lambda x: int(self.nodes[x].tags["SO"][1]))
         # this sorted list should be a path already spelling the chromosome
         if self.list_is_path(sorted_nodes):
             return sorted_nodes
         else:
             logging.warning(
-                f"The sorted nodes with SN tag {chrom} did not create a linear path. Stopping! Returning empty list")
+                f"The sorted nodes with SN tag {chrom} did not create a linear path. Stopping! Returning empty list"
+            )
             return list()
 
     def get_contig_length(self, chrom):
@@ -681,11 +710,12 @@ class GFA:
         """
         sorted_nodes = self.get_path(chrom)
         if not sorted_nodes:
-            logging.error("Was not able to return the length of the chromosome, check warning message(s)")
+            logging.error(
+                "Was not able to return the length of the chromosome, check warning message(s)"
+            )
             sys.exit(1)
         else:
-            return sum([int(self.nodes[x].tags['LN'][1]) for x in sorted_nodes])
-
+            return sum([int(self.nodes[x].tags["LN"][1]) for x in sorted_nodes])
 
     def extract_path(self, path):
         """
@@ -696,7 +726,7 @@ class GFA:
         if not self.path_exists(path):
             return ""
 
-        for n in re.findall('[><][^><]+', path):
+        for n in re.findall("[><][^><]+", path):
             if n[1:] not in self:
                 logging.error(f"The node {n[1:]} in path {path} does not seem to exist in this GFA")
                 return ""
@@ -726,7 +756,7 @@ class GFA:
         Performs depth first search from start node given by user
         return the path as a list
         """
-        if not start_node in self:
+        if start_node not in self:
             return []
         if len(self) == 1:
             return [list(self.nodes.keys())[0]]
@@ -755,7 +785,7 @@ class GFA:
         This function modelled after Networkx implementation
         https://networkx.org/documentation/networkx-1.9/reference/generated/networkx.algorithms.components.biconnected.biconnected_components.html
         """
-        if set_of_nodes == None:
+        if set_of_nodes is None:
             set_of_nodes = set(self.nodes.keys())
 
         def edge_stack_to_set(edge_stack):
@@ -819,7 +849,7 @@ class GFA:
                         edge_stack.append((child, nn))
                         edge_stack_loc[(child, nn)] = len(edge_stack) - 1
 
-                elif nn == None:
+                elif nn is None:
                     stack.pop()
                     if len(stack) > 1:
                         if low[child] >= discovery[parent]:

@@ -1,11 +1,3 @@
-import os
-import sys
-import pdb
-from gaftools.GFA import GFA
-from itertools import chain
-import networkx as nx
-
-
 def biccs_nx(graph):
     def edge_stack_to_set(edge_stack):
         out_set = set()
@@ -30,8 +22,8 @@ def biccs_nx(graph):
     for n in graph.nodes:
         if n in visited:
             continue
-        discovery = {n:0}
-        low = {n:0}
+        discovery = {n: 0}
+        low = {n: 0}
         root_children = 0
         artic_points = []
         components = []
@@ -59,7 +51,7 @@ def biccs_nx(graph):
                     visited.add(nn)
                     stack.append([child, nn, 0, graph[nn].neighbors()])
                     edge_stack.append((child, nn))
-            elif nn == None:
+            elif nn is None:
                 stack.pop()
                 if len(stack) > 1:
                     if low[child] >= discovery[parent]:
@@ -72,15 +64,18 @@ def biccs_nx(graph):
                     low[parent] = min(low[parent], low[child])
                 elif stack:
                     root_children += 1
-                    components.append(edge_stack_to_set(edge_stack[edge_stack.index((parent, child)):]))
+                    components.append(
+                        edge_stack_to_set(edge_stack[edge_stack.index((parent, child)) :])
+                    )
 
         if root_children > 1:
             artic_points.append[n]
 
     return components, artic_points
 
-
-    def bi_cc_rec(self, n_id, parent, low, disc, stack, node_ids, all_bi_cc, artic_points, disc_time):
+    def bi_cc_rec(
+        self, n_id, parent, low, disc, stack, node_ids, all_bi_cc, artic_points, disc_time
+    ):
         # Count of children in current node
         u = node_ids[n_id]
         children = 0
@@ -88,23 +83,33 @@ def biccs_nx(graph):
         disc[u] = disc_time[0]
         low[u] = disc_time[0]
         disc_time[0] += 1
- 
+
         # Recur for all the vertices adjacent to this vertex
         for neighbor_id in self.nodes[n_id].neighbors():
             v = node_ids[neighbor_id]
             # If v is not visited yet, then make it a child of u
             # in DFS tree and recur for it
-            if disc[v] == -1 :
+            if disc[v] == -1:
                 parent[v] = n_id
                 children += 1
-                stack.append((n_id, neighbor_id)) # store the edge in stack
-                self.bi_cc_rec(neighbor_id, parent, low, disc, stack, node_ids, all_bi_cc, artic_points, disc_time)
- 
+                stack.append((n_id, neighbor_id))  # store the edge in stack
+                self.bi_cc_rec(
+                    neighbor_id,
+                    parent,
+                    low,
+                    disc,
+                    stack,
+                    node_ids,
+                    all_bi_cc,
+                    artic_points,
+                    disc_time,
+                )
+
                 # Check if the subtree rooted with v has a connection to
                 # one of the ancestors of u
                 # Case 1 -- per Strongly Connected Components Article
                 low[u] = min(low[u], low[v])
- 
+
                 # If u is an articulation point, pop
                 # all edges from stack until (u, v)
                 if parent[u] == -1 and children > 1 or parent[u] != -1 and low[v] >= disc[u]:
@@ -116,9 +121,9 @@ def biccs_nx(graph):
                         for n in w:
                             one_bi_cc.add(n)
                     all_bi_cc.append(one_bi_cc)
-             
+
             elif neighbor_id != parent[u] and low[u] > disc[v]:
-                low[u] = min(low [u], disc[v])
+                low[u] = min(low[u], disc[v])
                 stack.append((n_id, neighbor_id))
 
     def bicc(self):
@@ -146,7 +151,9 @@ def biccs_nx(graph):
         for n_id in self.nodes.keys():
             i = node_ids[n_id]
             if disc[i] == -1:
-                self.bi_cc_rec(n_id, parent, low, disc, stack, node_ids, all_bi_cc, artic_points, disc_time)
+                self.bi_cc_rec(
+                    n_id, parent, low, disc, stack, node_ids, all_bi_cc, artic_points, disc_time
+                )
             # If stack is not empty, pop all edges from stack
             if stack:
                 one_bi_cc = set()

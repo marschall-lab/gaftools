@@ -30,9 +30,19 @@ We recommend installing inside a conda environment to allow easy removal::
     conda activate gaftools-env
     pip install git+https://github.com/marschall-lab/gaftools
 
+If you already have a clone locally, then run::
+
+    git clone https://github.com/marschall-lab/gaftools
+    conda create -n gaftools-env python=3.10
+    conda activate gaftools-env
+    cd gaftools
+    pip install .
+
 To remove gaftools, the conda environment needs to be removed using::
 
     conda env remove -n gaftools-env
+
+gaftools can be used with python>=3.8
 
 
 Requirements
@@ -40,7 +50,7 @@ Requirements
 
 gaftools has the following requirement:
 
-* python
+* python>=3.8
 * pysam
 * pywfa
 

@@ -9,8 +9,10 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 class CommandLineError(Exception):
     """An anticipated command-line error occurred. This ends up as a user-visible error message"""
+
 
 def log_memory_usage(include_children=False):
     if sys.platform == "linux":
