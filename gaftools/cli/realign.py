@@ -12,7 +12,7 @@ from gaftools.cli import log_memory_usage
 from gaftools.timer import StageTimer
 from gaftools.gaf import GAF
 from gaftools.gfa import GFA
-from pywfa.align import WavefrontAligner, cigartuples_to_str
+from pywfa.align import WavefrontAligner
 
 
 logger = logging.getLogger(__name__)
@@ -23,6 +23,7 @@ class PriorityAlignment:
     """
     Simple data class to store the sequences and their priorities so the GAF output matches the GAf input
     """
+
     priority: int
     seq: str
     field(compare=False)
@@ -76,9 +77,7 @@ def run_realign(gaf, graph, fasta, output=None, cores=1):
         output = open(output, "w")
 
     if cores > mp.cpu_count():
-        logger.warning(
-            "Number of cores requested is greater than the total number of CPU cores."
-        )
+        logger.warning("Number of cores requested is greater than the total number of CPU cores.")
         cores = min(mp.cpu_count() - 1, cores)
 
     # realign_gaf(gaf, graph, fasta, output, ext, cores)
@@ -214,9 +213,7 @@ def realign_gaf(gaf, graph, fasta, output, cores=1):
                                 "One of the processes had a none-zero exit code. One reason could be that one of the processes consumed too much memory and was killed"
                             )
                             sys.exit(1)
-                if (
-                    out_string_obj is None
-                ):  # sentinel counter to count finished processes
+                if out_string_obj is None:  # sentinel counter to count finished processes
                     n_sentinels += 1
                 else:  # priority queue to keep the output order same as input order
                     p_queue.put(out_string_obj)

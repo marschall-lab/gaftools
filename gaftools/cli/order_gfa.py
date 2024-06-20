@@ -9,7 +9,7 @@ import sys
 import os
 import logging
 import time
-from collections import namedtuple, defaultdict
+from collections import defaultdict
 from gaftools.gfa import GFA
 
 logger = logging.getLogger(__name__)
@@ -49,8 +49,7 @@ def run_order_gfa(
     chromosome_order=None,
     with_sequence=False,
 ):
-
-    if not chromosome_order is None:
+    if chromosome_order is not None:
         chromosome_order = chromosome_order.split(sep=",")
 
     if not os.path.isdir(outdir):
@@ -66,7 +65,6 @@ def run_order_gfa(
         except OSError:
             logging.error(f"were not able to create directory {outdir}, OSError")
             sys.exit()
-
 
     logger.info(f"Reading {gfa_filename}")
     if with_sequence:
@@ -114,8 +112,8 @@ def run_order_gfa(
         # Initialize files
         # f_gfa = open(outdir+'/'+gfa_filename.split("/")[-1][:-4]+'-'+chromosome+'.gfa', 'w')
 
-        scaffold_nodes, inside_nodes, node_order, bo, bubble_count = (
-            decompose_and_order(graph, component_nodes, chromosome, bo)
+        scaffold_nodes, inside_nodes, node_order, bo, bubble_count = decompose_and_order(
+            graph, component_nodes, chromosome, bo
         )
 
         # skip a chromosome if something went wrong
@@ -130,12 +128,7 @@ def run_order_gfa(
             )
             out_files.append(f_gfa)
             f_colors = open(
-                outdir
-                + os.sep
-                + gfa_filename.split(os.sep)[-1][:-4]
-                + "-"
-                + chromosome
-                + ".csv",
+                outdir + os.sep + gfa_filename.split(os.sep)[-1][:-4] + "-" + chromosome + ".csv",
                 "w",
             )
             f_colors.write("Name,Color,SN,SO,BO,NO\n")
@@ -163,9 +156,7 @@ def run_order_gfa(
                 else:
                     so_tag = "NA"
                 f_colors.write(
-                    "{},{},{},{},{},{}\n".format(
-                        node_name, color, sn_tag, so_tag, bo_tag, no_tag
-                    )
+                    "{},{},{},{},{},{}\n".format(node_name, color, sn_tag, so_tag, bo_tag, no_tag)
                 )
 
             graph.write_gfa(
@@ -180,11 +171,7 @@ def run_order_gfa(
         else:
             logger.warning(f"Chromosome {chromosome} was skipped")
     final_gfa = (
-        outdir
-        + os.sep
-        + gfa_filename.split(os.sep)[-1].split(".")[0]
-        + "-complete"
-        + ".gfa"
+        outdir + os.sep + gfa_filename.split(os.sep)[-1].split(".")[0] + "-complete" + ".gfa"
     )
     with open(final_gfa, "w") as outfile:
         # outputting all the S lines first
@@ -251,12 +238,8 @@ def decompose_and_order(graph, component, component_name, bo_start=0):
     logger.info(f"  Scaffold graph: {len(scaffold_graph)} nodes")
 
     # Find start/end points of the line by looking for nodes with degree 1
-    degree_one = [
-        x.id for x in scaffold_graph.nodes.values() if len(x.neighbors()) == 1
-    ]
-    degree_two = [
-        x.id for x in scaffold_graph.nodes.values() if len(x.neighbors()) == 2
-    ]
+    degree_one = [x.id for x in scaffold_graph.nodes.values() if len(x.neighbors()) == 1]
+    degree_two = [x.id for x in scaffold_graph.nodes.values() if len(x.neighbors()) == 2]
 
     try:
         assert len(degree_one) == 2
@@ -314,7 +297,7 @@ def count_sn(graph, comp):
     """
     counts = defaultdict(int)
     for n in comp:
-        if not "SN" in graph[n].tags:
+        if "SN" not in graph[n].tags:
             continue
         counts[graph[n].tags["SN"][1]] += 1
     return counts
