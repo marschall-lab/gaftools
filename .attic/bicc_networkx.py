@@ -7,9 +7,6 @@ def biccs_nx(graph):
         return out_set
 
     def next_child(stack_item):
-
-
-        
         if not stack_item[3]:
             return None
         if stack_item[2] >= len(stack_item[3]):
