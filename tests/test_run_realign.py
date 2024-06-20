@@ -15,7 +15,6 @@ def test_order_gfa(tmp_path):
         graph="tests/data/smallgraph.gfa",
         fasta="tests/data/reads.fa",
         output=output_gaf,
-        ext=False,
         cores=1,
     )
 

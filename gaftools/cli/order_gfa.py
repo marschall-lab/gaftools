@@ -160,7 +160,10 @@ def run_order_gfa(
                 )
 
             graph.write_gfa(
-                set_of_nodes=component_nodes, output_file=f_gfa, append=False, order_bo=True
+                set_of_nodes=component_nodes,
+                output_file=f_gfa,
+                append=False,
+                order_bo=True,
             )
 
             f_colors.close()

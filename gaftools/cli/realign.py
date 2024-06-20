@@ -5,9 +5,9 @@ Realign GAF file using wavefront alignment algorithm (WFA)
 import logging
 import sys
 import pysam
-import gaftools.gaf
+import queue
 import multiprocessing as mp
-
+from dataclasses import dataclass, field
 from gaftools.cli import log_memory_usage
 from gaftools.timer import StageTimer
 from gaftools.gaf import GAF
@@ -18,7 +18,57 @@ from pywfa.align import WavefrontAligner
 logger = logging.getLogger(__name__)
 
 
-def run_realign(gaf, graph, fasta, output=None, ext=False, cores=1):
+@dataclass(order=True)
+class PriorityAlignment:
+    """
+    Simple data class to store the sequences and their priorities so the GAF output matches the GAf input
+    """
+
+    priority: int
+    seq: str
+    field(compare=False)
+
+
+def peak(prior_queue):
+    """
+    Queue and PriorityQueue do not have a peak function
+    Note: for PriorityQueue, only the item at 0 is the smallest value
+    that doesn't guarantee that item 1 and 2 are correctly sorted by priority
+    """
+    if not prior_queue.empty():
+        return prior_queue.queue[0]
+    else:
+        return None
+
+
+def all_are_alive(processes):
+    """
+    Check if all processes are alive
+    """
+    for p in processes:
+        if not p.is_alive():
+            return False
+    return True
+
+
+def one_is_alive(processes):
+    """
+    Check if at least one process is alive
+    """
+    for p in processes:
+        if p.is_alive():
+            return True
+    return False
+
+
+def all_exited(processes):
+    for p in processes:
+        if p.exitcode != 0:
+            return False
+    return True
+
+
+def run_realign(gaf, graph, fasta, output=None, cores=1):
     timers = StageTimer()
 
     if output is None:
@@ -38,52 +88,13 @@ def run_realign(gaf, graph, fasta, output=None, ext=False, cores=1):
     logger.info("Total time:                                  %9.2f s", total_time)
 
 
-def overlap_ratio(x_start, x_end, y_start, y_end):
-    overlap = max(0, min(x_end, y_end) - max(x_start, y_start))
-    total_length = x_end - x_start + y_end - y_start
-    x_length = x_end - x_start
-    y_length = y_end - y_start
-
-    return max(2 * (overlap / total_length), (overlap / x_length), (overlap / y_length))
-
-
-def filter_duplicates(aln):
-    import functools
-
-    for k in aln.keys():
-        aln[k].sort(key=functools.cmp_to_key(gaftools.gaf.compare_aln))
-
-    for read_name, mappings in aln.items():
-        if len(mappings) == 1:
-            continue
-        for cnt, line in enumerate(mappings):
-            if line.duplicate:
-                continue
-            for cnt2, line2 in enumerate(mappings):
-                if cnt == cnt2 or line2.duplicate:
-                    continue
-
-                sim = overlap_ratio(
-                    line.query_start, line.query_end, line2.query_start, line2.query_end
-                )
-
-                if sim > 0.75:
-                    if line.score > line2.score:
-                        mappings[cnt2].duplicate = True
-                        # print("......Duplicate")
-                    else:
-                        mappings[cnt].duplicate = True
-                        # print("......Duplicate, breaking")
-                        break
-
-
-def wfa_alignment(seq_batch, queue):
+def wfa_alignment(seq_batch, qu):
     """
     Realigns the sequence using the wavefront alignment algorithm.
     """
     # if the sequence is too large, the running time and memory requirement increases too much
     # Thus, we write the original alignment back to the GAF instead of realignment
-    for gaf_line, ref, query in seq_batch:
+    for gaf_line, ref, query, prior_counter in seq_batch:
         if gaf_line.query_end - gaf_line.query_start > 60_000:
             out_string = (
                 f"{gaf_line.query_name}\t{gaf_line.query_length}\t{gaf_line.query_start}\t"
@@ -93,7 +104,8 @@ def wfa_alignment(seq_batch, queue):
             )
             for k in gaf_line.tags.keys():
                 out_string += f"\t{k}{gaf_line.tags[k]}"
-            queue.put(out_string + "\n")
+            qu.put(PriorityAlignment(prior_counter, out_string + "\n"))
+            # queue.put(out_string + "\n")
 
         else:
             aligner = WavefrontAligner(ref)
@@ -134,149 +146,9 @@ def wfa_alignment(seq_batch, queue):
                 # output.write("\t%s%s"%(k, gaf_line.tags[k]))
                 out_string += f"\t{k}{gaf_line.tags[k]}"
                 # out_string += "\t%s%s" % (k, gaf_line.tags[k])
-            queue.put(out_string + "\n")
+            qu.put(PriorityAlignment(prior_counter, out_string + "\n"))
 
-    queue.put(None)
-
-
-def wfa_alignment_old(aln, gaf_line, ref, query, path_start, extended, queue):
-    # If the sequence is too large, the running time and memory requirement increases too much
-    # Thus, we write the original alignment back to the GAF instead of realignment
-    if gaf_line.query_end - gaf_line.query_start > 60000:
-        # output.write("%s\t%d\t%d\t%d\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d" %(gaf_line.query_name,
-        #                 gaf_line.query_length, gaf_line.query_start, gaf_line.query_end, gaf_line.strand,
-        #                 gaf_line.path, gaf_line.path_length, gaf_line.path_start, gaf_line.path_end,
-        #                 gaf_line.residue_matches, gaf_line.alignment_block_length, gaf_line.mapping_quality))
-        out_string = "%s\t%d\t%d\t%d\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d" % (
-            gaf_line.query_name,
-            gaf_line.query_length,
-            gaf_line.query_start,
-            gaf_line.query_end,
-            gaf_line.strand,
-            gaf_line.path,
-            gaf_line.path_length,
-            gaf_line.path_start,
-            gaf_line.path_end,
-            gaf_line.residue_matches,
-            gaf_line.alignment_block_length,
-            gaf_line.mapping_quality,
-        )
-
-        for k in gaf_line.tags.keys():
-            # output.write("\t%s%s"%(k, gaf_line.tags[k]))
-            out_string += "\t%s%s" % (k, gaf_line.tags[k])
-        queue.put(out_string + "\n")
-        # output.write("\n")
-        # return
-
-    else:
-        aligner = WavefrontAligner(ref)
-        if extended:
-            res = aligner(
-                query, clip_cigar=True, min_aligned_bases_left=30, min_aligned_bases_right=30
-            )
-        else:
-            res = aligner(query, clip_cigar=False)
-
-        match, mismatch, cigar_len, ins, deletion, soft_clip = 0, 0, 0, 0, 0, 0
-        cigar = ""
-
-        for op_type, op_len in res.cigartuples:
-            if op_type == 0:
-                match += op_len
-                cigar += str(op_len) + "="
-            elif op_type == 1:
-                ins += op_len
-                cigar += str(op_len) + "I"
-            elif op_type == 2:
-                deletion += op_len
-                cigar += str(op_len) + "D"
-            elif op_type == 4:
-                soft_clip += op_len
-            elif op_type == 8:
-                mismatch += op_len
-                cigar += str(op_len) + "X"
-            else:
-                assert False
-            cigar_len += op_len
-
-        if extended:
-            if match < 30:
-                # return
-                queue.put("NA")
-
-            if gaf_line.query_name in aln:
-                aln[gaf_line.query_name].append(
-                    gaftools.gaf.Alignment(
-                        "",
-                        gaf_line.query_length,
-                        res.text_start,
-                        res.text_end,
-                        gaf_line.strand,
-                        gaf_line.path,
-                        gaf_line.path_length,
-                        path_start + res.pattern_start,
-                        path_start + res.pattern_end,
-                        match,
-                        0,
-                        0,
-                        False,
-                        cigar,
-                        cigar_len,
-                        res.score,
-                    )
-                )
-            else:
-                aln[gaf_line.query_name] = [
-                    gaftools.gaf.Alignment(
-                        "",
-                        gaf_line.query_length,
-                        res.text_start,
-                        res.text_end,
-                        gaf_line.strand,
-                        gaf_line.path,
-                        gaf_line.path_length,
-                        path_start + res.pattern_start,
-                        path_start + res.pattern_end,
-                        match,
-                        0,
-                        0,
-                        False,
-                        cigar,
-                        cigar_len,
-                        res.score,
-                    )
-                ]
-        else:
-            cigar = aligner.cigarstring.replace("M", "=")
-
-            # Write the alignment back to the GAF
-            # output.write("%s\t%d\t%d\t%d\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d" %(gaf_line.query_name,
-            #                 gaf_line.query_length, gaf_line.query_start, gaf_line.query_end, gaf_line.strand,
-            #                 gaf_line.path, gaf_line.path_length, gaf_line.path_start, gaf_line.path_end,
-            #                 match, cigar_len, gaf_line.mapping_quality))
-            out_string = "%s\t%d\t%d\t%d\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d" % (
-                gaf_line.query_name,
-                gaf_line.query_length,
-                gaf_line.query_start,
-                gaf_line.query_end,
-                gaf_line.strand,
-                gaf_line.path,
-                gaf_line.path_length,
-                gaf_line.path_start,
-                gaf_line.path_end,
-                match,
-                cigar_len,
-                gaf_line.mapping_quality,
-            )
-            # queue.put(out_string + "\n")
-
-            for k in gaf_line.tags.keys():
-                # output.write("\t%s%s"%(k, gaf_line.tags[k]))
-                out_string += "\t%s%s" % (k, gaf_line.tags[k])
-            queue.put(out_string + "\n")
-            # output.write("\n")
-    queue.put(None)
+    qu.put(None)  # sentinel for finished process
 
 
 def realign_gaf(gaf, graph, fasta, output, cores=1):
@@ -293,17 +165,19 @@ def realign_gaf(gaf, graph, fasta, output, cores=1):
     step_timer.stop("read_gfa")
     logger.info(f"\n Finished loading {graph}. Took: {step_timer.elapsed('read_gfa')}")
     processes = []
-    queue = mp.Queue()
+    align_queue = mp.Queue()
 
     seq_batch = []
     batch_size = 1000
     gaf_file = GAF(gaf)
+    priority_counter = 0
     for line in gaf_file.read_file():
         path_sequence = graph_obj.extract_path(line.path)
         ref = path_sequence[line.path_start : line.path_end]
         query = fastafile.fetch(line.query_name, line.query_start, line.query_end)
 
-        seq_batch.append((line, ref, query))
+        seq_batch.append((line, ref, query, priority_counter))
+        priority_counter += 1
         if len(seq_batch) != batch_size:
             continue
         else:
@@ -313,28 +187,46 @@ def realign_gaf(gaf, graph, fasta, output, cores=1):
                     target=wfa_alignment,
                     args=(
                         seq_batch,
-                        queue,
+                        align_queue,
                     ),
                 )
             )
             seq_batch = []
 
         if len(processes) == cores:
+            p_queue = queue.PriorityQueue()
             # logger.info(f"{time.time()} Running the prepared batches of processes")
             for p in processes:
                 p.start()
             n_sentinels = 0
             while n_sentinels != len(processes):  # exits when all processes finished
-                out_string = queue.get()
-                if out_string is None:  # sentinal counter to count finished processes
+                try:
+                    out_string_obj = align_queue.get(timeout=0.5)
+                except queue.Empty:  # queue throws Empty exception after timeout
+                    # check if all threads are still alive
+                    if one_is_alive(processes):
+                        continue
+                    else:
+                        # all_exited returns false if one exited with non-zero code
+                        if not all_exited(processes):
+                            logger.error(
+                                "One of the processes had a none-zero exit code. One reason could be that one of the processes consumed too much memory and was killed"
+                            )
+                            sys.exit(1)
+                if out_string_obj is None:  # sentinel counter to count finished processes
                     n_sentinels += 1
-                else:
-                    output.write(out_string)
+                else:  # priority queue to keep the output order same as input order
+                    p_queue.put(out_string_obj)
+                    # output.write(out_string_obj)
 
             for p in processes:
                 p.join()
+            queue_len = len(p_queue.queue)
+            for _ in range(queue_len):
+                output.write(p_queue.get().seq)
             processes = []
-            queue = mp.Queue()
+            align_queue = mp.Queue()
+            p_queue = queue.PriorityQueue()
     gaf_file.close()
 
     if len(seq_batch) > 0:  # leftover alignments to re-align
@@ -343,145 +235,39 @@ def realign_gaf(gaf, graph, fasta, output, cores=1):
                 target=wfa_alignment,
                 args=(
                     seq_batch,
-                    queue,
+                    align_queue,
                 ),
             )
         )
     # leftover batches
     if len(processes) != 0:
-        # logger.info("in the leftovers")
+        p_queue = queue.PriorityQueue()
         for p in processes:
             p.start()
         n_sentinels = 0
         while n_sentinels != len(processes):  # exits when all processes finished
-            out_string = queue.get()
-            if out_string is None:
+            try:
+                out_string_obj = align_queue.get(timeout=0.1)
+            except queue.Empty:
+                # check if all threads are still alive
+                if one_is_alive(processes):
+                    continue
+                else:
+                    # all_exited returns false if one exited with non-zero code
+                    if not all_exited(processes):
+                        logger.error("One of the processes had a none-zero exit code")
+                        sys.exit(1)
+            if out_string_obj is None:
                 n_sentinels += 1
             else:
-                output.write(out_string)
+                p_queue.put(out_string_obj)
+                # output.write(out_string_obj)
         for p in processes:
             p.join()
+        queue_len = len(p_queue.queue)
+        for _ in range(queue_len):
+            output.write(p_queue.get().seq)
     logger.info("Done!")
-    # was using this to measure memory, didn't work well
-    # snapshot = tracemalloc.take_snapshot()
-    # display_top(snapshot, limit=5)
-    fastafile.close()
-
-
-def realign_gaf_old(gaf, graph, fasta, output, extended, cores=1):
-    """
-    Uses pyWFA (https://github.com/kcleal/pywfa)
-    parallelized on the level of alignment
-
-    TODO: send a batch of reads to the wfa_alignment function instead of calling for each seq to limit function-calling overhead
-    """
-
-    fastafile = pysam.FastaFile(fasta)
-    step_timer = StageTimer()
-    step_timer.start("read_gfa")
-    graph_obj = GFA(graph)
-    step_timer.stop("read_gfa")
-    logger.info(f"\n Finished loading {graph}. Took: {step_timer.elapsed('read_gfa')}")
-    processes = []
-    queue = mp.Queue()
-
-    aln = {}
-
-    gaf_file = GAF(gaf)
-    for cnt, line in enumerate(gaf_file.read_file()):
-        path_sequence = graph_obj.extract_path(line.path)
-
-        if extended:
-            extension_start = line.query_start
-            extension_end = line.query_length - line.query_end
-
-            # Also add 10% of the extension to each side
-            if extension_start > 0:
-                extension_start += extension_start // 10
-            if extension_end > 0:
-                extension_end += extension_end // 10
-
-            path_start = line.path_start - extension_start
-            path_end = line.path_end + extension_end
-
-            if path_start < 0:
-                path_start = 0
-            if path_end > line.path_length:
-                path_end = line.path_length
-
-            ref = path_sequence[path_start:path_end]
-            query = fastafile.fetch(line.query_name)
-
-            # making a process
-            processes.append(
-                mp.Process(
-                    target=wfa_alignment_old,
-                    args=(
-                        aln,
-                        line,
-                        ref,
-                        query,
-                        path_start,
-                        output,
-                        extended,
-                        queue,
-                    ),
-                )
-            )
-
-            # wfa_alignment(aln, line, ref, query, path_start, output, extended)
-        else:
-            ref = path_sequence[line.path_start : line.path_end]
-            query = fastafile.fetch(line.query_name, line.query_start, line.query_end)
-            processes.append(
-                mp.Process(
-                    target=wfa_alignment,
-                    args=(
-                        line,
-                        ref,
-                        query,
-                        queue,
-                    ),
-                )
-            )
-            # wfa_alignment([], line, ref, query, 0, output, False)
-        if len(processes) == cores:
-            # start running the processes and checking when they're done before starting the next batch
-            for p in processes:
-                p.start()
-            n_sentinals = 0
-
-            while n_sentinals != len(processes):  # exits when all processes finished
-                out_string = queue.get()
-                if out_string is None:
-                    n_sentinals += 1
-                elif out_string == "NA":  # need to remove this later
-                    pass
-                else:
-                    output.write(out_string)
-
-            for p in processes:
-                p.join()
-            processes = []
-            queue = mp.Queue()
-    gaf_file.close()
-
-    # leftover alignments
-    if len(processes) != 0:
-        for p in processes:
-            p.start()
-        n_sentinals = 0
-        while n_sentinals != len(processes):  # exits when all processes finished
-            out_string = queue.get()
-            if out_string is None:
-                n_sentinals += 1
-            elif out_string == "NA":  # need to remove this later
-                pass
-            else:
-                output.write(out_string)
-
-        for p in processes:
-            p.join()
 
     fastafile.close()
 
@@ -490,15 +276,15 @@ def realign_gaf_old(gaf, graph, fasta, output, extended, cores=1):
 def add_arguments(parser):
     arg = parser.add_argument
     # Positional arguments
-    arg('gaf', metavar='GAF',
+    arg('gaf', metavar='GAF', 
         help='Input GAF file (can be bgzip-compressed)')
-    arg('graph', metavar='rGFA',
+    arg('graph', metavar='rGFA', 
         help='reference rGFA file')
-    arg('fasta', metavar='FASTA',
+    arg('fasta', metavar='FASTA', 
         help='Input FASTA file of the read')
-    arg('-o', '--output', default=None,
+    arg('-o', '--output', default=None, 
         help='Output GAF file. If omitted, use standard output.')
-    arg("-c", "--cores", metavar="CORES", default=1, type=int,
+    arg("-c", "--cores", metavar="CORES", default=1, type=int, 
         help="Number of cores to use for alignments.")
 
 
