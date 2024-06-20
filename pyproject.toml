@@ -13,7 +13,7 @@ authors = [
 ]
 description = "general purpose utility tool for working with GAF files"
 readme = 'README.md'
-requires-python = ">=3.10"
+requires-python = ">=3.8"
 license = {text = "MIT"}
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -43,8 +43,7 @@ dev = [
     "pytest",
     "coverage",
     "tox",
-    "flake8",
-    "black",
+    "ruff",
     "sphinx",
     "sphinx-issues",
     "sphinx-rtd-theme",
@@ -67,11 +66,16 @@ include = ["gaftools*"]
 write_to = "gaftools/_version.py"
 
 
-[tool.black]
-line-length = 100
-target-version = ["py37"]
-
-
 [tool.pytest.ini_options]
 addopts = "--doctest-modules"
 testpaths = ["tests", "gaftools"]
+
+
+[tool.ruff]
+line-length = 100
+lint.ignore = [
+    "E203",  # whitespace before ':' -- must be ignored for Black
+    "E501",  # line too long
+    "E722",  # bare except
+    "E741",  # Ambiguous variable name
+]

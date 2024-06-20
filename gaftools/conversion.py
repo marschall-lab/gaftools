@@ -25,7 +25,6 @@ class StableNode:
 
 
 def merge_nodes(node1, node2, orient1, orient2):
-
     if (node1.contig_id != node2.contig_id) or (orient1 != orient2):
         return False
     if (orient1 == ">") and (node1.end != node2.start):

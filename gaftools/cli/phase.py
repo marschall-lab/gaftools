@@ -24,7 +24,6 @@ logger = logging.getLogger(__name__)
 
 
 def run(gaf_file, tsv_file, output=sys.stdout):
-
     timers = StageTimer()
     add_phase_info(gaf_file, tsv_file, output)
     logger.info("\n== SUMMARY ==")
@@ -57,7 +56,6 @@ def add_phase_info(gaf_path, tsv_path, out_path):
     phased = 0
     gaf_file = GAF(gaf_path)
     for gaf_line in gaf_file.read_file():
-
         if line_count != 0:
             gaf_out.write("\n")
 

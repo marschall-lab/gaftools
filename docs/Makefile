@@ -33,7 +33,7 @@ help:
 	@echo "  text       to make text files"
 	@echo "  man        to make manual pages"
 	@echo "  changes    to make an overview of all changed/added/deprecated items"
-	
+
 clean:
 	rm -rf $(BUILDDIR)/*
 
@@ -79,4 +79,3 @@ changes:
 	$(SPHINXBUILD) -b changes $(ALLSPHINXOPTS) $(BUILDDIR)/changes
 	@echo
 	@echo "The overview file is in $(BUILDDIR)/changes."
-

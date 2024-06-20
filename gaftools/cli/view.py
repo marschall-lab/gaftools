@@ -26,7 +26,6 @@ logger = logging.getLogger(__name__)
 
 
 def run(gaf_path, gfa=None, output=None, index=None, nodes=[], regions=[], format=None):
-
     timers = StageTimer()
 
     if output is None:
@@ -167,7 +166,6 @@ def get_unstable(regions, index):
 
     result = []
     for n, c in enumerate(contig):
-
         try:
             node_list = node_dict[c]
         except KeyError:

@@ -1,10 +1,7 @@
 """
-The code has been taken from WhatsHap.
-Link to WhatsHap: https://github.com/whatshap/whatshap
-"""
-"""
 Find connected components.
 """
+
 from abc import abstractmethod
 from collections import OrderedDict
 from typing import TypeVar, Generic, Optional, Iterable

@@ -22,7 +22,6 @@ logger = logging.getLogger(__name__)
 
 
 def run(gaf_path, gfa_path, output=None):
-
     timers = StageTimer()
     if output is None:
         output = gaf_path + ".gvi"
@@ -115,7 +114,6 @@ def run(gaf_path, gfa_path, output=None):
 
 
 def convert_coord(line, ref):
-
     unstable_coord = []
     gaf_contigs = list(filter(None, re.split("(>)|(<)", line[5])))
     for nd in gaf_contigs:

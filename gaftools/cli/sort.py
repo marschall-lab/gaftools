@@ -29,7 +29,6 @@ timers = StageTimer()
 
 
 def run_sort(gfa, gaf, outgaf=None, outind=None, bgzip=False):
-
     if outgaf is None:
         writer = sys.stdout
         index_file = None
@@ -63,7 +62,6 @@ def run_sort(gfa, gaf, outgaf=None, outind=None, bgzip=False):
 
 
 def sort(gaf, nodes, writer, index_dict, index_file):
-
     logger.info("Parsing GAF file and sorting it")
     if utils.is_file_gzipped(gaf):
         reader = libcbgzf.BGZFile(gaf, "rb")

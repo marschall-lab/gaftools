@@ -49,7 +49,6 @@ def run_order_gfa(
     chromosome_order=None,
     with_sequence=False,
 ):
-
     if chromosome_order is not None:
         chromosome_order = chromosome_order.split(sep=",")
 
@@ -57,8 +56,14 @@ def run_order_gfa(
         logging.warning(f"The directory {outdir} does not exist, creating one")
         try:
             os.makedirs(outdir)
-        except:  # I know broad exceptions are not recommended but I think for here it's fine
-            logging.error("were not able to create directory")
+        except PermissionError:
+            logging.error(f"were not able to create directory {outdir}. Permission Denied")
+            sys.exit()
+        except FileNotFoundError:
+            logging.error(f"were not able to create directory {outdir}, File not found")
+            sys.exit()
+        except OSError:
+            logging.error(f"were not able to create directory {outdir}, OSError")
             sys.exit()
 
     logger.info(f"Reading {gfa_filename}")

@@ -29,7 +29,6 @@ class Alignment:
         score=None,
         tags=None,
     ):
-
         self.query_name = query_name
         self.query_length = query_length
         self.query_start = query_start
@@ -195,7 +194,6 @@ class GAF:
 
 
 def compare_aln(ln1, ln2):
-
     if ln1.query_start < ln2.query_start:
         return -1
     elif ln1.query_start == ln2.query_start:

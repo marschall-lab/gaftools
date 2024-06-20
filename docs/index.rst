@@ -40,7 +40,7 @@ Requirements
 
 gaftools has the following requirement:
 
-* python
+* python>=3.8
 * pysam
 * pywfa
 

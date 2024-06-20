@@ -4,9 +4,10 @@ Fawaz Dabbaghie, Jana Ebler, Tobias Marschall, BubbleGun: enumerating bubbles an
 https://doi.org/10.1093/bioinformatics/btac448
 """
 
+
 def find_sb_alg(graph, s, direction, only_simple=False):
     """
-    takes the graph and a start node s and add a bubble to the chain 
+    takes the graph and a start node s and add a bubble to the chain
     if one is found if s was the source
     """
     # I tuples of node ids and the direction
@@ -17,7 +18,6 @@ def find_sb_alg(graph, s, direction, only_simple=False):
     # seen.add(s.id)
     S = {(s, direction)}
     while len(S) > 0:
-
         v = S.pop()
         v = (v[0], v[1])
         visited.add(v[0].id)
