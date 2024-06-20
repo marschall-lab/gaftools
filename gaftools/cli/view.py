@@ -10,7 +10,6 @@ import os
 import sys
 from collections import defaultdict
 
-from gaftools import __version__
 from gaftools.cli import log_memory_usage, CommandLineError
 from gaftools.timer import StageTimer
 from gaftools.gaf import GAF
@@ -30,7 +29,7 @@ def run(gaf_path, gfa=None, output=None, index=None, nodes=[], regions=[], forma
 
     timers = StageTimer()
 
-    if output == None:
+    if output is None:
         writer = sys.stdout
     else:
         writer = open(output, "w")
@@ -52,7 +51,7 @@ def run(gaf_path, gfa=None, output=None, index=None, nodes=[], regions=[], forma
     # if format is given, prepare some objects for use later
     if format:
         if format == "stable":
-            if gaf_format == True:
+            if gaf_format is True:
                 raise CommandLineError(
                     "Input GAF already has stable coordinates. Please remove the --format stable option"
                 )
@@ -73,7 +72,7 @@ def run(gaf_path, gfa=None, output=None, index=None, nodes=[], regions=[], forma
             del gfa_file
         else:
             assert format == "unstable"
-            if gaf_format == False:
+            if gaf_format is False:
                 raise CommandLineError(
                     "Input GAF already has unstable coordinates. Please remove the --format unstable option"
                 )
@@ -89,7 +88,7 @@ def run(gaf_path, gfa=None, output=None, index=None, nodes=[], regions=[], forma
 
     # now find out what lines to view and how to view
     if len(nodes) != 0 or len(regions) != 0:
-        if index == None:
+        if index is None:
             index = gaf_path + ".gvi"
             if not os.path.exists(index):
                 raise CommandLineError(
@@ -221,22 +220,22 @@ def search(node, node_list):
 def add_arguments(parser):
     arg = parser.add_argument
     # Positional arguments
-    arg('gaf_path', metavar='GAF', 
+    arg('gaf_path', metavar='GAF',
         help='Input GAF file (can be bgzip-compressed)')
-    arg('-g', '--gfa', dest='gfa', metavar='GFA', default=None, 
+    arg('-g', '--gfa', dest='gfa', metavar='GFA', default=None,
         help='Input GFA file (can be gzip-compressed). Required when converting from one coordinate system to another.')
-    arg('-o', '--output', dest='output', metavar='OUTPUT', default=None, 
+    arg('-o', '--output', dest='output', metavar='OUTPUT', default=None,
         help='Output file. Default is stdout.')
-    arg('-i', '--index', default=None, 
+    arg('-i', '--index', default=None,
         help='Path to GAF Index file. This index is created using gaftools index. '
         'If path is not provided, it is assumed to be in the same directory as GAF file with the same name and .gvi extension (default location of the index script)')
-    arg('-n', '--node', dest='nodes', metavar='NODE', default=[], action='append', 
+    arg('-n', '--node', dest='nodes', metavar='NODE', default=[], action='append',
         help='Nodes to search. '
         'Multiple can be provided (Eg. gaftools view .... -n s1 -n s2 -n s3 .....).')
-    arg('-r', '--region', dest='regions', metavar='REGION', default=[], action='append', 
+    arg('-r', '--region', dest='regions', metavar='REGION', default=[], action='append',
         help='Regions to search. '
         'Multiple can be provided (Eg. gaftools view .... -r chr1:10-20 -r chr1:50-60 .....).')
-    arg('-f', '--format', dest='format', metavar='FORMAT', 
+    arg('-f', '--format', dest='format', metavar='FORMAT',
         help='format of output path (unstable | stable)')
 
 # fmt: on

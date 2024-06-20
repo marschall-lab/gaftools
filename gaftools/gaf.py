@@ -2,7 +2,6 @@ import re
 import logging
 from pysam import libcbgzf
 import gaftools.utils as utils
-from gaftools import __version__
 
 logger = logging.getLogger(__name__)
 

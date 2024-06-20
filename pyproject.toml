@@ -42,6 +42,9 @@ gaftools = "gaftools.__main__:main"
 dev = [
     "pytest",
     "coverage",
+    "tox",
+    "flake8",
+    "black",
     "sphinx",
     "sphinx-issues",
     "sphinx-rtd-theme",
@@ -62,3 +65,13 @@ include = ["gaftools*"]
 
 [tool.setuptools_scm]
 write_to = "gaftools/_version.py"
+
+
+[tool.black]
+line-length = 100
+target-version = ["py37"]
+
+
+[tool.pytest.ini_options]
+addopts = "--doctest-modules"
+testpaths = ["tests", "gaftools"]

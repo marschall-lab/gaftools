@@ -9,7 +9,7 @@ from gaftools.cli.order_gfa import run_order_gfa
 def test_order_gfa(tmp_path):
     input_gfa = "tests/data/smallgraph.gfa"
     run_order_gfa(
-        gfa_filename="tests/data/smallgraph.gfa",
+        gfa_filename=input_gfa,
         outdir=str(tmp_path),
         chromosome_order="chr1",
         with_sequence=False,
@@ -20,8 +20,6 @@ def test_order_gfa(tmp_path):
     assert graph1.is_equal_to(graph2)
 
     # testing the output CSV file that it makes sense
-    csv_file = []
-
     with open(str(tmp_path) + "/smallgraph-chr1.csv", "r") as infile:
         for l in infile:
             if l.startswith("Name"):

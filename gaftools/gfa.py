@@ -226,7 +226,7 @@ class GFA:
             return False
         for n_id, node1 in self.nodes.items():
             node2 = other[n_id]
-            if node2 == None:  # n_id not in other graph, so not equal graphs
+            if node2 is None:  # n_id not in other graph, so not equal graphs
                 return False
             if not node1.is_equal_to(node2, only_topo):
                 return False
@@ -237,7 +237,7 @@ class GFA:
         remove a node and its corresponding edges
         """
 
-        edges_to_remove = []
+        # edges_to_remove = []
         starts = [x for x in self.nodes[n_id].start]
         for n_start in starts:
             overlap = n_start[2]
@@ -293,7 +293,7 @@ class GFA:
             if "SN" in self[node_id].tags and "SR" in self[node_id].tags:
                 contig_name = self[node_id].tags["SN"][1]
                 contig_rank = int(self[node_id].tags["SR"][1])
-                if self.contigs[contig_name] == None:
+                if self.contigs[contig_name] is None:
                     self.contigs[contig_name] = contig_rank
                 else:
                     assert self.contigs[contig_name] == contig_rank
@@ -467,7 +467,7 @@ class GFA:
         # going through nodes twice to have the final output as all S line then all L lines
         for n in sorted_set_of_nodes:
             if n not in self.nodes:
-                logging.warning("Node {} does not exist in the graph, skipped in output".format(n1))
+                logging.warning("Node {} does not exist in the graph, skipped in output".format(n))
                 continue
             line = self.nodes[n].to_gfa_line()
             f.write(line + "\n")
@@ -756,7 +756,7 @@ class GFA:
         Performs depth first search from start node given by user
         return the path as a list
         """
-        if not start_node in self:
+        if start_node not in self:
             return []
         if len(self) == 1:
             return [list(self.nodes.keys())[0]]
@@ -785,7 +785,7 @@ class GFA:
         This function modelled after Networkx implementation
         https://networkx.org/documentation/networkx-1.9/reference/generated/networkx.algorithms.components.biconnected.biconnected_components.html
         """
-        if set_of_nodes == None:
+        if set_of_nodes is None:
             set_of_nodes = set(self.nodes.keys())
 
         def edge_stack_to_set(edge_stack):
@@ -849,7 +849,7 @@ class GFA:
                         edge_stack.append((child, nn))
                         edge_stack_loc[(child, nn)] = len(edge_stack) - 1
 
-                elif nn == None:
+                elif nn is None:
                     stack.pop()
                     if len(stack) > 1:
                         if low[child] >= discovery[parent]:

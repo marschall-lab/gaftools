@@ -30,7 +30,7 @@ timers = StageTimer()
 
 def run_sort(gfa, gaf, outgaf=None, outind=None, bgzip=False):
 
-    if outgaf == None:
+    if outgaf is None:
         writer = sys.stdout
         index_file = None
     else:
@@ -104,22 +104,22 @@ def sort(gaf, nodes, writer, index_dict, index_file):
             off = alignment.offset
             reader.seek(off)
             line = reader.readline()
-            if type(line) == bytes:
+            if isinstance(line, bytes):
                 line = line.decode("utf-8").rstrip()
-            elif type(line) == str:
+            elif isinstance(line, str):
                 line = line.rstrip()
             else:
                 raise RuntimeError("GAF alignments not in string or byte format.")
             line += "\tbo:i:%d\tsn:Z:%s\tiv:i:%d\n" % (alignment.BO, alignment.sn, alignment.inv)
-            if index_file != None:
+            if index_file is not None:
                 out_off = writer.tell()
-                if index_dict[alignment.sn][0] == None:
+                if index_dict[alignment.sn][0] is None:
                     index_dict[alignment.sn][0] = out_off
                     index_dict[alignment.sn][1] = out_off
                 else:
                     index_dict[alignment.sn][1] = out_off
             write_to_file(line, writer)
-    if index_file != None:
+    if index_file is not None:
         index_dict.pop("unknown")
         index_dict = dict(index_dict)
         with open(index_file, "wb") as ind:
@@ -149,7 +149,7 @@ def process_alignment(line, nodes, offset):
         sr_tag = int(nodes[n].tags["SR"][1])
 
         # Finding the chromosome where the alignment is
-        if sn == None and sr_tag == 0:
+        if sn is None and sr_tag == 0:
             sn = sn_tag
         elif sr_tag == 0:
             assert sn == sn_tag
@@ -180,7 +180,7 @@ def process_alignment(line, nodes, offset):
         n = path[1]
         bo = int(nodes[n].tags["BO"][1])
         no = int(nodes[n].tags["NO"][1])
-    if sn == None:
+    if sn is None:
         sn = "unknown"
     return bo, no, start, inv, sn
 
@@ -234,17 +234,17 @@ def write_to_file(line, writer):
 def add_arguments(parser):
     arg = parser.add_argument
     # Positional arguments
-    arg("gaf", metavar='GAF', 
+    arg("gaf", metavar='GAF',
         help="Input GAF File (can be bgzip-compressed)")
-    arg("gfa", metavar='GFA', 
+    arg("gfa", metavar='GFA',
         help="GFA file with the sort keys (BO and NO tagged). This is done with gaftools order_gfa")
-    arg("--outgaf", default=None, 
+    arg("--outgaf", default=None,
         help="Output GAF File path (Default: sys.stdout)")
-    arg("--outind", default=None, 
+    arg("--outind", default=None,
         help="Output Index File path for the GAF file. "
         "When --outgaf is not given, no index is created. "
         "If it is given and --outind is not specified, it will have same file name with .gsi extension)")
-    arg("--bgzip", action='store_true', 
+    arg("--bgzip", action='store_true',
         help="Flag to bgzip the output. Can only be given with --output.")
 
 

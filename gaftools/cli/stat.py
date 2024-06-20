@@ -29,7 +29,7 @@ def run_stat(
     else:
         output = open(output, "w")
 
-    read_names = set()
+    # read_names = set()
     total_aligned_bases = 0
     total_mapq = 0
     total_primary = 0

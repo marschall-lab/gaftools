@@ -5,16 +5,14 @@ Realign GAF file using wavefront alignment algorithm (WFA)
 import logging
 import sys
 import pysam
-import time
 import gaftools.gaf
 import multiprocessing as mp
 
-from gaftools.utils import display_top
 from gaftools.cli import log_memory_usage
 from gaftools.timer import StageTimer
-from gaftools.gaf import GAF, Alignment
+from gaftools.gaf import GAF
 from gaftools.gfa import GFA
-from pywfa.align import WavefrontAligner, cigartuples_to_str
+from pywfa.align import WavefrontAligner
 
 
 logger = logging.getLogger(__name__)
@@ -59,10 +57,10 @@ def filter_duplicates(aln):
         if len(mappings) == 1:
             continue
         for cnt, line in enumerate(mappings):
-            if line.duplicate == True:
+            if line.duplicate:
                 continue
             for cnt2, line2 in enumerate(mappings):
-                if cnt == cnt2 or line2.duplicate == True:
+                if cnt == cnt2 or line2.duplicate:
                     continue
 
                 sim = overlap_ratio(
@@ -77,37 +75,6 @@ def filter_duplicates(aln):
                         mappings[cnt].duplicate = True
                         # print("......Duplicate, breaking")
                         break
-
-
-def write_alignments(aln, output):
-    # Write the alignment back to the GAF
-    for read_name, mappings in aln.items():
-        for gaf_line in mappings:
-            if not gaf_line.duplicate:
-                # Write the alignment back to the GAF
-                output.write(
-                    "%s\t%d\t%d\t%d\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d"
-                    % (
-                        gaf_line.query_name,
-                        gaf_line.query_length,
-                        gaf_line.query_start,
-                        gaf_line.query_end,
-                        gaf_line.strand,
-                        gaf_line.path,
-                        gaf_line.path_length,
-                        gaf_line.path_start,
-                        gaf_line.path_end,
-                        match,
-                        cigar_len,
-                        gaf_line.mapping_quality,
-                    )
-                )
-
-                for k in gaf_line.tags.keys():
-                    output.write("\t%s%s" % (k, gaf_line.tags[k]))
-
-                # print(gaf_line.cigar)
-                # output.write("\tcg:Z:%s\n" %gaf_line.cigar)
 
 
 def wfa_alignment(seq_batch, queue):
@@ -518,24 +485,20 @@ def realign_gaf_old(gaf, graph, fasta, output, extended, cores=1):
 
     fastafile.close()
 
-    if extended:
-        filter_duplicates(aln)
-        write_alignments(aln, output)
-
 
 # fmt: off
 def add_arguments(parser):
     arg = parser.add_argument
     # Positional arguments
-    arg('gaf', metavar='GAF', 
+    arg('gaf', metavar='GAF',
         help='Input GAF file (can be bgzip-compressed)')
-    arg('graph', metavar='rGFA', 
+    arg('graph', metavar='rGFA',
         help='reference rGFA file')
-    arg('fasta', metavar='FASTA', 
+    arg('fasta', metavar='FASTA',
         help='Input FASTA file of the read')
-    arg('-o', '--output', default=None, 
+    arg('-o', '--output', default=None,
         help='Output GAF file. If omitted, use standard output.')
-    arg("-c", "--cores", metavar="CORES", default=1, type=int, 
+    arg("-c", "--cores", metavar="CORES", default=1, type=int,
         help="Number of cores to use for alignments.")
 
 

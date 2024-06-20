@@ -3,21 +3,18 @@ Indexing the GAF file for the view functionality.
 
 This script creates an inverse look-up table where:
     - key: the node information
-    - value: the offsets in the GAF file where the node is present 
+    - value: the offsets in the GAF file where the node is present
 """
 
 import re
 import pickle
 from pysam import libcbgzf
 from collections import defaultdict
-import re
-import pickle
 import logging
 
 import gaftools.utils as utils
 from gaftools.gaf import GAF
 from gaftools.gfa import GFA
-from gaftools import __version__
 from gaftools.timer import StageTimer
 from gaftools.cli import log_memory_usage
 
@@ -27,7 +24,7 @@ logger = logging.getLogger(__name__)
 def run(gaf_path, gfa_path, output=None):
 
     timers = StageTimer()
-    if output == None:
+    if output is None:
         output = gaf_path + ".gvi"
 
     # Detecting if GAF has stable or unstable coordinate
@@ -170,11 +167,11 @@ def convert_coord(line, ref):
 def add_arguments(parser):
     arg = parser.add_argument
     # Positional arguments
-    arg('gaf_path', metavar='GAF', 
+    arg('gaf_path', metavar='GAF',
         help='Input GAF file (can be bgzip-compressed)')
-    arg('gfa_path', metavar='rGFA', 
+    arg('gfa_path', metavar='rGFA',
         help='Reference rGFA file')
-    arg('-o', '--output', default=None, 
+    arg('-o', '--output', default=None,
         help='Path to the output Indexed GAF file. If omitted, use <GAF File>.gvi')
 
 

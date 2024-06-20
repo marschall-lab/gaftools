@@ -1,4 +1,4 @@
-.. _developing
+.. _developing:
 
 Developing
 ==========

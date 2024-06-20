@@ -9,7 +9,7 @@ import sys
 import os
 import logging
 import time
-from collections import namedtuple, defaultdict
+from collections import defaultdict
 from gaftools.gfa import GFA
 
 logger = logging.getLogger(__name__)
@@ -50,7 +50,7 @@ def run_order_gfa(
     with_sequence=False,
 ):
 
-    if not chromosome_order is None:
+    if chromosome_order is not None:
         chromosome_order = chromosome_order.split(sep=",")
 
     if not os.path.isdir(outdir):
@@ -289,7 +289,7 @@ def count_sn(graph, comp):
     """
     counts = defaultdict(int)
     for n in comp:
-        if not "SN" in graph[n].tags:
+        if "SN" not in graph[n].tags:
             continue
         counts[graph[n].tags["SN"][1]] += 1
     return counts

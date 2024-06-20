@@ -192,7 +192,7 @@ def to_stable(gaf_line, nodes, ref_contig, contig_len):
         n2 = node_list[i + 1][0]
         o2 = node_list[i + 1][1]
         node_merge = merge_nodes(n1, n2, o1, o2)
-        if node_merge == False:
+        if node_merge is False:
             stable_coord += n1.to_string(o1)
             out_node.append([n2, o2])
         else:

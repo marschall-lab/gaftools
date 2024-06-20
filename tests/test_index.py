@@ -14,7 +14,7 @@ def parse_output(filename):
     return data
 
 
-### Tests ###
+# Tests
 
 
 # testing index of gaf with stable coordinates
