@@ -117,7 +117,7 @@ def add_arguments(parser):
     # Positional arguments
     arg('gaf_file', metavar='GAF',
         help='Input GAF file (can be bgzip-compressed)')
-    arg('tsv_file', metavar='phase',
+    arg('tsv_file', metavar='TSV',
         help='WhatsHap haplotag TSV file. Refer to https://whatshap.readthedocs.io/en/latest/guide.html#whatshap-haplotag')
     arg('-o', '--output', default=sys.stdout,
         help='Output GAF file. If omitted, output is directed to standard output.')
