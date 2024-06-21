@@ -11,8 +11,11 @@ authors = [
     {name = "Fawaz Dabbaghie"},
     {name = "Tobias Marschall"}
 ]
-description = "general purpose utility tool for working with GAF files"
-readme = 'README.md'
+maintainers = [
+    {name = "Samarendra Pani", email = "samarendra.pani@hhu.de"}
+]
+description = "Toolkit for pangenome alignments"
+readme = 'docs/README.rst'
 requires-python = ">=3.8"
 license = {text = "MIT"}
 classifiers = [
@@ -76,6 +79,5 @@ line-length = 100
 lint.ignore = [
     "E203",  # whitespace before ':' -- must be ignored for Black
     "E501",  # line too long
-    "E722",  # bare except
     "E741",  # Ambiguous variable name
 ]
