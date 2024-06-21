@@ -1,5 +1,6 @@
 .. _user-guide:
 
+==========
 User Guide
 ==========
 
@@ -30,7 +31,7 @@ Links to related resources:
 .. _gaftools-index:
 
 gaftools index
---------------
+==============
 
 This subcommand creates a index file with the extension :code:`.gvi` which is used by the :code:`view` command to subset alignments.
 The index is a reverse look-up table with the keys being nodes in the graph and the values being the location of the alignments which have the nodes.
@@ -39,7 +40,7 @@ The index is a reverse look-up table with the keys being nodes in the graph and 
 .. _gaftools-order-gfa:
 
 gaftools order_gfa
-------------------
+==================
 
 This subcommand establishes an order to the graph based on the "bubbles" in the graph.
 Here, we define the bubbles as biconnected components, i.e. not the strict definition of a bubble found in other papers.
@@ -70,28 +71,90 @@ have a NO tag of 0, and the nodes inside a bubble are marked with an increasing 
 .. image:: _static/no_tags.png
     :width: 600
 
+Usage
+-----
+The :code:`order_gfa` subcommand takes an rGFA as an obligatory input to order. Optionally, the user can specify 1 or more chromosome to be sorted,
+which are given after :code:`--chromosome_order`, and the chromosome name(s) should match the SN tags in the rGFA.
+Users can also specify an output directory.
+
+The outputs of :code:`order_gfa` are separate rGFA graphs for each chromosome and a graph for all chromosomes both ordered by S lines first then L lines, and the S lines are ordered by
+their BO tag then NO tag, also will output a CSV file with node colors similar to the figure above that works with Bandage.
+
+.. code-block::
+    :caption: order_gfa arguments
+
+    usage: gaftools order_gfa [-h] [--chromosome_order CHROMOSOME_ORDER] [--with-sequence] [--outdir OUTDIR] GRAPH
+
+    Ordeing the bubble of the GFA by adding BO and NO tags.
+
+    The BO (Bubble Order) tags order the bubbles in the GFA.
+    The NO (Node Order) tags order the nodes in a bubble (in a lexicographic order).
+
+    positional arguments:
+      GRAPH                 Input rGFA file
+
+    options:
+      -h, --help            show this help message and exit
+      --chromosome_order CHROMOSOME_ORDER
+                            Order in which to arrange chromosomes in terms of BO sorting. Expecting comma-separated list. Default: chr1,...,chr22,chrX,chrY,chrM
+      --with-sequence       Retain sequences in output (default is to strip sequences)
+      --outdir OUTDIR       Output Directory to store all the GFA and CSV files. Default location is a "out" folder from the directory of execution.
 
 .. _gaftools-phase:
 
 gaftools phase
---------------
+==============
 
 This subcommands adds the phase information of the GAF reads from a haplotag TSV file generated using
 :code:`whatshap haplotag`.
 
+
 .. _gaftools-realign:
 
 gaftools realign
-----------------
+================
 
 This subcommand realigns all the alignments in GAF back the rGFA it was originally aligned to using Wavefront Alignment.
 This fixes alignment issues found in GraphAligner where large indels are represented as a series of small indels in the
 CIGAR string.
 
+Usage
+-----
+The :code:`realign` subcommand takes 3 obligatory input files, the GAF alignments, the rGFA graph that was used for the alignments,
+and the reads that correspond to the alignments in the GAF file.
+
+Due to the high memory consumption of :code:`pyWFA` with longer alignments, :code:`gaftools` limits the alignments to 60,000 base pairs in length
+and  the alignments that are longer will be outputted as is from the input file.
+Moreover, :code:`realign` can be sped up by using more cores. However, for longer alignments, memory can peak substantially, so users should be aware
+that they need to maybe use a cluster with sufficient memory. For example, we tested alignments that were between 50,000 and 60,000 bp long, and when
+:code:`gaftools` was given 10 cores, the memory peaked to around 100 Gb at certain points, and with 1 core, it peaked at around 20 Gb. In case one of the subprocesses gets killed
+by the system due to high memory consumption, the realignment run will be aborted.
+
+
+.. code-block::
+    :caption: realign arguments
+
+    usage: gaftools realign [-h] [-o OUTPUT] [-c CORES] GAF rGFA FASTA
+
+    Realign GAF file using wavefront alignment algorithm (WFA)
+
+    positional arguments:
+      GAF                   Input GAF file (can be bgzip-compressed)
+      rGFA                  reference rGFA file
+      FASTA                 Input FASTA file of the read
+
+    options:
+      -h, --help            show this help message and exit
+      -o OUTPUT, --output OUTPUT
+                            Output GAF file. If omitted, use standard output.
+      -c CORES, --cores CORES
+                            Number of cores to use for alignments.
+
+
 .. _gaftools-sort:
 
 gaftools sort
--------------
+=============
 
 This subcommand sorts the alignments in the GAF file using the BO and NO tags generated by :code:`gaftools order_gfa`. Hence this
 subcommand requires initial processing of the rGFA with :code:`order_gfa`.
@@ -100,7 +163,7 @@ subcommand requires initial processing of the rGFA with :code:`order_gfa`.
 .. _gaftools-stat:
 
 gaftools stat
--------------
+=============
 
 This subcommand returns basic statistics of the GAF alignments like number of primary and secondary alignments, total aligned bases,
 average mapping quality, etc.
@@ -108,7 +171,7 @@ average mapping quality, etc.
 .. _gaftools-view:
 
 gaftools view
--------------
+=============
 
 This subcommand helps view the GAF alignments, convert formatting from stable to unstable and vice-versa, and subsetting
 the files based on nodes or regions given by the user.
