@@ -64,7 +64,6 @@ def run(gaf_path, gfa=None, output=None, index=None, nodes=[], regions=[], forma
                 for id in gfa_file.nodes
             }
             ref_contig = [contig for contig in gfa_file.contigs if gfa_file.contigs[contig] == 0]
-            # TODO: Update based on Fawaz's branch
             for contig in gfa_file.contigs:
                 contig_len[contig] = gfa_file.get_contig_length(contig)
             print(contig_len)
