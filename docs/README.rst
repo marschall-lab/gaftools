@@ -8,6 +8,7 @@ gaftools is a fast and comprehensive toolkit designed for processing pangenome a
 indexing, sorting, realignment, viewing and statistical analysis of rGFA-based GAF files.
 
 `Link to GitHub <https://github.com/marschall-lab/gaftools/tree/main>`_
+
 `Documentation <https://gaftools.readthedocs.io/>`_ is available on Read The Docs. Documentation can be locally built under :code:`docs` folder
 using :code:`sphinx`. :code:`sphinx` is automatically installed when installing gaftools in `dev` mode.
 
