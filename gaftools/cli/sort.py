@@ -243,7 +243,7 @@ def add_arguments(parser):
         "When --outgaf is not given, no index is created. "
         "If it is given and --outind is not specified, it will have same file name with .gsi extension)")
     arg("--bgzip", action='store_true',
-        help="Flag to bgzip the output. Can only be given with --output.")
+        help="Flag to bgzip the output. Can only be given with --outgaf.")
 
 
 # fmt: on

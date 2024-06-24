@@ -36,6 +36,26 @@ gaftools index
 This subcommand creates a index file with the extension :code:`.gvi` which is used by the :code:`view` command to subset alignments.
 The index is a reverse look-up table with the keys being nodes in the graph and the values being the location of the alignments which have the nodes.
 
+Usage
+-----
+
+The :code:`index` subcommand takes 2 obligatory inputs, a GAF alignment file and its corresponding rGFA graph. It creates an viewing index file with the
+extension :code:`.gvi` which is required by the :code:`view` command.
+
+.. code-block::
+  :caption: index arguments
+
+  usage: gaftools index [-h] [-o OUTPUT] GAF rGFA
+
+  positional arguments:
+    GAF                   Input GAF file (can be bgzip-compressed)
+    rGFA                  Reference rGFA file
+
+  optional arguments:
+    -h, --help            show this help message and exit
+    -o OUTPUT, --output OUTPUT
+                          Path to the output Indexed GAF file. If omitted, use <GAF File>.gvi
+
 
 .. _gaftools-order-gfa:
 
@@ -81,24 +101,20 @@ The outputs of :code:`order_gfa` are separate rGFA graphs for each chromosome an
 their BO tag then NO tag, also will output a CSV file with node colors similar to the figure above that works with Bandage.
 
 .. code-block::
-    :caption: order_gfa arguments
+  :caption: order_gfa arguments
 
-    usage: gaftools order_gfa [-h] [--chromosome_order CHROMOSOME_ORDER] [--with-sequence] [--outdir OUTDIR] GRAPH
+  usage: gaftools order_gfa [-h] [--chromosome_order CHROMOSOME_ORDER] [--with-sequence] [--outdir OUTDIR] GRAPH
 
-    Ordeing the bubble of the GFA by adding BO and NO tags.
+  positional arguments:
+    GRAPH                 Input rGFA file
 
-    The BO (Bubble Order) tags order the bubbles in the GFA.
-    The NO (Node Order) tags order the nodes in a bubble (in a lexicographic order).
+  options:
+    -h, --help            show this help message and exit
+    --chromosome_order CHROMOSOME_ORDER
+                          Order in which to arrange chromosomes in terms of BO sorting. Expecting comma-separated list. Default: chr1,...,chr22,chrX,chrY,chrM
+    --with-sequence       Retain sequences in output (default is to strip sequences)
+    --outdir OUTDIR       Output Directory to store all the GFA and CSV files. Default location is a "out" folder from the directory of execution.
 
-    positional arguments:
-      GRAPH                 Input rGFA file
-
-    options:
-      -h, --help            show this help message and exit
-      --chromosome_order CHROMOSOME_ORDER
-                            Order in which to arrange chromosomes in terms of BO sorting. Expecting comma-separated list. Default: chr1,...,chr22,chrX,chrY,chrM
-      --with-sequence       Retain sequences in output (default is to strip sequences)
-      --outdir OUTDIR       Output Directory to store all the GFA and CSV files. Default location is a "out" folder from the directory of execution.
 
 .. _gaftools-phase:
 
@@ -107,6 +123,30 @@ gaftools phase
 
 This subcommands adds the phase information of the GAF reads from a haplotag TSV file generated using
 :code:`whatshap haplotag`.
+
+Usage
+-----
+
+The :code:`phase` subcommand takes 2 obligatory inputs, a GAF alignment file and a haplotag TSV file generated from :code:`whatshap haplotag`.
+The TSV file has tags for each read labelled as `H1`, `H2`, or `none` for reads that has been determined to belong to the first haplotpye,
+second haplotype or unknown haplotype. It also has the `PS` tag which is the `phaseset` that the read is in. Refer to WhatsHap documentation for
+further details.
+
+The :code:`phase` command adds these tags to the GAF file so that downstream processes can utilize them.
+
+.. code-block::
+  :caption: phase arguments
+
+  usage: gaftools phase [-h] [-o OUTPUT] GAF TSV
+
+  positional arguments:
+    GAF                   Input GAF file (can be bgzip-compressed)
+    TSV                   WhatsHap haplotag TSV file. Refer to https://whatshap.readthedocs.io/en/latest/guide.html#whatshap-haplotag
+
+  optional arguments:
+    -h, --help            show this help message and exit
+    -o OUTPUT, --output OUTPUT
+                          Output GAF file. If omitted, output is directed to standard output.
 
 
 .. _gaftools-realign:
@@ -132,23 +172,21 @@ by the system due to high memory consumption, the realignment run will be aborte
 
 
 .. code-block::
-    :caption: realign arguments
+  :caption: realign arguments
 
-    usage: gaftools realign [-h] [-o OUTPUT] [-c CORES] GAF rGFA FASTA
+  usage: gaftools realign [-h] [-o OUTPUT] [-c CORES] GAF rGFA FASTA
 
-    Realign GAF file using wavefront alignment algorithm (WFA)
+  positional arguments:
+    GAF                   Input GAF file (can be bgzip-compressed)
+    rGFA                  reference rGFA file
+    FASTA                 Input FASTA file of the read
 
-    positional arguments:
-      GAF                   Input GAF file (can be bgzip-compressed)
-      rGFA                  reference rGFA file
-      FASTA                 Input FASTA file of the read
-
-    options:
-      -h, --help            show this help message and exit
-      -o OUTPUT, --output OUTPUT
-                            Output GAF file. If omitted, use standard output.
-      -c CORES, --cores CORES
-                            Number of cores to use for alignments.
+  options:
+    -h, --help            show this help message and exit
+    -o OUTPUT, --output OUTPUT
+                          Output GAF file. If omitted, use standard output.
+    -c CORES, --cores CORES
+                          Number of cores to use for alignments.
 
 
 .. _gaftools-sort:
@@ -160,6 +198,39 @@ This subcommand sorts the alignments in the GAF file using the BO and NO tags ge
 subcommand requires initial processing of the rGFA with :code:`order_gfa`.
 
 
+Usage
+-----
+
+The :code:`sort` subcommand takes 2 obligatory input files, the GAF alignments, the rGFA graph that was used for the alignments.
+The rGFA graph should have been processed by the :code:`order_gfa` command and has the BO and NO tags.
+
+The output GAF file is sorted based on the BO and NO tags of the rGFA graph and has additional tags added to each alignment. The
+tags in the GAF are :code:`bo:i` (which is the BO tag of the first node of the alignment), :code:`sn:Z`
+(which is the name of the reference chromosome the read aligned to), and :code:`iv:i` (which is 1 is the alignment has an inversion).
+
+By default, the GAF is outputted in :code:`stdout` and without a sorting index. The flags :code:`--outgaf` and :code:`--outind`
+can be used to provide path to the output GAF and its sorting index. If no :code:`--outind` is given, the command automatically creates one
+with the name of the GAF file provided and :code:`.gsi` extension.
+
+The :code:`--bgzip` flag allows to compress the GAF file and create an index based on the compression.
+
+.. code-block::
+  :caption: sort arguments
+
+  usage: gaftools sort [-h] [--outgaf OUTGAF] [--outind OUTIND] [--bgzip] GAF GFA
+
+  positional arguments:
+    GAF              Input GAF File (can be bgzip-compressed)
+    GFA              GFA file with the sort keys (BO and NO tagged). This is done with gaftools order_gfa
+
+  optional arguments:
+    -h, --help       show this help message and exit
+    --outgaf OUTGAF  Output GAF File path (Default: sys.stdout)
+    --outind OUTIND  Output Index File path for the GAF file. When --outgaf is not given, no index is created. If it is given and --outind is not specified, it will have
+                    same file name with .gsi extension)
+    --bgzip          Flag to bgzip the output. Can only be given with --outgaf.
+
+
 .. _gaftools-stat:
 
 gaftools stat
@@ -168,6 +239,27 @@ gaftools stat
 This subcommand returns basic statistics of the GAF alignments like number of primary and secondary alignments, total aligned bases,
 average mapping quality, etc.
 
+Usage
+-----
+
+The :code:`stat` subcommand takes 1 obligatory inputs, a GAF alignment file. It outputs statistics for the GAF file in the
+:code:`stdout` by default. The :code:`--cigar` flag can be provided for more detailed statistics but requires more time.
+
+.. code-block::
+  :caption: index arguments
+
+  usage: gaftools stat [-h] [-o OUTPUT] [--cigar] GAF
+
+  positional arguments:
+    GAF                   Input GAF file (can be bgzip-compressed)
+
+    optional arguments:
+    -h, --help            show this help message and exit
+    -o OUTPUT, --output OUTPUT
+                          Output file. If omitted, use standard output.
+    --cigar               Outputs cigar related statistics (requires more time)
+
+
 .. _gaftools-view:
 
 gaftools view
@@ -175,3 +267,39 @@ gaftools view
 
 This subcommand helps view the GAF alignments, convert formatting from stable to unstable and vice-versa, and subsetting
 the files based on nodes or regions given by the user.
+
+Usage
+-----
+
+The :code:`view` subcommand takes 1 obligatory input, the GAF alignment file. But for full functionaility, it requires
+the rGFA file which was used for the alignment and the index file created with :code:`gaftools index`.
+
+By only providing the GAF file, the :code:`view` command can output the entire file.
+
+By providing the rGFA file along with the GAF file, the :code:`view` command can output the entire file and also
+convert its alignments formatting from stable to unstable or vice-versa when specified in the :code:`--format` option.
+
+By providing the index file as well, you can subset the GAF alignment file based on nodes (using the :code:`--node` option)
+or regions (using the :code:`--region` option). You will also have the option of converting their alignment formatting.
+
+.. code-block::
+  :caption: view arguments
+
+  usage: gaftools view [-h] [-g GFA] [-o OUTPUT] [-i INDEX] [-n NODE] [-r REGION] [-f FORMAT] GAF
+
+  positional arguments:
+    GAF                   Input GAF file (can be bgzip-compressed)
+
+  optional arguments:
+    -h, --help            show this help message and exit
+    -g GFA, --gfa GFA     Input GFA file (can be gzip-compressed). Required when converting from one coordinate system to another.
+    -o OUTPUT, --output OUTPUT
+                          Output file. Default is stdout.
+    -i INDEX, --index INDEX
+                          Path to GAF Index file. This index is created using gaftools index. If path is not provided, it is assumed to be in the same directory as GAF file
+                          with the same name and .gvi extension (default location of the index script)
+    -n NODE, --node NODE  Nodes to search. Multiple can be provided (Eg. gaftools view .... -n s1 -n s2 -n s3 .....).
+    -r REGION, --region REGION
+                          Regions to search. Multiple can be provided (Eg. gaftools view .... -r chr1:10-20 -r chr1:50-60 .....).
+    -f FORMAT, --format FORMAT
+                          format of output path (unstable | stable)

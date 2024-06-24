@@ -1,0 +1,11 @@
+include README.md
+include LICENSE
+include setup.py
+include CHANGES.rst
+include requirements.txt
+include tox.ini
+
+include docs/conf.py
+include docs/Makefile
+include docs/*.rst
+include docs/_static/*.png
