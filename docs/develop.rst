@@ -114,8 +114,6 @@ Accordingly this documentation for developing will have to be changed.
 Making a Release
 ----------------
 
-[No releases made yet. This text is a template.]
-
 #. Update ``CHANGES.rst``: Set the correct version number and ensure that
    all nontrivial, user-visible changes are listed.
 
