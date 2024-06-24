@@ -1,4 +1,4 @@
-..image:: https://github.com/marschall-lab/gaftools/workflows/CI/badge.svg
+.. image:: https://github.com/marschall-lab/gaftools/workflows/CI/badge.svg
 
 
 gaftools
