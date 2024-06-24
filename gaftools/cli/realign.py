@@ -84,7 +84,7 @@ def run_realign(gaf, graph, fasta, output=None, cores=1):
     realign_gaf(gaf, graph, fasta, output, cores)
     logger.info("\n== SUMMARY ==")
     total_time = timers.total()
-    log_memory_usage()
+    log_memory_usage(include_children=True)
     logger.info("Total time:                                  %9.2f s", total_time)
 
 
