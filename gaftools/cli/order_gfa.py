@@ -1,7 +1,7 @@
 """
-Ordeing the bubble of the GFA by adding BO and NO tags.
+Ordering bubbles in the GFA by adding BO and NO tags.
 
-The BO (Bubble Order) tags order the bubbles in the GFA.
+The BO (Bubble Order) tags order bubbles in the GFA.
 The NO (Node Order) tags order the nodes in a bubble (in a lexicographic order).
 """
 

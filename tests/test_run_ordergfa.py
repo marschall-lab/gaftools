@@ -1,5 +1,5 @@
 """
-Tests for 'gaftools order_gfa'
+Tests for 'gaftools order-gfa'
 """
 
 from gaftools.gfa import GFA

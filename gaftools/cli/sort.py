@@ -1,11 +1,11 @@
 """
-Sorting GAF alignments using BO and NO tags of the corresponding graph
+Sorting the GAF alignments using BO and NO tags of the corresponding graph
 
 The script uses the BO and NO tags defined by the order_gfa command. Using the bubble ordering done, the alignments are sorted.
 
-The index is dictionary created using pickle library which contains the reference contig names as keys and the offset the alignments begin and end..
+The index is dictionary created using pickle library which contains the reference contig names as keys and the offset the alignments begin and end.
 
-It adds some tags into the sorted gaf file. The tags are:
+It adds some tags into the sorted GAF file. The tags are:
     1. bo:i: - This is the BO tags from the GFA carried forward. The sorting uses a BO tag for each alignment, the BO tag for the start node (or end node based on overall orientation) of the alignment path.
     2. sn:Z: - The name of the reference contig it mapped to.
     3. iv:i: - 1 if the alignment path has an inversion. 0 otherwise.
