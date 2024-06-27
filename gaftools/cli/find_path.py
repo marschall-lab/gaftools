@@ -2,10 +2,7 @@
 Statistics of a GAF File
 """
 
-import sys
 import logging
-import itertools
-from gaftools.gaf import GAF, Read
 from gaftools.cli import log_memory_usage
 from gaftools.timer import StageTimer
 from gaftools.gfa import GFA
