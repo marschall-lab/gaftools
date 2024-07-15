@@ -1,5 +1,5 @@
 """
-Realign the GAF file using wavefront alignment algorithm (WFA)
+Realign a GAF file using wavefront alignment algorithm (WFA).
 """
 
 import logging

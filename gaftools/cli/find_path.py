@@ -1,5 +1,5 @@
 """
-Statistics of a GAF File
+Find the genomic sequence of a given GFA path.
 """
 
 import logging

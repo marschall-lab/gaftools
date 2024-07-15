@@ -1,5 +1,5 @@
 """
-View the GAF file (subsetting and converting GAF format available). GAF file should first be index using gaftools index.
+View, subset or convert a GAF file (GAF file should be indexed first, using gaftools index).
 
 The view command allows subsetting the GAF file based on node IDs or regions available.
 """

@@ -1,5 +1,5 @@
 """
-Statistics of a GAF File
+Calculate statistics of the given GAF file.
 """
 
 import sys

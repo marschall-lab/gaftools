@@ -1,5 +1,5 @@
 """
-Sorting the GAF alignments using BO and NO tags of the corresponding graph
+Sort the GAF alignments using BO and NO tags of the corresponding graph.
 
 The script uses the BO and NO tags defined by the order_gfa command. Using the bubble ordering done, the alignments are sorted.
 

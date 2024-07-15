@@ -1,5 +1,5 @@
 """
-Indexing the GAF file for the view functionality.
+Index a GAF file for the view functionality.
 
 This script creates an inverse look-up table where:
     - key: the node information
