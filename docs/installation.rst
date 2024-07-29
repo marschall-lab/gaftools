@@ -46,7 +46,9 @@ To remove :code:`gaftools`, the conda environment needs to be removed using::
 Installing from PyPI
 --------------------
 
-[gaftools has not been uploaded to PyPI. Documentation will be updated when uploaded]
+:code:`gaftools` is now available on PyPI and can be installed with::
+
+    pip install gaftools
 
 
 Installing from Conda

@@ -1,3 +1,6 @@
+.. image:: https://img.shields.io/pypi/v/gaftools.svg?branch=main
+    :target: https://pypi.python.org/pypi/gaftools
+
 .. image:: https://github.com/marschall-lab/gaftools/workflows/CI/badge.svg
 
 
