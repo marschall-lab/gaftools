@@ -678,7 +678,10 @@ class GFA:
 
         return ",".join(path)
 
-    def get_path(self, chrom):
+    # TODO: Need to deal with non-path contigs like GRCh38-based paths in the CHM13-based minigraph rGFAs of HPRC.
+    #      The nodes have the same SN tag but do not form a path. Need to work with such cases.
+    #      Currently just create an exception case to use.
+    def get_path(self, chrom, throw_warning=True):
         """
         takes a chromosome name (matching the SN tag) and returns the path of that chromosome
         """
@@ -699,16 +702,22 @@ class GFA:
         if self.list_is_path(sorted_nodes):
             return sorted_nodes
         else:
-            logging.warning(
-                f"The sorted nodes with SN tag {chrom} did not create a linear path. Stopping! Returning empty list"
-            )
-            return list()
+            if throw_warning:
+                logging.warning(
+                    f"The sorted nodes with SN tag {chrom} did not create a linear path. Stopping! Returning empty list"
+                )
+                return list()
+            else:
+                logging.warning(
+                    f"The sorted nodes with SN tag {chrom} did not create a linear path. The sorted node list is returned for conversion."
+                )
+                return sorted_nodes
 
-    def get_contig_length(self, chrom):
+    def get_contig_length(self, chrom, throw_warning=True):
         """
         returns the length of the chromosome or contig name
         """
-        sorted_nodes = self.get_path(chrom)
+        sorted_nodes = self.get_path(chrom, throw_warning)
         if not sorted_nodes:
             logging.error(
                 "Was not able to return the length of the chromosome, check warning message(s)"

@@ -65,8 +65,7 @@ def run(gaf_path, gfa=None, output=None, index=None, nodes=[], regions=[], forma
             }
             ref_contig = [contig for contig in gfa_file.contigs if gfa_file.contigs[contig] == 0]
             for contig in gfa_file.contigs:
-                contig_len[contig] = gfa_file.get_contig_length(contig)
-            print(contig_len)
+                contig_len[contig] = gfa_file.get_contig_length(contig, throw_warning=False)
             del gfa_file
         else:
             assert format == "unstable"
@@ -79,7 +78,7 @@ def run(gaf_path, gfa=None, output=None, index=None, nodes=[], regions=[], forma
             gfa_file = GFA(graph_file=gfa, low_memory=True)
             contigs = list(gfa_file.contigs.keys())
             for contig in contigs:
-                path = gfa_file.get_path(contig)
+                path = gfa_file.get_path(contig, throw_warning=False)
                 for node in path:
                     reference[contig].append(gfa_file[node])
             del gfa_file
