@@ -64,7 +64,7 @@ def run(gaf_path, gfa=None, output=None, index=None, nodes=[], regions=[], forma
                 for id in gfa_file.nodes
             }
             ref_contig = [contig for contig in gfa_file.contigs if gfa_file.contigs[contig] == 0]
-            for contig in gfa_file.contigs:
+            for contig in ref_contig:
                 contig_len[contig] = gfa_file.get_contig_length(contig, throw_warning=False)
             del gfa_file
         else:
@@ -77,6 +77,10 @@ def run(gaf_path, gfa=None, output=None, index=None, nodes=[], regions=[], forma
             # Assuming that the gfa is sorted using the order_gfa function.
             gfa_file = GFA(graph_file=gfa, low_memory=True)
             contigs = list(gfa_file.contigs.keys())
+            # all_paths = gfa_file.get_all_paths()
+            # for contig in all_paths.keys():
+            #    for nodes in all_paths[contig]:
+            #        reference[contig].append(gfa_file[node])
             for contig in contigs:
                 path = gfa_file.get_path(contig, throw_warning=False)
                 for node in path:
