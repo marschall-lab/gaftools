@@ -55,9 +55,8 @@ def search_intervals(intervals, query_start, query_end, start, end):
 def reverse_cigar(cg):
     import itertools
 
-    cg = cg[5:]
     all_cigars = ["".join(x) for _, x in itertools.groupby(cg, key=str.isdigit)]
-    new_cigar = "cg:Z:"
+    new_cigar = ""
     for i in range(len(all_cigars), 0, -2):
         new_cigar += str(all_cigars[i - 2]) + str(all_cigars[i - 1])
     return new_cigar

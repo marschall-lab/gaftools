@@ -6,7 +6,8 @@ User Guide
 
 The following subcommands are available in gaftools
 
-* :ref:`index <gaftools-index>` - indexing a GAF file for the view command.
+* :ref:`find_path <gaftools-find-path>` - Extracting base sequencing from node path.
+* :ref:`index <gaftools-index>` - Indexing a GAF file for the view command.
 * :ref:`order_gfa <gaftools-order-gfa>` - Ordering GFA file using BO and NO tags.
 * :ref:`phase <gaftools-phase>` - Adding phase information of the reads from a haplotag TSV.
 * :ref:`realign <gaftools-realign>` - Realigning GAF alignments using wavefront alignment.
@@ -27,6 +28,38 @@ Links to related resources:
 * `rGFA and GAF documentation <https://github.com/lh3/gfatools/blob/master/doc/rGFA.md>`_
 * `GFA v1.0 documentation <https://github.com/GFA-spec/GFA-spec/blob/master/GFA1.md>`_
 * `GFA v2.0 documentation <https://github.com/GFA-spec/GFA-spec/blob/master/GFA2.md>`_
+
+Some of the tags used in GAF files are derieved from :code:`minimap2` defined `here <https://lh3.github.io/minimap2/minimap2.html>`_
+
+
+.. _gaftools-find-path:
+
+gaftools find_path
+==================
+
+This subcommand retrieves the base seqeunce of paths in the given GFA.
+
+Usage
+-----
+
+The :code:`find_path` subcommand takes 2 obligatory inputs, a GFA file and node path (like :code:`">s82312<s82313"` (with the quotes)).
+It returns the sequence of the path.
+
+.. code-block::
+  :caption: find_path arguments
+
+  usage: gaftools find_path [-h] [-o OUTPUT] GFA path
+
+  Find the genomic sequence of a given GFA path.
+
+  positional arguments:
+    GFA                   Input GFA file (can be bgzip-compressed)
+    path                  GFA path to retrieve the sequence (e.g., ">s82312<s82313").
+
+  optional arguments:
+    -h, --help            show this help message and exit
+    -o OUTPUT, --output OUTPUT
+                          Output file. If omitted, use standard output.
 
 .. _gaftools-index:
 
@@ -267,6 +300,8 @@ gaftools view
 
 This subcommand helps view the GAF alignments, convert formatting from stable to unstable and vice-versa, and subsetting
 the files based on nodes or regions given by the user.
+
+Note: The subcommand currently does not support the :code:`ds` tag that has been introduced in minigraph v0.21. The subcommand ignores that tag and outputs the rest of the fields.
 
 Usage
 -----

@@ -460,3 +460,44 @@ def test_gzipped_unstable_to_stable_multiple_regions(tmp_path):
     truth_lines = parse_output(truth)
     for n in range(len(output_lines)):
         assert output_lines[n] == truth_lines[n]
+
+
+###################################################
+# Adding tests for reverse orientation alignments #
+###################################################
+
+
+# testing convert to stable when reversed alignments are present
+def test_reversed_alignments_to_stable(tmp_path):
+    input_gaf = "tests/data/alignments-minigraph-reversed-reads-unstable.gaf"
+    input_gfa = "tests/data/smallgraph.gfa"
+    output = str(tmp_path) + "/output.gaf"
+    truth = "tests/data/alignments-minigraph-reversed-reads-stable.gaf"
+    run(
+        gaf_path=input_gaf,
+        gfa=input_gfa,
+        output=output,
+        format="stable",
+    )
+    output_lines = parse_output(output)
+    truth_lines = parse_output(truth)
+    for n in range(len(output_lines)):
+        assert output_lines[n] == truth_lines[n]
+
+
+# testing convert to unstable when reversed alignments are present
+def test_reversed_alignments_to_unstable(tmp_path):
+    input_gaf = "tests/data/alignments-minigraph-reversed-reads-stable.gaf"
+    input_gfa = "tests/data/smallgraph.gfa"
+    output = str(tmp_path) + "/output.gaf"
+    truth = "tests/data/alignments-minigraph-reversed-reads-unstable.gaf"
+    run(
+        gaf_path=input_gaf,
+        gfa=input_gfa,
+        output=output,
+        format="unstable",
+    )
+    output_lines = parse_output(output)
+    truth_lines = parse_output(truth)
+    for n in range(len(output_lines)):
+        assert output_lines[n] == truth_lines[n]

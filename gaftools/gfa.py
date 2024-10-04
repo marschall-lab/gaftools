@@ -155,14 +155,17 @@ class GFA:
     Graph object containing the important information about the graph
     """
 
-    __slots__ = ["nodes", "low_memory", "edge_tags", "contigs"]
+    __slots__ = ["nodes", "low_memory", "edge_tags", "contigs", "contig_to_nodes"]
 
     def __init__(self, graph_file=None, low_memory=False):
         self.nodes = dict()
         self.edge_tags = dict()
         self.contigs = defaultdict(
             lambda: None
-        )  # storing contigs with their SR tag to determine primary contig
+        )  # storing contigs with their SR tag to determine primary contig. Requires SN tags
+        self.contig_to_nodes = defaultdict(
+            lambda: []
+        )  # storing the map between the contig name and the nodes in that contig. Requires SN tags
         self.low_memory = low_memory
         if graph_file:
             if not os.path.exists(graph_file):
@@ -385,6 +388,8 @@ class GFA:
                     self.add_node(line[1], "", line[3:])
                 else:
                     self.add_node(line[1], line[2], line[3:])
+                if "SN" in self[line[1]].tags:
+                    self.contig_to_nodes[self[line[1]].tags["SN"][1]].append(line[1])
 
             elif line.startswith("L"):
                 edges.append(line)
@@ -686,16 +691,12 @@ class GFA:
         takes a chromosome name (matching the SN tag) and returns the path of that chromosome
         """
         # get all nodes with chrom
-        nodes_of_chrom = []
-        for n in self.nodes:
-            if "SN" in self[n].tags:
-                if self[n].tags["SN"][1] == chrom:
-                    nodes_of_chrom.append(n)
-            else:
-                logging.warning(
-                    f"Not able to get path for {chrom}, because node {n} doesn't have an SN tag. Stopping! Returning empty list"
-                )
-                return list()
+        nodes_of_chrom = self.contig_to_nodes[chrom]
+        if nodes_of_chrom == []:
+            logging.warning(
+                f"Not able to get any nodes for {chrom}. Stopping! Returning empty list"
+            )
+            return list()
         # sorting based on SO tags, so we get start to end of chromosome
         sorted_nodes = sorted(nodes_of_chrom, key=lambda x: int(self.nodes[x].tags["SO"][1]))
         # this sorted list should be a path already spelling the chromosome
