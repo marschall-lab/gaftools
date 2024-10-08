@@ -42,24 +42,25 @@ This subcommand retrieves the base seqeunce of paths in the given GFA.
 Usage
 -----
 
-The :code:`find_path` subcommand takes 2 obligatory inputs, a GFA file and node path (like :code:`">s82312<s82313"` (with the quotes)).
-It returns the sequence of the path.
+The :code:`find_path` subcommand takes 2 obligatory inputs, a GFA file and node path (like :code:`">s82312<s82313"` (with the quotes))  or file path which has node paths.
+It returns the sequence of the path(s) by default but using the :code:`--fasta` flag, the sequences will be returned as a FASTA file.
 
 .. code-block::
   :caption: find_path arguments
 
-  usage: gaftools find_path [-h] [-o OUTPUT] GFA path
+  usage: gaftools find_path [-h] [-o OUTPUT] [-f] GFA path
 
   Find the genomic sequence of a given GFA path.
 
   positional arguments:
     GFA                   Input GFA file (can be bgzip-compressed)
-    path                  GFA path to retrieve the sequence (e.g., ">s82312<s82313").
+    path                  GFA node path to retrieve the sequence (e.g., ">s82312<s82313") OR a filepath containing node paths in different lines
 
   optional arguments:
     -h, --help            show this help message and exit
     -o OUTPUT, --output OUTPUT
                           Output file. If omitted, use standard output.
+    -f, --fasta           Flag to output the sequence as a FASTA file with the seqeunce named seq_<node path>
 
 .. _gaftools-index:
 
