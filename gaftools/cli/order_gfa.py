@@ -46,6 +46,7 @@ DEFAULT_CHROMOSOME = [
 def run_order_gfa(
     gfa_filename,
     outdir,
+    by_chrom,
     chromosome_order=None,
     with_sequence=False,
 ):
@@ -105,7 +106,8 @@ def run_order_gfa(
     bo = 0
     total_bubbles = 0
     # todo output final GFA with all the chromosomes ordered
-    out_files = []
+    out_gfa = []
+    out_csv = []
     for chromosome in chromosome_order:
         logger.info("Processing %s", chromosome)
         component_nodes = components[chromosome]
@@ -126,11 +128,10 @@ def run_order_gfa(
                 + chromosome
                 + ".gfa"
             )
-            out_files.append(f_gfa)
-            f_colors = open(
-                outdir + os.sep + gfa_filename.split(os.sep)[-1][:-4] + "-" + chromosome + ".csv",
-                "w",
-            )
+            out_gfa.append(f_gfa)
+            csv_file = outdir + os.sep + gfa_filename.split(os.sep)[-1][:-4] + "-" + chromosome + ".csv"
+            out_csv.append(csv_file)
+            f_colors = open(csv_file, "w")
             f_colors.write("Name,Color,SN,SO,BO,NO\n")
             total_bubbles += bubble_count
             for node_name in sorted(component_nodes):
@@ -170,22 +171,37 @@ def run_order_gfa(
 
         else:
             logger.warning(f"Chromosome {chromosome} was skipped")
-    final_gfa = (
-        outdir + os.sep + gfa_filename.split(os.sep)[-1].split(".")[0] + "-complete" + ".gfa"
-    )
-    with open(final_gfa, "w") as outfile:
-        # outputting all the S lines first
-        for f in out_files:
-            with open(f, "r") as infile:
-                for l in infile:
-                    if l.startswith("S"):
+    if not by_chrom:
+        final_gfa = (
+            outdir + os.sep + gfa_filename.split(os.sep)[-1].split(".")[0] + "-complete" + ".gfa"
+        )
+        final_csv = (
+            outdir + os.sep + gfa_filename.split(os.sep)[-1].split(".")[0] + "-complete" + ".csv"
+        )
+        with open(final_gfa, "w") as outfile:
+            # outputting all the S lines first
+            for f in out_gfa:
+                with open(f, "r") as infile:
+                    for l in infile:
+                        if l.startswith("S"):
+                            outfile.write(l)
+            # outputting all the S lines
+            for f in out_gfa:
+                with open(f, "r") as infile:
+                    for l in infile:
+                        if l.startswith("L"):
+                            outfile.write(l)
+            for f in out_gfa:
+                os.remove(f)
+
+        with open(final_csv, "w") as outfile:
+            for f in out_csv:
+                with open(f, 'r') as infile:
+                    for l in infile:
                         outfile.write(l)
-        # outputting all the S lines
-        for f in out_files:
-            with open(f, "r") as infile:
-                for l in infile:
-                    if l.startswith("L"):
-                        outfile.write(l)
+            for f in out_csv:
+                os.remove(f)
+
 
     logger.info("Total bubbles: %d", total_bubbles)
 
@@ -344,7 +360,12 @@ def add_arguments(parser):
         default="./out",
         help='Output Directory to store all the GFA and CSV files. Default location is a "out" folder from the directory of execution.',
     )
-
+    arg(
+        "--by-chrom",
+        default=False,
+        action="store_true",
+        help="Outputs each chromosome as a separate GFA, otherwise, all chromosomes in one GFA file"
+    )
 
 def main(args):
     run_order_gfa(**vars(args))
