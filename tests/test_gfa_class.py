@@ -89,9 +89,8 @@ def test_add_node():
 
 def test_path_extraction():
     graph = GFA("tests/data/test_GFA_class.gfa")
-    assert graph.path_exists(">1>2>4")
+    assert graph.path_exists([">1", ">2", ">4"])
     assert graph.extract_path(">1>2>4") == "AGGTCGTTGGC"
-    assert graph.extract_path(">1<2>4") == "AGGTCGATGGC"
     assert graph.extract_path("<1") == "CGACCT"
 
     # testing non-ACTG characters

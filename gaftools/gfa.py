@@ -1,7 +1,6 @@
 import sys
 import logging
 from collections import defaultdict
-
 import gzip
 import re
 import os
@@ -626,23 +625,36 @@ class GFA:
             new_graph.nodes[n] = new_node
         return new_graph
 
-    def path_exists(self, path):
+    def path_exists(self, ordered_path):
         """
         Just a sanity check that a path given exists in the graph
         I am assuming that the list of node given as ordered_path taken from the GAF alignment is ordered
         i.e. node 1 parent of node 2, node 2 parent of node 3 and so on
         """
-        ordered_path = path.replace(">", ",").replace("<", ",").split(",")
-        if ordered_path[0] == "":
-            ordered_path = ordered_path[1:]
+        # ordered_path = path.replace(">", ",").replace("<", ",").split(",")
+        # if ordered_path[0] == "":
+        #     ordered_path = ordered_path[1:]
+        cases = {(">", ">"):("end", 0),
+                 ("<", "<"):("start", 1),
+                 (">", "<"):("end", 1),
+                 ("<", ">"):("start", 0)}
 
         for i in range(1, len(ordered_path)):
-            current_node = ordered_path[i]
-            previous_node = ordered_path[i - 1]
-            if current_node in self.nodes[previous_node].neighbors():
-                continue
-            else:  # some node is not connected to another node in the path
+            n1 = ordered_path[i-1]
+            n2 = ordered_path[i]
+            try:
+                case = cases[(n1[0], n2[0])]
+            except KeyError:
+                logging.error(f"Something went wrong when checking the path, make sure the path follows this example"
+                              f">node<node>node<nod")
                 return False
+            ok = False
+            for edge in getattr(self.nodes[n1[1:]], case[0]):
+                if (n2[1:], case[1]) == (edge[0], edge[1]):
+                    ok = True
+            if not ok:
+                return False
+
         return True
 
     def list_is_path(self, node_list):
@@ -732,11 +744,17 @@ class GFA:
         returns the sequences representing that path
         """
         seq = []
+        # path has to start with > or <, otherwise it's invalid
+        if path[0] not in {"<", ">"}:
+            logging.error(f"The path {path} does not start with < or > ")
+            return ""
+
+        path = re.findall("[><][^><]+", path)
 
         if not self.path_exists(path):
             return ""
 
-        for n in re.findall("[><][^><]+", path):
+        for n in path:
             if n[1:] not in self:
                 logging.error(f"The node {n[1:]} in path {path} does not seem to exist in this GFA")
                 return ""
