@@ -15,7 +15,6 @@ def run(gfa_path, input_path, output=None, fasta=False):
     timers = StageTimer()
 
     graph = GFA(gfa_path)
-    print(input_path)
     if input_path[0] in [">", "<"]:
         # detected node path
         nodes = [input_path]
