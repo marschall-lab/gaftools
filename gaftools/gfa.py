@@ -634,19 +634,23 @@ class GFA:
         # ordered_path = path.replace(">", ",").replace("<", ",").split(",")
         # if ordered_path[0] == "":
         #     ordered_path = ordered_path[1:]
-        cases = {(">", ">"):("end", 0),
-                 ("<", "<"):("start", 1),
-                 (">", "<"):("end", 1),
-                 ("<", ">"):("start", 0)}
+        cases = {
+            (">", ">"): ("end", 0),
+            ("<", "<"): ("start", 1),
+            (">", "<"): ("end", 1),
+            ("<", ">"): ("start", 0),
+        }
 
         for i in range(1, len(ordered_path)):
-            n1 = ordered_path[i-1]
+            n1 = ordered_path[i - 1]
             n2 = ordered_path[i]
             try:
                 case = cases[(n1[0], n2[0])]
             except KeyError:
-                logging.error(f"Something went wrong when checking the path, make sure the path follows this example"
-                              f">node<node>node<nod")
+                logging.error(
+                    "Something went wrong when checking the path, make sure the path follows this example"
+                    ">node<node>node<nod"
+                )
                 return False
             ok = False
             for edge in getattr(self.nodes[n1[1:]], case[0]):
