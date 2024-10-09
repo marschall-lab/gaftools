@@ -129,6 +129,7 @@ Usage
 -----
 The :code:`order_gfa` subcommand takes an rGFA as an obligatory input to order. Optionally, the user can specify 1 or more chromosome to be sorted,
 which are given after :code:`--chromosome_order`, and the chromosome name(s) should match the SN tags in the rGFA.
+With the :code:`--by-chrom` flag, all the chromosomal graphs are output separately.
 Users can also specify an output directory.
 
 The outputs of :code:`order_gfa` are separate rGFA graphs for each chromosome and a graph for all chromosomes both ordered by S lines first then L lines, and the S lines are ordered by
@@ -137,17 +138,18 @@ their BO tag then NO tag, also will output a CSV file with node colors similar t
 .. code-block::
   :caption: order_gfa arguments
 
-  usage: gaftools order_gfa [-h] [--chromosome_order CHROMOSOME_ORDER] [--with-sequence] [--outdir OUTDIR] GRAPH
+  usage: gaftools order_gfa [-h] [--chromosome_order CHROMOSOME_ORDER] [--with-sequence] [--outdir OUTDIR] [--by-chrom] GRAPH
 
   positional arguments:
     GRAPH                 Input rGFA file
 
-  options:
+  optional arguments:
     -h, --help            show this help message and exit
     --chromosome_order CHROMOSOME_ORDER
                           Order in which to arrange chromosomes in terms of BO sorting. Expecting comma-separated list. Default: chr1,...,chr22,chrX,chrY,chrM
     --with-sequence       Retain sequences in output (default is to strip sequences)
     --outdir OUTDIR       Output Directory to store all the GFA and CSV files. Default location is a "out" folder from the directory of execution.
+    --by-chrom            Outputs each chromosome as a separate GFA, otherwise, all chromosomes in one GFA file
 
 
 .. _gaftools-phase:
