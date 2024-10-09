@@ -42,24 +42,25 @@ This subcommand retrieves the base seqeunce of paths in the given GFA.
 Usage
 -----
 
-The :code:`find_path` subcommand takes 2 obligatory inputs, a GFA file and node path (like :code:`">s82312<s82313"` (with the quotes)).
-It returns the sequence of the path.
+The :code:`find_path` subcommand takes 2 obligatory inputs, a GFA file and node path (like :code:`">s82312<s82313"` (with the quotes))  or file path which has node paths.
+It returns the sequence of the path(s) by default but using the :code:`--fasta` flag, the sequences will be returned as a FASTA file.
 
 .. code-block::
   :caption: find_path arguments
 
-  usage: gaftools find_path [-h] [-o OUTPUT] GFA path
+  usage: gaftools find_path [-h] [-o OUTPUT] [-f] GFA path
 
   Find the genomic sequence of a given GFA path.
 
   positional arguments:
     GFA                   Input GFA file (can be bgzip-compressed)
-    path                  GFA path to retrieve the sequence (e.g., ">s82312<s82313").
+    path                  GFA node path to retrieve the sequence (e.g., ">s82312<s82313") OR a filepath containing node paths in different lines
 
   optional arguments:
     -h, --help            show this help message and exit
     -o OUTPUT, --output OUTPUT
                           Output file. If omitted, use standard output.
+    -f, --fasta           Flag to output the sequence as a FASTA file with the seqeunce named seq_<node path>
 
 .. _gaftools-index:
 
@@ -128,6 +129,7 @@ Usage
 -----
 The :code:`order_gfa` subcommand takes an rGFA as an obligatory input to order. Optionally, the user can specify 1 or more chromosome to be sorted,
 which are given after :code:`--chromosome_order`, and the chromosome name(s) should match the SN tags in the rGFA.
+With the :code:`--by-chrom` flag, all the chromosomal graphs are output separately.
 Users can also specify an output directory.
 
 The outputs of :code:`order_gfa` are separate rGFA graphs for each chromosome and a graph for all chromosomes both ordered by S lines first then L lines, and the S lines are ordered by
@@ -136,17 +138,18 @@ their BO tag then NO tag, also will output a CSV file with node colors similar t
 .. code-block::
   :caption: order_gfa arguments
 
-  usage: gaftools order_gfa [-h] [--chromosome_order CHROMOSOME_ORDER] [--with-sequence] [--outdir OUTDIR] GRAPH
+  usage: gaftools order_gfa [-h] [--chromosome_order CHROMOSOME_ORDER] [--with-sequence] [--outdir OUTDIR] [--by-chrom] GRAPH
 
   positional arguments:
     GRAPH                 Input rGFA file
 
-  options:
+  optional arguments:
     -h, --help            show this help message and exit
     --chromosome_order CHROMOSOME_ORDER
                           Order in which to arrange chromosomes in terms of BO sorting. Expecting comma-separated list. Default: chr1,...,chr22,chrX,chrY,chrM
     --with-sequence       Retain sequences in output (default is to strip sequences)
     --outdir OUTDIR       Output Directory to store all the GFA and CSV files. Default location is a "out" folder from the directory of execution.
+    --by-chrom            Outputs each chromosome as a separate GFA, otherwise, all chromosomes in one GFA file
 
 
 .. _gaftools-phase:

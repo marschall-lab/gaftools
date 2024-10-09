@@ -11,6 +11,7 @@ def test_order_gfa(tmp_path):
     run_order_gfa(
         gfa_filename=input_gfa,
         outdir=str(tmp_path),
+        by_chrom=True,
         chromosome_order="chr1",
         with_sequence=False,
     )
