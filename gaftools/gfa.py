@@ -725,9 +725,9 @@ class GFA:
                 )
                 return list()
             else:
-                logging.warning(
-                    f"The sorted nodes with SN tag {chrom} did not create a linear path. The sorted node list is returned for conversion."
-                )
+                # logging.warning(
+                #    f"The sorted nodes with SN tag {chrom} did not create a linear path. The sorted node list is returned for conversion."
+                # )
                 return sorted_nodes
 
     def get_contig_length(self, chrom, throw_warning=True):
