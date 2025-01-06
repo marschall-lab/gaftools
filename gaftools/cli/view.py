@@ -177,9 +177,11 @@ def get_unstable(regions, index):
 
         node = search([contig[n], start[n], end[n]], node_list)
         if len(node) > 1:
-            logger.info("INFO: Region %s spans multiple nodes.\nThe nodes are:" % (node[n]))
+            logger.info(f"INFO: Region {node[n]} spans multiple nodes.")
             for n in node:
-                logger.info("INFO: %s\t%s\t%d\t%d" % (n[0], n[1], n[2], n[3]))
+                logger.info(f"INFO: {n[0]}\t{n[1]}\t{n[2]}\t{n[3]}")
+                result.append(n[0])
+            break
 
         result.append(node[0][0])
 
