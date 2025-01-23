@@ -54,4 +54,6 @@ Installing from PyPI
 Installing from Conda
 ---------------------
 
-[gaftools has not been uploaded to bioconda. Documentation will be updated when uploaded]
+:code:`gaftools` is now available on bioconda and can be installed with::
+
+    conda install bioconda::gaftools

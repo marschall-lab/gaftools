@@ -120,7 +120,7 @@ def test_stable_to_unstable_multiple_regions(tmp_path):
         gfa=input_gfa,
         output=output,
         format="unstable",
-        regions=["NA20129#1#JAHEPE010000248.1:4927-5000", "chr1:3300-3400"],
+        regions=["NA20129#1#JAHEPE010000248.1:4927-5000", "chr1:0-3400"],
     )
     output_lines = parse_output(output)
     truth_lines = parse_output(truth)

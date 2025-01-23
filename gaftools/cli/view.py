@@ -161,12 +161,21 @@ def run(gaf_path, gfa=None, output=None, index=None, nodes=[], regions=[], forma
 def get_unstable(regions, index):
     """Takes the regions and returns the node IDs"""
 
-    contig = [x.split(":")[0] for x in regions]
+    contig = []
+    start = []
+    end = []
     node_dict = {}
-    start = [x.split(":")[1].split("-")[0] for x in regions]
-    end = [x.split(":")[1].split("-")[-1] for x in regions]
+    for x in regions:
+        if ":" in x:
+            contig.append(x.split(":")[0])
+            start.append(x.split(":")[1].split("-")[0])
+            end.append(x.split(":")[1].split("-")[-1])
+        else:
+            contig.append(x)
+            start.append(None)
+            end.append(None)
 
-    result = []
+    result = set()
     for n, c in enumerate(contig):
         try:
             node_list = node_dict[c]
@@ -177,18 +186,23 @@ def get_unstable(regions, index):
 
         node = search([contig[n], start[n], end[n]], node_list)
         if len(node) > 1:
-            logger.info("INFO: Region %s spans multiple nodes.\nThe nodes are:" % (node[n]))
+            # logger.info(f"INFO: Region {node[n]} spans multiple nodes.")
             for n in node:
-                logger.info("INFO: %s\t%s\t%d\t%d" % (n[0], n[1], n[2], n[3]))
+                # logger.info(f"INFO: {n[0]}\t{n[1]}\t{n[2]}\t{n[3]}")
+                result.add(n[0])
+            continue
 
-        result.append(node[0][0])
-
-    return result
+        result.add(node[0][0])
+    return list(result)
 
 
 def search(node, node_list):
     """Find the unstable node id from the region"""
 
+    if node[1] is None:
+        # Only contig is given
+        assert node[2] is None
+        return node_list
     s = 0
     pos = 0
     e = len(node_list) - 1
