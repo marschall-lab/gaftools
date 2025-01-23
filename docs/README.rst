@@ -26,3 +26,8 @@ Features
 * Post-processing GAF alignments using Wavefront Alignment and generating basic alignment statistics.
 * Easy-to-install. Available in PyPI and bioconda.
 * Open Source (MIT License)
+
+Citation
+--------
+
+Pani, S., Dabbaghie, F., Marschall, T. & Söylev, A. gaftools: a toolkit for analyzing and manipulating pangenome alignments. (2024) doi:10.1101/2024.12.10.627813.
