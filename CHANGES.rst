@@ -1,6 +1,14 @@
 Changes
 =======
 
+v1.1.1 (23/01/2025)
+-------------------
+
+* Updated documentation to include conda installation instructions.
+* Updated documentation to include preprint link and citation text.
+* :issue:`33`: Fixed error when viewing regions spanning multiple nodes.
+* :issue:`32`: Fixed error when trying to extract whole chromosomes.
+
 v1.1.0 (09/10/2024)
 -------------------
 
