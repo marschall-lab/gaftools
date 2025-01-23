@@ -118,7 +118,8 @@ def sort(gaf, nodes, writer, index_dict, index_file):
                     index_dict[alignment.sn][1] = out_off
             write_to_file(line, writer)
     if index_file is not None:
-        index_dict.pop("unknown")
+        if "unknown" in index_dict:
+            index_dict.pop("unknown")
         index_dict = dict(index_dict)
         with open(index_file, "wb") as ind:
             pkl.dump(index_dict, ind)
