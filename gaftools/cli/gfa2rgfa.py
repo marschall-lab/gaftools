@@ -201,7 +201,7 @@ def create_ref_tags(nodes, walks, reference_name, file):
             if walk[i] in [">", "<"]:
                 continue
             id = walk[i]
-            assert type(nodes[id]) == Node, f"Reference node {id} is not a rank-0 node."
+            assert isinstance(nodes[id], Node), f"Reference node {id} is not a rank-0 node."
             nodes[id] = OutputNode(ln=nodes[id].ln, so=so, sn=sn, sr=0)
             so = so + nodes[id].ln
     opened_file.close()
@@ -235,7 +235,7 @@ def create_assembly_tags(nodes, walks, sample, index, file):
             if walk[i] in [">", "<"]:
                 continue
             id = walk[i]
-            if type(nodes[id]) == Node:
+            if isinstance(nodes[id], Node):
                 nodes[id] = OutputNode(ln=nodes[id].ln, so=so, sn=sn, sr=index)
             so = so + nodes[id].ln
 
@@ -267,7 +267,7 @@ def write_rGFA(gfa, nodes, output):
             # only need to change S lines.
             id = line.split("\t")[1]
             node = nodes[id]
-            if type(node) == Node:
+            if isinstance(node, Node):
                 # no tags have been assigned to this node
                 node = OutputNode(ln=node.ln, sn="unknown", so=0, sr=-1)
             stats_counter["rank-0 nodes"] += 1 if node.sr == 0 else 0
