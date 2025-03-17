@@ -109,6 +109,7 @@ def sort(gaf, nodes, writer, index_dict, index_file):
             else:
                 raise RuntimeError("GAF alignments not in string or byte format.")
             line += "\tbo:i:%d\tsn:Z:%s\tiv:i:%d\n" % (alignment.BO, alignment.sn, alignment.inv)
+            write_to_file(line, writer)
             if index_file is not None:
                 out_off = writer.tell()
                 if index_dict[alignment.sn][0] is None:
@@ -116,7 +117,6 @@ def sort(gaf, nodes, writer, index_dict, index_file):
                     index_dict[alignment.sn][1] = out_off
                 else:
                     index_dict[alignment.sn][1] = out_off
-            write_to_file(line, writer)
     if index_file is not None:
         if "unknown" in index_dict:
             index_dict.pop("unknown")

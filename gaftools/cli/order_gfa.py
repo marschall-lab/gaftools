@@ -11,36 +11,9 @@ import logging
 import time
 from collections import defaultdict
 from gaftools.gfa import GFA
+from gaftools.utils import DEFAULT_CHROMOSOME
 
 logger = logging.getLogger(__name__)
-
-DEFAULT_CHROMOSOME = [
-    "chr1",
-    "chr2",
-    "chr3",
-    "chr4",
-    "chr5",
-    "chr6",
-    "chr7",
-    "chr8",
-    "chr9",
-    "chr10",
-    "chr11",
-    "chr12",
-    "chr13",
-    "chr14",
-    "chr15",
-    "chr16",
-    "chr17",
-    "chr18",
-    "chr19",
-    "chr20",
-    "chr21",
-    "chr22",
-    "chrX",
-    "chrY",
-    "chrM",
-]
 
 
 def run_order_gfa(
@@ -129,7 +102,9 @@ def run_order_gfa(
                 + ".gfa"
             )
             out_gfa.append(f_gfa)
-            csv_file = outdir + os.sep + gfa_filename.split(os.sep)[-1][:-4] + "-" + chromosome + ".csv"
+            csv_file = (
+                outdir + os.sep + gfa_filename.split(os.sep)[-1][:-4] + "-" + chromosome + ".csv"
+            )
             out_csv.append(csv_file)
             f_colors = open(csv_file, "w")
             f_colors.write("Name,Color,SN,SO,BO,NO\n")
@@ -196,12 +171,11 @@ def run_order_gfa(
 
         with open(final_csv, "w") as outfile:
             for f in out_csv:
-                with open(f, 'r') as infile:
+                with open(f, "r") as infile:
                     for l in infile:
                         outfile.write(l)
             for f in out_csv:
                 os.remove(f)
-
 
     logger.info("Total bubbles: %d", total_bubbles)
 
@@ -340,32 +314,22 @@ def name_comps(graph, components):
     return named_comps
 
 
+# fmt: off
 def add_arguments(parser):
     arg = parser.add_argument
-    arg(
-        "--chromosome_order",
-        default="",
+    arg("--chromosome_order", default="",
         help="Order in which to arrange chromosomes in terms of BO sorting. "
-        "Expecting comma-separated list. Default: chr1,...,chr22,chrX,chrY,chrM",
-    )
-    arg(
-        "--with-sequence",
-        default=False,
-        action="store_true",
-        help="Retain sequences in output (default is to strip sequences)",
-    )
-    arg("gfa_filename", metavar="GRAPH", help="Input rGFA file")
-    arg(
-        "--outdir",
-        default="./out",
-        help='Output Directory to store all the GFA and CSV files. Default location is a "out" folder from the directory of execution.',
-    )
-    arg(
-        "--by-chrom",
-        default=False,
-        action="store_true",
-        help="Outputs each chromosome as a separate GFA, otherwise, all chromosomes in one GFA file"
-    )
+        "Expecting comma-separated list. Default: chr1,...,chr22,chrX,chrY,chrM")
+    arg("--with-sequence", default=False, action="store_true",
+        help="Retain sequences in output (default is to strip sequences)")
+    arg("gfa_filename", metavar="GRAPH",
+        help="Input rGFA file")
+    arg("--outdir", default="./out",
+        help='Output Directory to store all the GFA and CSV files. Default location is a "out" folder from the directory of execution.')
+    arg("--by-chrom", default=False, action="store_true",
+        help="Outputs each chromosome as a separate GFA, otherwise, all chromosomes in one GFA file")
+# fmt: on
+
 
 def main(args):
     run_order_gfa(**vars(args))
