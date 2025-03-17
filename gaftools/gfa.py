@@ -1,11 +1,11 @@
 import sys
 import logging
 from collections import defaultdict
-import gzip
 import re
 import os
 from collections import deque
 from gaftools.utils import rev_comp, is_correct_tag
+from pysam import libcbgzf
 
 E_DIR = {("+", "+"): (1, 0), ("+", "-"): (1, 1), ("-", "+"): (0, 0), ("-", "-"): (0, 1)}
 
@@ -372,14 +372,18 @@ class GFA:
 
         # nodes = dict()
         edges = []
+        gzipped = False
         if gfa_file_path.endswith(".gz"):
-            opened_file = gzip.open(gfa_file_path, "rt")
+            opened_file = libcbgzf.BGZFile(gfa_file_path, "rb")
+            gzipped = True
         elif gfa_file_path.endswith(".gfa"):
             opened_file = open(gfa_file_path, "r")
         else:
             raise ValueError(f"File {gfa_file_path} needs to end with .gfa or .gz")
 
         for line in opened_file:
+            if gzipped:
+                line = line.decode("utf-8")
             if line.startswith("S"):
                 line = line.strip().split("\t")
                 assert len(line) >= 3  # must be at least 3 columns for "S id seq"
