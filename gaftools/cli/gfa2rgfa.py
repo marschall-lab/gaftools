@@ -64,20 +64,14 @@ def run(gfa=None, reference_name="CHM13", reference_tagged=False, seqfile=None, 
     logger.info("\n== SUMMARY ==")
     total_time = timers.total()
     log_memory_usage()
+    # fmt: off
     logger.info("Time to read GFA file:                       %9.2f s", timers.elapsed("read_gfa"))
-    logger.info(
-        "Time to tag reference nodes:                 %9.2f s", timers.elapsed("tag_reference")
-    )
-    logger.info(
-        "Time to tag assembly nodes:                  %9.2f s", timers.elapsed("tag_assemblies")
-    )
-    logger.info(
-        "Time spend counting arrows:                  %9.2f s", timers.elapsed("counting_arrows")
-    )
-    logger.info(
-        "Time to write rGFA file:                     %9.2f s", timers.elapsed("write_rGFA")
-    )
+    logger.info("Time to tag reference nodes:                 %9.2f s", timers.elapsed("tag_reference"))
+    logger.info("Time to tag assembly nodes:                  %9.2f s", timers.elapsed("tag_assemblies"))
+    logger.info("Time spend counting arrows:                  %9.2f s", timers.elapsed("counting_arrows"))
+    logger.info("Time to write rGFA file:                     %9.2f s", timers.elapsed("write_rGFA"))
     logger.info("Total time:                                  %9.2f s", total_time)
+    # fmt: on
 
 
 # fmt: off
@@ -91,9 +85,10 @@ def add_arguments(parser):
     arg("--reference-tagged", default=False, action="store_true",
         help="Flag to denote reference nodes are already tagged in the GFA.")
     arg("--seqfile", metavar='SEQFILE',
-        help='File containing the sequence in which assemblies were given. The first line should be the reference genome. There should be W lines for each assembly in the GFA.')
+        help='File containing the sequence in which assemblies were given. Provide the seqfile given as part of running minigraph-cactus. It has the format: <assembly_name><tab><assembly_path>'
+        'There should be W lines for each assembly in the GFA.')
     arg("--output", metavar='GFA',
-        help='Output rGFA.')
+        help='Output rGFA (Automatically bgzipped if the file ends with .gz). If omitted, use standard output.')
 # fmt: on
 
 
@@ -129,7 +124,6 @@ def process_gfa(gfa):
         gzipped = True
     else:
         opened_file = open(gfa, "r")
-    count = 0
     while True:
         offset = opened_file.tell()
         line = opened_file.readline().decode("utf-8") if gzipped else opened_file.readline()
@@ -150,7 +144,7 @@ def process_gfa(gfa):
                         so = int(value)
                     elif tag == "SR":
                         sr = int(value)
-                nodes[int(node_id)] = OutputNode(ln=ln, so=so, sn=sn, sr=sr)
+                nodes[node_id] = OutputNode(ln=ln, so=so, sn=sn, sr=sr)
             else:
                 nodes[node_id] = Node(line)
         elif line.startswith("W"):
@@ -161,9 +155,6 @@ def process_gfa(gfa):
                 walks[(name, hap)].append(offset)
             except KeyError:
                 walks[(name, hap)] = [offset]
-        count += 1
-        if count % 100000 == 0:
-            logger.info(f"Processed {count} lines.")
     opened_file.close()
     return nodes, walks
 
@@ -270,6 +261,7 @@ def write_rGFA(gfa, nodes, output):
             if isinstance(node, Node):
                 # no tags have been assigned to this node
                 node = OutputNode(ln=node.ln, sn="unknown", so=0, sr=-1)
+                stats_counter["unknown nodes"] += 1
             stats_counter["rank-0 nodes"] += 1 if node.sr == 0 else 0
             new_line = line.strip()
             new_line += node.tags_to_string()

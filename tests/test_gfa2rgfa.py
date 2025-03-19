@@ -38,12 +38,26 @@ def parse_coordinates():
 ### Test functions
 
 
-def test_gfa2rgfa(tmp_path):
+# testing the conversion of GFA to rGFA with untagged input graph
+def test_gfa2rgfa_untagged_input(tmp_path):
     input_gfa = "tests/data/graph-conversioncheck-gfa.gfa"
     seqfile = "tests/data/graph-conversioncheck-samples.seqfile"
     truth_rgfa = "tests/data/graph-conversioncheck-rgfa.gfa"
     output = str(tmp_path) + "/output-rgfa.gfa"
     run(gfa=input_gfa, reference_name="REF", reference_tagged=False, seqfile=seqfile, output=output)
+    output_lines = parse_gfa(output)
+    truth_lines = parse_gfa(truth_rgfa)
+    for n in range(len(output_lines)):
+        assert output_lines[n] == truth_lines[n]
+
+
+# testing the conversion of GFA to rGFA with ref node-tagged input graph
+def test_gfa2rgfa_partial_tagged_input(tmp_path):
+    input_gfa = "tests/data/graph-conversioncheck-gfa-partial-tagged.gfa"
+    seqfile = "tests/data/graph-conversioncheck-samples.seqfile"
+    truth_rgfa = "tests/data/graph-conversioncheck-rgfa.gfa"
+    output = str(tmp_path) + "/output-rgfa.gfa"
+    run(gfa=input_gfa, reference_name="REF", reference_tagged=True, seqfile=seqfile, output=output)
     output_lines = parse_gfa(output)
     truth_lines = parse_gfa(truth_rgfa)
     for n in range(len(output_lines)):
