@@ -7,6 +7,7 @@ import sys
 import logging
 import re
 from pysam import libcbgzf
+from gaftools.utils import FileWriter
 from gaftools.timer import StageTimer
 from gaftools.cli import log_memory_usage
 
@@ -68,8 +69,8 @@ def run(gfa=None, reference_name="CHM13", reference_tagged=False, seqfile=None, 
     logger.info("Time to read GFA file:                       %9.2f s", timers.elapsed("read_gfa"))
     logger.info("Time to tag reference nodes:                 %9.2f s", timers.elapsed("tag_reference"))
     logger.info("Time to tag assembly nodes:                  %9.2f s", timers.elapsed("tag_assemblies"))
-    logger.info("Time spend counting arrows:                  %9.2f s", timers.elapsed("counting_arrows"))
     logger.info("Time to write rGFA file:                     %9.2f s", timers.elapsed("write_rGFA"))
+    logger.info("Time spent on rest:                          %9.2f s", total_time - timers.sum())
     logger.info("Total time:                                  %9.2f s", total_time)
     # fmt: on
 
@@ -79,7 +80,7 @@ def add_arguments(parser):
     arg = parser.add_argument
     # Positional arguments
     arg('gfa', metavar='GFA',
-        help='Input GFA file (can be bgzip-compressed). This GFA should have a W-line corresponding to the reference genome or the reference nodes have to be tagged already.')
+        help='GFA file (can be bgzip-compressed). This GFA should have a W-line corresponding to the reference genome or the reference nodes have to be tagged already.')
     arg("--reference-name", metavar='REFERENCE NAME', default='CHM13',
         help="The name of the reference genome given in the W-line. Default: CHM13")
     arg("--reference-tagged", default=False, action="store_true",
@@ -87,8 +88,8 @@ def add_arguments(parser):
     arg("--seqfile", metavar='SEQFILE',
         help='File containing the sequence in which assemblies were given. Provide the seqfile given as part of running minigraph-cactus. It has the format: <assembly_name><tab><assembly_path>'
         'There should be W lines for each assembly in the GFA.')
-    arg("--output", metavar='GFA',
-        help='Output rGFA (Automatically bgzipped if the file ends with .gz). If omitted, use standard output.')
+    arg("--output", metavar='rGFA',
+        help='Output rGFA (bgzipped if the file ends with .gz). If omitted, use standard output.')
 # fmt: on
 
 
@@ -234,15 +235,7 @@ def create_assembly_tags(nodes, walks, sample, index, file):
 # writing the rGFA file.
 def write_rGFA(gfa, nodes, output):
     stats_counter = {"rank-0 nodes": 0}
-    writer_gzipped = False
-    writer = None
-    if output is None:
-        writer = sys.stdout
-    elif output.endswith(".gz"):
-        writer = libcbgzf.BGZFile(output, "wb")
-        writer_gzipped = True
-    else:
-        writer = open(output, "w")
+    writer = FileWriter(output)
     reader_gzipped = False
     reader = None
     if gfa.endswith(".gz"):
@@ -266,9 +259,11 @@ def write_rGFA(gfa, nodes, output):
             new_line = line.strip()
             new_line += node.tags_to_string()
             new_line += "\n"
-            writer.write(str.encode(new_line) if writer_gzipped else new_line)
+            writer.write(new_line)
         else:
-            writer.write(str.encode(line) if writer_gzipped else line)
+            writer.write(line)
+
+    writer.close()
 
     return stats_counter
 

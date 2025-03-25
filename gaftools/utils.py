@@ -1,6 +1,8 @@
 import re
 import tracemalloc
 import linecache
+import sys
+from pysam import libcbgzf
 
 DEFAULT_CHROMOSOME = [
     "chr1",
@@ -115,3 +117,32 @@ def display_top(snapshot, key_type="lineno", limit=3):
         print("%s other: %.1f KiB" % (len(other), size / 1024))
     total = sum(stat.size for stat in top_stats)
     print("Total allocated size: %.1f KiB" % (total / 1024))
+
+
+class FileWriter:
+    def __init__(self, name: str):
+        self.name = name
+        self.writer = None
+        self.compress = False
+        if name is None:
+            self.writer = sys.stdout
+            self.compress = False
+        elif name.endswith(".gz"):
+            self.writer = libcbgzf.BGZFile(name, "wb")
+            self.compress = True
+        else:
+            self.writer = open(name, "w")
+            self.compress = False
+
+    def write(self, line):
+        self.writer.write(str.encode(line) if self.compress else line)
+
+    def tell(self):
+        if self.name is not None:
+            return self.writer.tell()
+        else:
+            raise RuntimeError("Cannot get the file pointer position for standard output")
+
+    def close(self):
+        if self.name is not None:
+            self.writer.close()

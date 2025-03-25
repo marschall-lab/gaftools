@@ -7,9 +7,9 @@ The view command allows subsetting the GAF file based on node IDs or regions ava
 import logging
 import pickle
 import os
-import sys
 from collections import defaultdict
 
+from gaftools.utils import FileWriter
 from gaftools.cli import log_memory_usage, CommandLineError
 from gaftools.timer import StageTimer
 from gaftools.gaf import GAF
@@ -28,10 +28,7 @@ logger = logging.getLogger(__name__)
 def run(gaf_path, gfa=None, output=None, index=None, nodes=[], regions=[], format=None):
     timers = StageTimer()
 
-    if output is None:
-        writer = sys.stdout
-    else:
-        writer = open(output, "w")
+    writer = FileWriter(output)
     # Need to detect the format of the input gaf
     gaf = GAF(gaf_path)
     gaf_format = None
@@ -121,17 +118,17 @@ def run(gaf_path, gfa=None, output=None, index=None, nodes=[], regions=[], forma
             if format == "stable":
                 for ofs in offsets:
                     line = gaf.read_line(ofs)
-                    print(to_stable(line, gfa_nodes, ref_contig, contig_len), file=writer)
+                    writer.write(to_stable(line, gfa_nodes, ref_contig, contig_len) + "\n")
             else:
                 assert format == "unstable"
                 for ofs in offsets:
                     line = gaf.read_line(ofs)
-                    print(to_unstable(line, reference), file=writer)
+                    writer.write(to_unstable(line, reference) + "\n")
         # if no format given, then just print the selected lines
         else:
             for ofs in offsets:
                 line = gaf.read_line(ofs)
-                print(line, file=writer)
+                writer.write(line + "\n")
         gaf.close()
     else:
         # No nodes or regions indicates the entire file will be viewed
@@ -139,19 +136,21 @@ def run(gaf_path, gfa=None, output=None, index=None, nodes=[], regions=[], forma
         if format:
             if format == "stable":
                 for line in unstable_to_stable(gaf_path, gfa_nodes, ref_contig, contig_len):
-                    print(line, file=writer)
+                    writer.write(line + "\n")
             else:
                 for line in stable_to_unstable(gaf_path, reference):
-                    print(line, file=writer)
+                    writer.write(line + "\n")
         else:
             # No format also given. So just need to print the file.
             gaf = GAF(gaf_path)
             for line in gaf.file:
                 if gaf.gz_flag:
-                    print(line.decode("utf-8").rstrip(), file=writer)
+                    writer.write(line.decode("utf-8").rstrip() + "\n")
                 else:
-                    print(line.rstrip(), file=writer)
+                    writer.write(line.rstrip() + "\n")
+            gaf.close()
 
+    writer.close()
     logger.info("\n== SUMMARY ==")
     total_time = timers.total()
     log_memory_usage()
@@ -235,13 +234,13 @@ def add_arguments(parser):
     arg = parser.add_argument
     # Positional arguments
     arg('gaf_path', metavar='GAF',
-        help='Input GAF file (can be bgzip-compressed)')
+        help='GAF file (can be bgzip-compressed)')
     arg('-g', '--gfa', dest='gfa', metavar='GFA', default=None,
-        help='Input GFA file (can be gzip-compressed). Required when converting from one coordinate system to another.')
+        help='GFA file (can be bggzip-compressed). Required when converting from one coordinate system to another.')
     arg('-o', '--output', dest='output', metavar='OUTPUT', default=None,
-        help='Output file. Default is stdout.')
+        help='Output GAF (bgzipped if the file ends with .gz). If omitted, use standard output.')
     arg('-i', '--index', default=None,
-        help='Path to GAF Index file. This index is created using gaftools index. '
+        help='Path to GAF Viewing Index file. This index is created using gaftools index. '
         'If path is not provided, it is assumed to be in the same directory as GAF file with the same name and .gvi extension (default location of the index script)')
     arg('-n', '--node', dest='nodes', metavar='NODE', default=[], action='append',
         help='Nodes to search. '

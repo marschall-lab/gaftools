@@ -106,10 +106,13 @@ def run(gaf_path, gfa_path, output=None):
     logger.info("\n== SUMMARY ==")
     total_time = timers.total()
     log_memory_usage()
-    logger.info("Time to sort gfa:                            %9.2f s", timers.elapsed("sort_gfa"))
     logger.info(
-        "Time to store contig info:                   %9.2f s", timers.elapsed("store_contig_info")
+        "Time to convert coordinates:                 %9.2f s", timers.elapsed("convert_coord")
     )
+    logger.info(
+        "Time to write the file:                      %9.2f s", timers.elapsed("write_file")
+    )
+    logger.info("Time spent on rest:                          %9.2f s", total_time - timers.sum())
     logger.info("Total time:                                  %9.2f s", total_time)
 
 
@@ -166,16 +169,12 @@ def add_arguments(parser):
     arg = parser.add_argument
     # Positional arguments
     arg('gaf_path', metavar='GAF',
-        help='Input GAF file (can be bgzip-compressed)')
+        help='GAF file (can be bgzip-compressed)')
     arg('gfa_path', metavar='rGFA',
-        help='Reference rGFA file')
+        help='rGFA file (can be bgzip-compressed)')
     arg('-o', '--output', default=None,
-        help='Path to the output Indexed GAF file. If omitted, use <GAF File>.gvi')
-
-
+        help='Output GAF View Index (GVI) file. Default: <GAF file>.gvi')
 # fmt: on
-def validate(args, parser):
-    return True
 
 
 def main(args):

@@ -2,14 +2,15 @@
 Calculate statistics of the given GAF file.
 """
 
-import sys
 import logging
 import itertools
+from gaftools.utils import FileWriter
 from gaftools.gaf import GAF, Read
 from gaftools.cli import log_memory_usage
 from gaftools.timer import StageTimer
 
 logger = logging.getLogger(__name__)
+timers = StageTimer()
 
 
 def run_stat(
@@ -22,12 +23,7 @@ def run_stat(
     because I need to iterate through the cigar of each alignment making it run in O(n^2)
     """
 
-    timers = StageTimer()
-
-    if output is None:
-        output = sys.stdout
-    else:
-        output = open(output, "w")
+    writer = FileWriter(output)
 
     # read_names = set()
     total_aligned_bases = 0
@@ -78,29 +74,30 @@ def run_stat(
         total_mapq += mapping.mapping_quality
         total_primary += 1
 
-        if cigar_stat:
-            """Cigar string analysis"""
-            cigar = mapping.cigar
-            all_cigars = ["".join(x) for _, x in itertools.groupby(cigar, key=str.isdigit)]
-            if len(all_cigars) == 2:
-                total_perfect += 1
-            for cnt in range(0, len(all_cigars) - 1, 2):
-                if all_cigars[cnt + 1] == "D":
-                    total_del += 1
-                    if int(all_cigars[cnt]) >= 50:
-                        total_del_large += 1
-                elif all_cigars[cnt + 1] == "I":
-                    total_ins += 1
-                    if int(all_cigars[cnt]) >= 50:
-                        total_ins_large += 1
-                elif all_cigars[cnt + 1] == "X":
-                    total_x += 1
-                    if int(all_cigars[cnt]) >= 50:
-                        total_x_large += 1
-                elif all_cigars[cnt + 1] == "=":
-                    total_match += 1
-                    if int(all_cigars[cnt]) >= 50:
-                        total_match_large += 1
+        with timers("cigar_stat"):
+            if cigar_stat:
+                """Cigar string analysis"""
+                cigar = mapping.cigar
+                all_cigars = ["".join(x) for _, x in itertools.groupby(cigar, key=str.isdigit)]
+                if len(all_cigars) == 2:
+                    total_perfect += 1
+                for cnt in range(0, len(all_cigars) - 1, 2):
+                    if all_cigars[cnt + 1] == "D":
+                        total_del += 1
+                        if int(all_cigars[cnt]) >= 50:
+                            total_del_large += 1
+                    elif all_cigars[cnt + 1] == "I":
+                        total_ins += 1
+                        if int(all_cigars[cnt]) >= 50:
+                            total_ins_large += 1
+                    elif all_cigars[cnt + 1] == "X":
+                        total_x += 1
+                        if int(all_cigars[cnt]) >= 50:
+                            total_x_large += 1
+                    elif all_cigars[cnt + 1] == "=":
+                        total_match += 1
+                        if int(all_cigars[cnt]) >= 50:
+                            total_match_large += 1
     gaf_file.close()
 
     # avg_total_seq_identity = 0.0
@@ -119,62 +116,46 @@ def run_stat(
     avg_highest_seq_identity /= len(reads)
     avg_highest_map_ratio /= len(reads)
     print()
-    print("Total alignments:", alignment_count, file=output)
-    print("\tPrimary:", total_primary, file=output)
-    print("\tSecondary:", total_secondary, file=output)
-    print("Reads with at least one alignment:", len(reads), file=output)
-    print("Total aligned bases:", str(total_aligned_bases), file=output)
-    print("Average mapping quality:", round((total_mapq / alignment_count), 1), file=output)
-    # print("Average total sequence identity:", round(avg_total_seq_identity, 2), file=output)
-    print("Average highest sequence identity:", round(avg_highest_seq_identity, 3), file=output)
-    # print("Average total map ratio:", round(avg_total_map_ratio,2), file=output)
-    print("Average highest map ratio:", round(avg_highest_map_ratio, 3), file=output)
-
+    writer.write(f"Total alignments: {alignment_count}\n")
+    writer.write(f"\tPrimary: {total_primary}\n")
+    writer.write(f"\tSecondary: {total_secondary}\n")
+    writer.write(f"Reads with at least one alignment: {len(reads)}\n")
+    writer.write(f"Total aligned bases: {total_aligned_bases}\n")
+    writer.write(f"Average mapping quality: {round((total_mapq / alignment_count), 1)}\n")
+    writer.write(f"Average highest sequence identity: {round(avg_highest_seq_identity, 3)}\n")
+    writer.write(f"Average highest map ratio: {round(avg_highest_map_ratio, 3)}\n")
     if cigar_stat:
-        print(
-            "Cigar string statistics:\n\tTotal deletion regions: %d (%d >50bps)\n\tTotal insertion regions: %d (%d >50bps)\n\tTotal substitution regions: %d (%d >50bps)\n\tTotal match regions: %d (%d >50bps)"
-            % (
-                total_del,
-                total_del_large,
-                total_ins,
-                total_ins_large,
-                total_x,
-                total_x_large,
-                total_match,
-                total_match_large,
-            ),
-            file=output,
-        )
+        writer.write("Cigar string statistics:\n")
+        writer.write(f"\tTotal deletion regions: {total_del} ({total_del_large} >50bps)\n")
+        writer.write(f"\tTotal insertion regions: {total_ins} ({total_ins_large} >50bps)\n")
+        writer.write(f"\tTotal substitution regions: {total_x} ({total_x_large} >50bps)\n")
+        writer.write(f"\tTotal match regions: {total_match} ({total_match_large} >50bps)\n")
+        writer.write(f"Total perfect alignments (exact match): {total_perfect}\n")
 
-        print("Total perfect alignments (exact match):", total_perfect, file=output)
-
-    print()
-    print(
-        "* Numbers are based on primary alignments and the ones with >0 mapping quality",
-        file=output,
+    writer.write(
+        "\n* Numbers are based on primary alignments and the ones with >0 mapping quality\n"
     )
     logger.info("\n== SUMMARY ==")
     total_time = timers.total()
     log_memory_usage()
+    logger.info(
+        "Time to get CIGAR statistics:                %9.2f s", timers.elapsed("cigar_stat")
+    )
+    logger.info("Time spent on rest:                          %9.2f s", total_time - timers.sum())
     logger.info("Total time:                                  %9.2f s", total_time)
 
 
+# fmt:off
 def add_arguments(parser):
     arg = parser.add_argument
     # Positional arguments
-    arg("gaf_path", metavar="GAF", help="Input GAF file (can be bgzip-compressed)")
-    arg("-o", "--output", default=None, help="Output file. If omitted, use standard output.")
-    arg(
-        "--cigar",
-        dest="cigar_stat",
-        default=False,
-        action="store_true",
-        help="Outputs cigar related statistics (requires more time)",
-    )
-
-
-def validate(args, parser):
-    return True
+    arg("gaf_path", metavar="GAF",
+        help="GAF file (can be bgzip-compressed)")
+    arg("-o", "--output", default=None,
+        help="Output file. If omitted, use standard output.")
+    arg("--cigar", dest="cigar_stat", default=False, action="store_true",
+        help="Outputs cigar related statistics (requires more time)")
+# fmt:on
 
 
 def main(args):

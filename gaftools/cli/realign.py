@@ -12,10 +12,11 @@ from gaftools.cli import log_memory_usage
 from gaftools.timer import StageTimer
 from gaftools.gaf import GAF
 from gaftools.gfa import GFA
+from gaftools.utils import FileWriter
 from pywfa.align import WavefrontAligner
 
-
 logger = logging.getLogger(__name__)
+timers = StageTimer()
 
 
 @dataclass(order=True)
@@ -69,22 +70,19 @@ def all_exited(processes):
 
 
 def run_realign(gaf, graph, fasta, output=None, cores=1):
-    timers = StageTimer()
-
-    if output is None:
-        output = sys.stdout
-    else:
-        output = open(output, "w")
-
+    writer = FileWriter(output)
     if cores > mp.cpu_count():
         logger.warning("Number of cores requested is greater than the total number of CPU cores.")
         cores = min(mp.cpu_count() - 1, cores)
-
     # realign_gaf(gaf, graph, fasta, output, ext, cores)
-    realign_gaf(gaf, graph, fasta, output, cores)
+    realign_gaf(gaf, graph, fasta, writer, cores)
+    writer.close()
     logger.info("\n== SUMMARY ==")
     total_time = timers.total()
     log_memory_usage(include_children=True)
+    logger.info("Time to read GFA:                            %9.2f s", timers.elapsed("read_gfa"))
+    logger.info("Time to realign GAF:                         %9.2f s", timers.elapsed("realign"))
+    logger.info("Time spent on rest:                          %9.2f s", total_time - timers.sum())
     logger.info("Total time:                                  %9.2f s", total_time)
 
 
@@ -108,8 +106,9 @@ def wfa_alignment(seq_batch, qu):
             # queue.put(out_string + "\n")
 
         else:
-            aligner = WavefrontAligner(ref)
-            res = aligner(query, clip_cigar=False)
+            with timers("realign"):
+                aligner = WavefrontAligner(ref)
+                res = aligner(query, clip_cigar=False)
 
             match, mismatch, cigar_len, ins, deletion, soft_clip = 0, 0, 0, 0, 0, 0
             cigar = ""
@@ -151,7 +150,7 @@ def wfa_alignment(seq_batch, qu):
     qu.put(None)  # sentinel for finished process
 
 
-def realign_gaf(gaf, graph, fasta, output, cores=1):
+def realign_gaf(gaf, graph, fasta, writer, cores=1):
     """
     Uses pyWFA (https://github.com/kcleal/pywfa)
     parallelized on the level of alignment
@@ -159,11 +158,9 @@ def realign_gaf(gaf, graph, fasta, output, cores=1):
     # tracemalloc.start()
 
     fastafile = pysam.FastaFile(fasta)
-    step_timer = StageTimer()
-    step_timer.start("read_gfa")
-    graph_obj = GFA(graph)
-    step_timer.stop("read_gfa")
-    logger.info(f"\n Finished loading {graph}. Took: {step_timer.elapsed('read_gfa')}")
+    with timers("read_gfa"):
+        graph_obj = GFA(graph)
+    logger.info("Complete reading GFA file.")
     processes = []
     align_queue = mp.Queue()
 
@@ -171,6 +168,7 @@ def realign_gaf(gaf, graph, fasta, output, cores=1):
     batch_size = 1000
     gaf_file = GAF(gaf)
     priority_counter = 0
+    logger.info("Reading GAF file and preparing batches for alignment.")
     for line in gaf_file.read_file():
         path_sequence = graph_obj.extract_path(line.path)
         ref = path_sequence[line.path_start : line.path_end]
@@ -223,7 +221,7 @@ def realign_gaf(gaf, graph, fasta, output, cores=1):
                 p.join()
             queue_len = len(p_queue.queue)
             for _ in range(queue_len):
-                output.write(p_queue.get().seq)
+                writer.write(p_queue.get().seq)
             processes = []
             align_queue = mp.Queue()
             p_queue = queue.PriorityQueue()
@@ -266,8 +264,8 @@ def realign_gaf(gaf, graph, fasta, output, cores=1):
             p.join()
         queue_len = len(p_queue.queue)
         for _ in range(queue_len):
-            output.write(p_queue.get().seq)
-    logger.info("Done!")
+            writer.write(p_queue.get().seq)
+    logger.info("Realignment complete.")
 
     fastafile.close()
 
@@ -276,15 +274,15 @@ def realign_gaf(gaf, graph, fasta, output, cores=1):
 def add_arguments(parser):
     arg = parser.add_argument
     # Positional arguments
-    arg('gaf', metavar='GAF', 
-        help='Input GAF file (can be bgzip-compressed)')
-    arg('graph', metavar='rGFA', 
-        help='reference rGFA file')
-    arg('fasta', metavar='FASTA', 
-        help='Input FASTA file of the read')
-    arg('-o', '--output', default=None, 
-        help='Output GAF file. If omitted, use standard output.')
-    arg("-c", "--cores", metavar="CORES", default=1, type=int, 
+    arg('gaf', metavar='GAF',
+        help='GAF file (can be bgzip-compressed)')
+    arg('graph', metavar='GFA',
+        help='GFA file (can be bgzip-compressed)')
+    arg('fasta', metavar='FASTA',
+        help='FASTA file of the read')
+    arg('-o', '--output', default=None,
+        help='Output GAF file (bgzipped if the file ends with .gz). If omitted, use standard output.')
+    arg("-c", "--cores", metavar="CORES", default=1, type=int,
         help="Number of cores to use for alignments.")
 
 
