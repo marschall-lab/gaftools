@@ -2,14 +2,26 @@
 Test the GFA to rGFA conversion script.
 """
 
+import pysam.libcbgzf
 from gaftools.cli.gfa2rgfa import run
 import pysam
 
 ### Parsing functions
 
 
-# parse the whole file for checking exactness
-def parse_gfa(filename):
+# parse the whole file as a sorted list of tuples
+def parse_output(filename, gzipped=False):
+    def parse_line(line):
+        return tuple(s.strip() for s in sorted(line.split("\t")))
+
+    if gzipped:
+        return [parse_line(l.decode("utf-8")) for l in pysam.libcbgzf.BGZFile(filename, "rb")]
+    else:
+        return [parse_line(l) for l in open(filename)]
+
+
+# parse the whole file as a gfa (tags are separated)
+def parse_gfa(filename, gzipped=False):
     def parse_s_line(line):
         fields = line.strip().split("\t")
         id = fields[1]
@@ -22,17 +34,25 @@ def parse_gfa(filename):
         return tuple((id, seq, *sorted_tags))
 
     lines = []
-    for l in open(filename):
-        if l.startswith("S"):
-            lines.append(parse_s_line(l))
-            continue
-        lines.append(tuple(s.strip() for s in l.split("\t")))
+    if gzipped:
+        for l in pysam.libcbgzf.BGZFile(filename, "rb"):
+            l = l.decode("utf-8")
+            if l.startswith("S"):
+                lines.append(parse_s_line(l))
+                continue
+            lines.append(tuple(s.strip() for s in sorted(l.split("\t"))))
+    else:
+        for l in open(filename):
+            if l.startswith("S"):
+                lines.append(parse_s_line(l))
+                continue
+            lines.append(tuple(s.strip() for s in sorted(l.split("\t"))))
 
     return lines
 
 
 # parses the coordinates from rGFA and checks against sequence of the coordinate in assembly
-def parse_coordinates(rgfa, seqfile):
+def parse_coordinates(rgfa, seqfile, gzipped=False):
     def parse_seqfile(seqfile):
         assemblies = {}
         for l in open(seqfile):
@@ -46,7 +66,13 @@ def parse_coordinates(rgfa, seqfile):
         return assemblies
 
     assemblies = parse_seqfile(seqfile)
-    for l in open(rgfa):
+    if gzipped:
+        rgfa = pysam.libcbgzf.BGZFile(rgfa, "rb")
+    else:
+        rgfa = open(rgfa)
+    for l in rgfa:
+        if gzipped:
+            l = l.decode("utf-8")
         if l.startswith("S"):
             fields = l.strip().split("\t")
             seq = fields[2]
@@ -67,14 +93,56 @@ def parse_coordinates(rgfa, seqfile):
             start = int(tags["SO"][1])
             length = len(seq)
             end = start + length
-            print(l)
             assert assemblies[assm_name].fetch(contig_name, start, end) == seq
+    rgfa.close()
 
 
 ### Test functions
 
 
-# testing the conversion of GFA to rGFA with untagged input graph
+# testing the conversion of GFA to rGFA with untagged input graph. Output is compressed.
+def test_gfa2rgfa_untagged_input_compressedout(tmp_path):
+    input_gfa = "tests/data/graph-conversioncheck-gfa.gfa"
+    seqfile = "tests/data/graph-conversioncheck-samples.seqfile"
+    truth_rgfa = "tests/data/graph-conversioncheck-rgfa.gfa"
+    output = str(tmp_path) + "/output-rgfa.gfa.gz"
+    run(gfa=input_gfa, reference_name="REF", reference_tagged=False, seqfile=seqfile, output=output)
+    output_lines = parse_gfa(output, gzipped=True)
+    truth_lines = parse_gfa(truth_rgfa)
+    # checking for tag exactness
+    for n in range(len(output_lines)):
+        assert output_lines[n] == truth_lines[n]
+    output_lines = parse_output(output, gzipped=True)
+    truth_lines = parse_output(truth_rgfa)
+    # checking for exactness
+    for n in range(len(output_lines)):
+        assert output_lines[n] == truth_lines[n]
+    # checking for coordinates
+    parse_coordinates(output, seqfile, gzipped=True)
+
+
+# testing the conversion of GFA to rGFA with ref node-tagged input graph.  Output is compressed.
+def test_gfa2rgfa_partial_tagged_input_compressedout(tmp_path):
+    input_gfa = "tests/data/graph-conversioncheck-gfa-partial-tagged.gfa"
+    seqfile = "tests/data/graph-conversioncheck-samples.seqfile"
+    truth_rgfa = "tests/data/graph-conversioncheck-rgfa.gfa"
+    output = str(tmp_path) + "/output-rgfa.gfa.gz"
+    run(gfa=input_gfa, reference_name="REF", reference_tagged=True, seqfile=seqfile, output=output)
+    output_lines = parse_gfa(output, gzipped=True)
+    truth_lines = parse_gfa(truth_rgfa)
+    # checking for tag exactness
+    for n in range(len(output_lines)):
+        assert output_lines[n] == truth_lines[n]
+    output_lines = parse_output(output, gzipped=True)
+    truth_lines = parse_output(truth_rgfa)
+    # checking for exactness
+    for n in range(len(output_lines)):
+        assert output_lines[n] == truth_lines[n]
+    # checking for coordinates
+    parse_coordinates(output, seqfile, gzipped=True)
+
+
+# testing the conversion of GFA to rGFA with untagged input graph. Output is uncompressed.
 def test_gfa2rgfa_untagged_input(tmp_path):
     input_gfa = "tests/data/graph-conversioncheck-gfa.gfa"
     seqfile = "tests/data/graph-conversioncheck-samples.seqfile"
@@ -83,6 +151,11 @@ def test_gfa2rgfa_untagged_input(tmp_path):
     run(gfa=input_gfa, reference_name="REF", reference_tagged=False, seqfile=seqfile, output=output)
     output_lines = parse_gfa(output)
     truth_lines = parse_gfa(truth_rgfa)
+    # checking for tag exactness
+    for n in range(len(output_lines)):
+        assert output_lines[n] == truth_lines[n]
+    output_lines = parse_output(output)
+    truth_lines = parse_output(truth_rgfa)
     # checking for exactness
     for n in range(len(output_lines)):
         assert output_lines[n] == truth_lines[n]
@@ -90,7 +163,7 @@ def test_gfa2rgfa_untagged_input(tmp_path):
     parse_coordinates(output, seqfile)
 
 
-# testing the conversion of GFA to rGFA with ref node-tagged input graph
+# testing the conversion of GFA to rGFA with ref node-tagged input graph.  Output is uncompressed.
 def test_gfa2rgfa_partial_tagged_input(tmp_path):
     input_gfa = "tests/data/graph-conversioncheck-gfa-partial-tagged.gfa"
     seqfile = "tests/data/graph-conversioncheck-samples.seqfile"
@@ -99,6 +172,11 @@ def test_gfa2rgfa_partial_tagged_input(tmp_path):
     run(gfa=input_gfa, reference_name="REF", reference_tagged=True, seqfile=seqfile, output=output)
     output_lines = parse_gfa(output)
     truth_lines = parse_gfa(truth_rgfa)
+    # checking for tag exactness
+    for n in range(len(output_lines)):
+        assert output_lines[n] == truth_lines[n]
+    output_lines = parse_output(output)
+    truth_lines = parse_output(truth_rgfa)
     # checking for exactness
     for n in range(len(output_lines)):
         assert output_lines[n] == truth_lines[n]
