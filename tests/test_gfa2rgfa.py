@@ -101,7 +101,7 @@ def parse_coordinates(rgfa, seqfile, gzipped=False):
 
 
 # testing the conversion of GFA to rGFA with untagged input graph. Output is compressed.
-def test_gfa2rgfa_untagged_input_compressedout(tmp_path):
+def test_untagged_input_compressedout(tmp_path):
     input_gfa = "tests/data/graph-conversioncheck-gfa.gfa"
     seqfile = "tests/data/graph-conversioncheck-samples.seqfile"
     truth_rgfa = "tests/data/graph-conversioncheck-rgfa.gfa"
@@ -122,7 +122,7 @@ def test_gfa2rgfa_untagged_input_compressedout(tmp_path):
 
 
 # testing the conversion of GFA to rGFA with ref node-tagged input graph.  Output is compressed.
-def test_gfa2rgfa_partial_tagged_input_compressedout(tmp_path):
+def test_partial_tagged_input_compressedout(tmp_path):
     input_gfa = "tests/data/graph-conversioncheck-gfa-partial-tagged.gfa"
     seqfile = "tests/data/graph-conversioncheck-samples.seqfile"
     truth_rgfa = "tests/data/graph-conversioncheck-rgfa.gfa"
@@ -143,7 +143,7 @@ def test_gfa2rgfa_partial_tagged_input_compressedout(tmp_path):
 
 
 # testing the conversion of GFA to rGFA with untagged input graph. Output is uncompressed.
-def test_gfa2rgfa_untagged_input(tmp_path):
+def test_untagged_input(tmp_path):
     input_gfa = "tests/data/graph-conversioncheck-gfa.gfa"
     seqfile = "tests/data/graph-conversioncheck-samples.seqfile"
     truth_rgfa = "tests/data/graph-conversioncheck-rgfa.gfa"
@@ -164,12 +164,33 @@ def test_gfa2rgfa_untagged_input(tmp_path):
 
 
 # testing the conversion of GFA to rGFA with ref node-tagged input graph.  Output is uncompressed.
-def test_gfa2rgfa_partial_tagged_input(tmp_path):
+def test_partial_tagged_input(tmp_path):
     input_gfa = "tests/data/graph-conversioncheck-gfa-partial-tagged.gfa"
     seqfile = "tests/data/graph-conversioncheck-samples.seqfile"
     truth_rgfa = "tests/data/graph-conversioncheck-rgfa.gfa"
     output = str(tmp_path) + "/output-rgfa.gfa"
     run(gfa=input_gfa, reference_name="REF", reference_tagged=True, seqfile=seqfile, output=output)
+    output_lines = parse_gfa(output)
+    truth_lines = parse_gfa(truth_rgfa)
+    # checking for tag exactness
+    for n in range(len(output_lines)):
+        assert output_lines[n] == truth_lines[n]
+    output_lines = parse_output(output)
+    truth_lines = parse_output(truth_rgfa)
+    # checking for exactness
+    for n in range(len(output_lines)):
+        assert output_lines[n] == truth_lines[n]
+    # checking for coordinates
+    parse_coordinates(output, seqfile)
+
+
+# testing the conversion when some nodes have revcomp seq when compared to the position in assembly
+def test_untagged_input_invertednodes(tmp_path):
+    input_gfa = "tests/data/graph-conversioncheck-gfa-invertednodes.gfa"
+    seqfile = "tests/data/graph-conversioncheck-samples.seqfile"
+    truth_rgfa = "tests/data/graph-conversioncheck-rgfa.gfa"
+    output = str(tmp_path) + "/output-rgfa.gfa"
+    run(gfa=input_gfa, reference_name="REF", reference_tagged=False, seqfile=seqfile, output=output)
     output_lines = parse_gfa(output)
     truth_lines = parse_gfa(truth_rgfa)
     # checking for tag exactness

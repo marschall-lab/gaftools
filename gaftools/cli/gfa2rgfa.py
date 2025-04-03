@@ -14,7 +14,7 @@ from gaftools.cli import log_memory_usage
 logger = logging.getLogger(__name__)
 timers = StageTimer()
 
-orient_switch = {"+": "-", "-": "+"}
+orient_switch = {"+": "-", "-": "+", ">": "<", "<": ">"}
 
 
 class Node:
@@ -266,9 +266,10 @@ def create_assembly_tags(nodes, walks, sample, index, file, tmp_walk_file):
             if isinstance(nodes[id], Node):
                 if orient == "<":
                     nodes[id] = OutputNode(ln=nodes[id].ln, so=so, sn=sn, sr=index, invert=True)
-                    orient = ">"
                 else:
                     nodes[id] = OutputNode(ln=nodes[id].ln, so=so, sn=sn, sr=index)
+            if nodes[id].invert:
+                orient = orient_switch[orient]
             tmp_walk_file.write(f"{orient}{id}")
             so = so + nodes[id].ln
         tmp_walk_file.write("\n")
