@@ -14,6 +14,8 @@ from gaftools.cli import log_memory_usage
 logger = logging.getLogger(__name__)
 timers = StageTimer()
 
+orient_switch = {"+": "-", "-": "+"}
+
 
 class Node:
     def __init__(self, line):
@@ -305,6 +307,16 @@ def write_rGFA(gfa, nodes, writer):
             new_line += node.tags_to_string()
             new_line += "\n"
             writer.write(new_line)
+        elif line.startswith("L"):
+            _, n1, o1, n2, o2, overlap = line.strip().split("\t")
+            if nodes[n1].invert:
+                o1 = orient_switch[o1]
+            if nodes[n2].invert:
+                o2 = orient_switch[o2]
+            if o1 == o2 and o1 == "-":
+                writer.write(f"L\t{n2}\t+\t{n1}\t+\t{overlap}\n")
+            else:
+                writer.write(f"L\t{n1}\t{o1}\t{n2}\t{o2}\t{overlap}\n")
         else:
             writer.write(line)
     reader.close()
