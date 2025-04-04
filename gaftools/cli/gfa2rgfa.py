@@ -88,7 +88,10 @@ def run(gfa=None, reference_name="CHM13", reference_tagged=False, seqfile=None, 
     logger.info("Time to read GFA file:                       %9.2f s", timers.elapsed("read_gfa"))
     logger.info("Time to tag reference nodes:                 %9.2f s", timers.elapsed("tag_reference"))
     logger.info("Time to tag assembly nodes:                  %9.2f s", timers.elapsed("tag_assemblies"))
+    logger.info("Time to write temporary walks:               %9.2f s", timers.elapsed("write_temp_walk"))
+    logger.info("Time to check orientation:                   %9.2f s", timers.elapsed("checking_orientation"))
     logger.info("Time to write S and L lines:                 %9.2f s", timers.elapsed("write_s_l_lines"))
+    logger.info("Time to rewrite L lines:                     %9.2f s", timers.elapsed("rewrite_L_lines"))
     logger.info("Time to write W lines:                       %9.2f s", timers.elapsed("write_w_lines"))
     logger.info("Time to cleanup temporary files:             %9.2f s", timers.elapsed("cleanup"))
     logger.info("Time spent on rest:                          %9.2f s", total_time - timers.sum())
@@ -263,16 +266,21 @@ def create_assembly_tags(nodes, walks, sample, index, file, tmp_walk_file):
                 orient = walk[i]
                 continue
             id = walk[i]
+            # writing the temporary walk file and doing this conversion increased runtime significantly.
+            # is this from the IO operation or the switching operations?
             if isinstance(nodes[id], Node):
                 if orient == "<":
                     nodes[id] = OutputNode(ln=nodes[id].ln, so=so, sn=sn, sr=index, invert=True)
                 else:
                     nodes[id] = OutputNode(ln=nodes[id].ln, so=so, sn=sn, sr=index)
-            if nodes[id].invert:
-                orient = orient_switch[orient]
-            tmp_walk_file.write(f"{orient}{id}")
+            with timers("checking_orientation"):
+                if nodes[id].invert:
+                    orient = orient_switch[orient]
+            with timers("write_temp_walk"):
+                tmp_walk_file.write(f"{orient}{id}")
             so = so + nodes[id].ln
-        tmp_walk_file.write("\n")
+        with timers("write_temp_walk"):
+            tmp_walk_file.write("\n")
 
 
 # writing the rGFA file.
@@ -309,15 +317,16 @@ def write_rGFA(gfa, nodes, writer):
             new_line += "\n"
             writer.write(new_line)
         elif line.startswith("L"):
-            _, n1, o1, n2, o2, overlap = line.strip().split("\t")
-            if nodes[n1].invert:
-                o1 = orient_switch[o1]
-            if nodes[n2].invert:
-                o2 = orient_switch[o2]
-            if o1 == o2 and o1 == "-":
-                writer.write(f"L\t{n2}\t+\t{n1}\t+\t{overlap}\n")
-            else:
-                writer.write(f"L\t{n1}\t{o1}\t{n2}\t{o2}\t{overlap}\n")
+            with timers("rewrite_L_lines"):
+                _, n1, o1, n2, o2, overlap = line.strip().split("\t")
+                if nodes[n1].invert:
+                    o1 = orient_switch[o1]
+                if nodes[n2].invert:
+                    o2 = orient_switch[o2]
+                if o1 == o2 and o1 == "-":
+                    writer.write(f"L\t{n2}\t+\t{n1}\t+\t{overlap}\n")
+                else:
+                    writer.write(f"L\t{n1}\t{o1}\t{n2}\t{o2}\t{overlap}\n")
         else:
             writer.write(line)
     reader.close()
