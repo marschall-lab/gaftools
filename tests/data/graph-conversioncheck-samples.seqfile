@@ -1,0 +1,7 @@
+REF	tests/data/graph-conversioncheck-assembly-REF.fa
+FOO.1	tests/data/graph-conversioncheck-assembly-FOO.1.fa
+FOO.2	tests/data/graph-conversioncheck-assembly-FOO.2.fa
+BAR.1	tests/data/graph-conversioncheck-assembly-BAR.1.fa
+BAR.2	tests/data/graph-conversioncheck-assembly-BAR.2.fa
+BAZ.1	tests/data/graph-conversioncheck-assembly-BAZ.1.fa
+BAZ.2	tests/data/graph-conversioncheck-assembly-BAZ.2.fa

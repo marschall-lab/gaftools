@@ -1,6 +1,23 @@
 """
 Sort the GAF alignments using BO and NO tags of the corresponding graph.
+"""
 
+import logging
+import functools
+import re
+import pickle as pkl
+from pysam import libcbgzf
+from collections import defaultdict, namedtuple
+
+from gaftools.utils import is_file_gzipped, FileWriter
+from gaftools.timer import StageTimer
+from gaftools.gfa import GFA
+from gaftools.cli import log_memory_usage
+
+logger = logging.getLogger(__name__)
+timers = StageTimer()
+
+"""
 The script uses the BO and NO tags defined by the order_gfa command. Using the bubble ordering done, the alignments are sorted.
 
 The index is dictionary created using pickle library which contains the reference contig names as keys and the offset the alignments begin and end.
@@ -11,59 +28,36 @@ It adds some tags into the sorted GAF file. The tags are:
     3. iv:i: - 1 if the alignment path has an inversion. 0 otherwise.
 """
 
-import sys
-import logging
-import functools
-import re
-import resource
-import pickle as pkl
-from pysam import libcbgzf
-from collections import defaultdict, namedtuple
 
-import gaftools.utils as utils
-from gaftools.timer import StageTimer
-from gaftools.gfa import GFA
-
-logger = logging.getLogger(__name__)
-timers = StageTimer()
-
-
-def run_sort(gfa, gaf, outgaf=None, outind=None, bgzip=False):
-    if outgaf is None:
-        writer = sys.stdout
-        index_file = None
+def run_sort(gfa, gaf, outgaf=None, outind=None):
+    writer = FileWriter(outgaf)
+    index_file = None
+    if outind:
+        index_file = outind
     else:
-        if bgzip:
-            writer = libcbgzf.BGZFile(outgaf, "wb")
-        else:
-            writer = open(outgaf, "w")
-        if outind:
-            index_file = outind
-        else:
-            index_file = outgaf + ".gsi"
+        index_file = outgaf + ".gsi"
     index_dict = defaultdict(lambda: [None, None])
     with timers("read_gfa"):
         gfa_file = GFA(graph_file=gfa, low_memory=True)
-    with timers("total_sort"):
-        sort(gaf, gfa_file.nodes, writer, index_dict, index_file)
+    sort(gaf, gfa_file.nodes, writer, index_dict, index_file)
     writer.close()
 
-    memory_kb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-    logger.info("\nMemory Information")
-    logger.info("  Maximum memory usage:              %.3f GB", memory_kb / 1e6)
-    logger.info("\nTime Summary:")
-    logger.info("  Time to parse GFA file:            %.3f seconds" % (timers.elapsed("read_gfa")))
-    logger.info(
-        "  Total time to sort GAF file:       %.3f seconds" % (timers.elapsed("total_sort"))
-    )
-    logger.info("    Time to parse GAF file:          %.3f seconds" % (timers.elapsed("read_gaf")))
-    logger.info("    Time to sort GAF file:           %.3f seconds" % (timers.elapsed("sort_gaf")))
-    logger.info("    Time to write GAF file:          %.3f seconds" % (timers.elapsed("write_gaf")))
+    logger.info("\n== SUMMARY ==")
+    total_time = timers.total()
+    log_memory_usage()
+    # fmt: off
+    logger.info("Time to parse GFA file:                      %9.2f s" % (timers.elapsed("read_gfa")))
+    logger.info("Time to parse GAF file:                      %9.2f s" % (timers.elapsed("read_gaf")))
+    logger.info("Time to sort GAF file:                       %9.2f s" % (timers.elapsed("sort_gaf")))
+    logger.info("Time to write GAF file:                      %9.2f s" % (timers.elapsed("write_gaf")))
+    logger.info("Time spent on rest:                          %9.2f s", total_time - timers.sum())
+    logger.info("Total time:                                  %9.2f s", total_time)
+    # fmt: on
 
 
 def sort(gaf, nodes, writer, index_dict, index_file):
     logger.info("Parsing GAF file and sorting it")
-    if utils.is_file_gzipped(gaf):
+    if is_file_gzipped(gaf):
         reader = libcbgzf.BGZFile(gaf, "rb")
     else:
         reader = open(gaf, "r")
@@ -109,6 +103,7 @@ def sort(gaf, nodes, writer, index_dict, index_file):
             else:
                 raise RuntimeError("GAF alignments not in string or byte format.")
             line += "\tbo:i:%d\tsn:Z:%s\tiv:i:%d\n" % (alignment.BO, alignment.sn, alignment.inv)
+            writer.write(line)
             if index_file is not None:
                 out_off = writer.tell()
                 if index_dict[alignment.sn][0] is None:
@@ -116,7 +111,6 @@ def sort(gaf, nodes, writer, index_dict, index_file):
                     index_dict[alignment.sn][1] = out_off
                 else:
                     index_dict[alignment.sn][1] = out_off
-            write_to_file(line, writer)
     if index_file is not None:
         if "unknown" in index_dict:
             index_dict.pop("unknown")
@@ -222,37 +216,24 @@ def compare_gaf(al1, al2):
         return 1
 
 
-def write_to_file(line, writer):
-    try:
-        writer.write(line)
-    except TypeError:
-        writer.write(str.encode(line))
-
-
 # fmt: off
 def add_arguments(parser):
     arg = parser.add_argument
     # Positional arguments
     arg("gaf", metavar='GAF',
-        help="Input GAF File (can be bgzip-compressed)")
+        help="GAF File (can be bgzip-compressed)")
     arg("gfa", metavar='GFA',
         help="GFA file with the sort keys (BO and NO tagged). This is done with gaftools order_gfa")
     arg("--outgaf", default=None,
-        help="Output GAF File path (Default: sys.stdout)")
+        help="Output GAF (bgzipped if the file ends with .gz). If omitted, use standard output.")
     arg("--outind", default=None,
-        help="Output Index File path for the GAF file. "
+        help="Output GAF Sorting Index file. "
         "When --outgaf is not given, no index is created. "
         "If it is given and --outind is not specified, it will have same file name with .gsi extension)")
-    arg("--bgzip", action='store_true',
-        help="Flag to bgzip the output. Can only be given with --outgaf.")
 
 
 # fmt: on
 def validate(args, parser):
-    if args.bgzip and not args.outgaf:
-        parser.error(
-            "--bgzip flag has been specified but not output path has been defined. Please define the output path."
-        )
     if args.outind and not args.outgaf:
         parser.error("index path specified but no output gaf path. Please provide an output path.")
 

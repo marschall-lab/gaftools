@@ -17,5 +17,5 @@ class HelpfulArgumentParser(ArgumentParser):
 
     def error(self, message):
         self.print_help(sys.stderr)
-        args = {"prog": self.prog, "message": message}
-        self.exit(2, "%(prog)s: error: %(message)s\n" % args)
+        args = {"prog": "gaftools", "message": message}
+        self.exit(2, "%(prog)s error: %(message)s\n" % args)
