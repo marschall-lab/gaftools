@@ -1,6 +1,15 @@
 Changes
 =======
 
+v1.1.2 (17/04/2025)
+-------------------
+
+* Better BGZF compatibility for all subcommands.
+* Formatting updates with logger.
+* :issue:`34`: Added subcommand :code:`gfa2rgfa` to convert GFA to rGFA format. Tested with HPRC Minigraph-Cactus Graph (v1.1).
+* Updated documentation to include :code:`gfa2rgfa` subcommand.
+
+
 v1.1.1 (23/01/2025)
 -------------------
 
@@ -8,6 +17,7 @@ v1.1.1 (23/01/2025)
 * Updated documentation to include preprint link and citation text.
 * :issue:`33`: Fixed error when viewing regions spanning multiple nodes.
 * :issue:`32`: Fixed error when trying to extract whole chromosomes.
+
 
 v1.1.0 (09/10/2024)
 -------------------
