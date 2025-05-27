@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=43", "setuptools_scm[toml]"]
+requires = ["setuptools>=61", "setuptools_scm[toml]"]
 build-backend = "setuptools.build_meta"
 
 
@@ -17,11 +17,10 @@ maintainers = [
 description = "Toolkit for pangenome alignments"
 readme = 'docs/README.rst'
 requires-python = ">=3.8"
-license = {text = "MIT"}
+license = "MIT"
 classifiers = [
     "Development Status :: 4 - Beta",
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Environment :: Console",
     "Intended Audience :: Science/Research",
