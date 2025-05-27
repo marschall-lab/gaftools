@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61", "setuptools_scm[toml]"]
+requires = ["setuptools>=77", "setuptools_scm[toml]"]
 build-backend = "setuptools.build_meta"
 
 
@@ -66,7 +66,8 @@ include = ["gaftools*"]
 
 [tool.setuptools_scm]
 write_to = "gaftools/_version.py"
-
+version_scheme = "post-release"
+local_scheme = "node-and-date"
 
 [tool.pytest.ini_options]
 addopts = "--doctest-modules"
