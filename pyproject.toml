@@ -66,8 +66,7 @@ include = ["gaftools*"]
 
 [tool.setuptools_scm]
 write_to = "gaftools/_version.py"
-version_scheme = "post-release"
-local_scheme = "node-and-date"
+
 
 [tool.pytest.ini_options]
 addopts = "--doctest-modules"
