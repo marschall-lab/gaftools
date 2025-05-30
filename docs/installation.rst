@@ -6,7 +6,7 @@ Requirements
 
 gaftools has the following requirement:
 
-* python>=3.8
+* python>=3.9
 * pysam
 * pywfa
 
@@ -50,10 +50,21 @@ Installing from PyPI
 
     pip install gaftools
 
+We recommend installation inside a clean conda environment to allow easy removal and avoid dependency issues. For example, to install :code:`gaftools` in a conda environment named :code:`gaftools-env`, run the following commands::
+
+    conda create -n gaftools-env python=3.10
+    conda activate gaftools-env
+    pip install gaftools
 
 Installing from Conda
 ---------------------
 
 :code:`gaftools` is now available on bioconda and can be installed with::
 
+    conda install bioconda::gaftools
+
+We recommend installation inside a clean conda environment to allow easy removal and avoid dependency issues. For example, to install :code:`gaftools` in a conda environment named :code:`gaftools-env`, run the following commands::
+
+    conda create -n gaftools-env python=3.10
+    conda activate gaftools-env
     conda install bioconda::gaftools
