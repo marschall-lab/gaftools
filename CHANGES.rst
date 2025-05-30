@@ -1,6 +1,12 @@
 Changes
 =======
 
+v1.1.3 (30/05/2025)
+-------------------
+
+* Minor updates to documentation.
+* Due to the CI/CD issues, this version just consists of minor documentation changes which were implemented in the previous version (v1.1.2). Due to PyPI restrictions regarding version names, the documentation are being released as a new version release.
+
 v1.1.2 (30/05/2025)
 -------------------
 
