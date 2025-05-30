@@ -1,13 +1,15 @@
 Changes
 =======
 
-v1.1.2 (17/04/2025)
+v1.1.2 (30/05/2025)
 -------------------
 
 * Better BGZF compatibility for all subcommands.
 * Formatting updates with logger.
 * :issue:`34`: Added subcommand :code:`gfa2rgfa` to convert GFA to rGFA format. Tested with HPRC Minigraph-Cactus Graph (v1.1).
 * Updated documentation to include :code:`gfa2rgfa` subcommand.
+* Fixing :issue:`38` regarding GitHub CI/CD (that is why this version's date has been changed to 30/05/2025).
+* Updating python requirement to >=3.9 and adding SPDX expression for MIT license.
 
 
 v1.1.1 (23/01/2025)
