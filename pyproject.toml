@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61", "setuptools_scm[toml]"]
+requires = ["setuptools>=61", "setuptools_scm[toml], twine>=4.0.2, pkginfo>1.10.0"]
 build-backend = "setuptools.build_meta"
 
 
@@ -51,8 +51,6 @@ dev = [
     "sphinx-rtd-theme",
     "sphinx-better-subsection",
     "setuptools_scm",
-    "twine>=4.0.2",
-    "pkginfo>1.10.0"
 ]
 docs = [
     "sphinx",
