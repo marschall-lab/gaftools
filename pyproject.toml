@@ -17,7 +17,7 @@ maintainers = [
 description = "Toolkit for pangenome alignments"
 readme = 'docs/README.rst'
 requires-python = ">=3.8"
-license = { text = "MIT" }
+license = "MIT"
 classifiers = [
     "Development Status :: 4 - Beta",
     "Programming Language :: Python :: 3",
@@ -50,7 +50,9 @@ dev = [
     "sphinx-issues",
     "sphinx-rtd-theme",
     "sphinx-better-subsection",
-    "setuptools_scm"
+    "setuptools_scm",
+    "twine>=4.0.2",
+    "pkginfo>1.10.0"
 ]
 docs = [
     "sphinx",
