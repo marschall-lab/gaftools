@@ -17,7 +17,7 @@ maintainers = [
 description = "Toolkit for pangenome alignments"
 readme = 'docs/README.rst'
 requires-python = ">=3.8"
-license = "MIT"
+license = { text = "MIT" }
 classifiers = [
     "Development Status :: 4 - Beta",
     "Programming Language :: Python :: 3",
