@@ -231,10 +231,13 @@ have a NO tag of 0, and the nodes inside a bubble are marked with an increasing 
 .. image:: _static/no_tags.png
     :width: 600
 
+Note: The :code:`order_gfa` subcommand does not change the name of the nodes and only adds the BO and NO tags as additional information.
+
 Usage
 -----
-The :code:`order_gfa` subcommand takes an rGFA as an obligatory input to order. Optionally, the user can specify 1 or more chromosome to be sorted,
-which are given after :code:`--chromosome_order`, and the chromosome name(s) should match the SN tags in the rGFA.
+The :code:`order_gfa` subcommand takes an rGFA as an obligatory input to order.
+Optionally, the user can specify the order/subset of the chromosomes in the output GFA using the :code:`--chromosome-order` option.
+By default, the chromosomes are ordered in a lexicographic order of the component names.
 With the :code:`--by-chrom` flag, all the chromosomal graphs are output separately.
 Users can also specify an output directory.
 
@@ -249,10 +252,10 @@ their BO tag then NO tag, also will output a CSV file with node colors similar t
   positional arguments:
     GRAPH                 Input rGFA file
 
-  optional arguments:
+  options:
     -h, --help            show this help message and exit
-    --chromosome_order CHROMOSOME_ORDER
-                          Order in which to arrange chromosomes in terms of BO sorting. Expecting comma-separated list. Default: chr1,...,chr22,chrX,chrY,chrM
+    --chromosome-order CHROMOSOME_ORDER
+                          Order in which to arrange chromosomes in terms of BO sorting. By default, it is arranged in the lexicographic order of identified component names. Expecting comma-separated list. Example: 'chr1,chr2,chr3'
     --with-sequence       Retain sequences in output (default is to strip sequences)
     --outdir OUTDIR       Output Directory to store all the GFA and CSV files. Default location is a "out" folder from the directory of execution.
     --by-chrom            Outputs each chromosome as a separate GFA, otherwise, all chromosomes in one GFA file
@@ -412,7 +415,7 @@ The :code:`stat` subcommand takes 1 obligatory inputs, a GAF alignment file. It 
   positional arguments:
     GAF                   Input GAF file (can be bgzip-compressed)
 
-    optional arguments:
+  optional arguments:
     -h, --help            show this help message and exit
     -o OUTPUT, --output OUTPUT
                           Output file. If omitted, use standard output.
