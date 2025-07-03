@@ -60,21 +60,22 @@ def run_order_gfa(
         for c in chromosome_order:
             if c not in set(components.keys()):
                 logger.error(
-                    f"The chromosome name provided {c} did not match with a component in the graph"
+                    f"The chromosome name provided '{c}' did not match with a component in the graph"
                 )
-                logger.error(f" What was Found: {','.join(sorted(components.keys()))}")
+                logger.error(
+                    f"The components found in the graph: {','.join(sorted(components.keys()))}"
+                )
+                logger.error("Please check the chromosome order provided")
                 sys.exit(1)
-
-    else:  # user did not give a
-        try:
-            assert set(components.keys()) == set(DEFAULT_CHROMOSOME)
-        except AssertionError:
-            logger.error(
-                f"chromosome order was not provided, so the default was taken, but the default did not match"
-                f" what was found in the graph, which is {','.join(sorted(components.keys()))}"
-            )
-            sys.exit(1)
-        chromosome_order = DEFAULT_CHROMOSOME
+    else:  # user did not give chromosome order
+        chromosome_order = sorted(components.keys())
+        logger.info(
+            f"Chromosome order was not provided as input. Searching for the default chromosomes: {', '.join(DEFAULT_CHROMOSOME)}"
+        )
+        logger.info(f"Found the following component names: {', '.join(chromosome_order)}")
+        logger.info(
+            "Using the component names as chromosome names to write rGFA. If you wish to subset components or order them, please provide the --chromosome_order argument."
+        )
     # running index for the bubble index (BO) already used
     bo = 0
     total_bubbles = 0
@@ -317,9 +318,9 @@ def name_comps(graph, components):
 # fmt: off
 def add_arguments(parser):
     arg = parser.add_argument
-    arg("--chromosome_order", default="",
-        help="Order in which to arrange chromosomes in terms of BO sorting. "
-        "Expecting comma-separated list. Default: chr1,...,chr22,chrX,chrY,chrM")
+    arg("--chromosome-order", default="",
+        help="Order in which to arrange chromosomes in terms of BO sorting. By default, it is arranged in the lexicographic order of identified component names. "
+        "Expecting comma-separated list. Example: 'chr1,chr2,chr3'")
     arg("--with-sequence", default=False, action="store_true",
         help="Retain sequences in output (default is to strip sequences)")
     arg("gfa_filename", metavar="GRAPH",
