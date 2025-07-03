@@ -32,10 +32,11 @@ It adds some tags into the sorted GAF file. The tags are:
 def run_sort(gfa, gaf, outgaf=None, outind=None):
     writer = FileWriter(outgaf)
     index_file = None
-    if outind:
-        index_file = outind
-    else:
-        index_file = outgaf + ".gsi"
+    if outgaf:
+        if outind:
+            index_file = outind
+        else:
+            index_file = outgaf + ".gsi"
     index_dict = defaultdict(lambda: [None, None])
     with timers("read_gfa"):
         gfa_file = GFA(graph_file=gfa, low_memory=True)
