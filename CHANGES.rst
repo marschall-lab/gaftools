@@ -1,6 +1,14 @@
 Changes
 =======
 
+v1.2.0 (03/07/2025)
+-------------------
+
+* Version push intended for manuscript revision submission.
+* Minor updates to documentation includes better explanation of sort and view index structure, and minor error handling changes to :code:`order_gfa`.
+* Better error handling regarding the :code:`--chromosome-order` option in :code:`order_gfa`.
+* Fixed error in sort index creation when sorted GAF file is directed to standard output.
+
 v1.1.3 (30/05/2025)
 -------------------
 
