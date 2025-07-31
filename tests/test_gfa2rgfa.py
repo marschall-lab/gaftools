@@ -84,6 +84,10 @@ def parse_coordinates(rgfa, seqfile, gzipped=False):
             assert "SO" in tags
             assert "SR" in tags
             assembly = tuple(tags["SN"][1].split("#"))
+            if assembly[0] == "unknown":
+                # this node was not identified to come from an assembly.
+                # cannot perform this test.
+                continue
             if len(assembly) == 2:
                 assm_name = (assembly[0], "0")
                 contig_name = assembly[1]
