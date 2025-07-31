@@ -288,7 +288,7 @@ def create_assembly_tags(nodes, walks, sample, index, file, tmp_walk_file):
 
 # writing the rGFA file.
 def write_rGFA(gfa, nodes, writer):
-    stats_counter = {"rank-0 nodes": 0}
+    stats_counter = {"rank-0 nodes": 0, "unknown nodes": 0}
     reader_gzipped = False
     reader = None
     if gfa.endswith(".gz"):
