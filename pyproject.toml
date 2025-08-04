@@ -46,6 +46,7 @@ dev = [
     "coverage",
     "tox",
     "ruff",
+    "pre-commit",
     "sphinx",
     "sphinx-issues",
     "sphinx-rtd-theme",
