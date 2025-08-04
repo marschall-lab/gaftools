@@ -9,7 +9,7 @@ import re
 from pysam import libcbgzf
 from gaftools.utils import FileWriter
 from gaftools.timer import StageTimer
-from gaftools.cli import log_memory_usage
+from gaftools.cli import log_memory_usage, CommandLineError
 
 logger = logging.getLogger(__name__)
 timers = StageTimer()
@@ -46,14 +46,32 @@ def run(gfa=None, reference_name="CHM13", reference_tagged=False, seqfile=None, 
         create_ref_tags(node_dict, walks, reference_name, gfa, tmp_walk_file, reference_tagged)
     # if reference node info is already tagged (as is the case with the minigraph-cactus gfa), then just need to fill the rest of the information.
     if seqfile:
+        logger.info(
+            "Seqfile was provided. Using the order of assemblies in the seqfile to tag assembly nodes."
+        )
         sample_order = get_sample_order(seqfile)
         for index, sample in enumerate(sample_order):
             if sample == reference_name:
                 continue
             logger.info(
-                f"Tagging assembly nodes for sample {sample} and writing corrected walks to temp file."
+                f"Tagging assembly nodes for haplotype assembly {sample} and writing corrected walks to temp file."
             )
             create_assembly_tags(node_dict, walks, sample, index, gfa, tmp_walk_file)
+    else:
+        logger.info(
+            "No seqfile was provided. Defaulting to the order of assemblies provided in the GFA."
+        )
+        sample_order = [
+            f"{sample}.{hap}" for sample, hap in walks.keys() if sample != reference_name
+        ]
+        for index, sample in enumerate(sample_order):
+            if sample == reference_name:
+                continue
+            logger.info(
+                f"Tagging assembly nodes for haplotype assembly {sample} and writing corrected walks to temp file."
+            )
+            create_assembly_tags(node_dict, walks, sample, index + 1, gfa, tmp_walk_file)
+
     tmp_walk_file.close()
     # reading the temporary file to write the rGFA file.
     writer = FileWriter(output)
@@ -68,6 +86,7 @@ def run(gfa=None, reference_name="CHM13", reference_tagged=False, seqfile=None, 
     with timers("cleanup"):
         logger.info("Cleaning up temporary files.")
         os.remove(output + "-walks.tmp.gz")
+    logger.info("\n== NODE STATS ==")
     for key, value in stats_counter.items():
         logger.info(f"Number of {key}: {value}")
     if stats_counter["rank-0 nodes"] == 0:
@@ -111,7 +130,8 @@ def add_arguments(parser):
     arg("--reference-tagged", default=False, action="store_true",
         help="Flag to denote reference nodes are already tagged in the GFA.")
     arg("--seqfile", metavar='SEQFILE',
-        help='File containing the sequence in which assemblies were given. Provide the seqfile given as part of running minigraph-cactus. It has the format: <assembly_name><tab><assembly_path>'
+        help='File containing the sequence in which assemblies were given. Provide the seqfile given as part of running minigraph-cactus (only the first column is required). It has the format: <assembly_name><tab><assembly_path>.'
+        ' If not provided, the order of assemblies will be taken from the GFA file. User-defined order of assemblies can also be given. '
         'There should be W lines for each assembly in the GFA.')
     arg("--output", metavar='rGFA',
         help='Output rGFA (bgzipped if the file ends with .gz). If omitted, use standard output.')
@@ -228,7 +248,10 @@ def create_ref_tags(nodes, walks, reference_name, file, tmp_walk_file, reference
                 assert walk[i] == ">", "Reference walk should be in the 5' to 3' orientation."
                 continue
             id = walk[i]
-            assert isinstance(nodes[id], Node), f"Reference node {id} is not a rank-0 node."
+            if not isinstance(nodes[id], Node):
+                raise CommandLineError(
+                    f"Node {id} seems to be a reference node and is already tagged. Please give the --reference-tagged flag."
+                )
             nodes[id] = OutputNode(ln=nodes[id].ln, so=so, sn=sn, sr=0)
             so = so + nodes[id].ln
     opened_file.close()
@@ -276,6 +299,13 @@ def create_assembly_tags(nodes, walks, sample, index, file, tmp_walk_file):
                 if isinstance(nodes[id], Node):
                     nodes[id] = OutputNode(ln=nodes[id].ln, so=so, sn=sn, sr=index, orient=orient)
             with timers("checking_orientation"):
+                # this block is to check if any node was introduced in the reverse orientation.
+                # for example if s26 introduced in BAR.1.ASSM1 was introduced in the reverse orientation,
+                # (i.e instead of <s8<s23>s26>s27<s6>s28<s4, it was <s8<s23<s26>s27<s6>s28<s4)
+                # then the orientation has to be corrected.
+                # Hence we store that the original orientation of the node as node.orient.
+                # When the node is encountered in other place, the orientation is switched.
+                # If the GFA is correctly formatted, then the orientation should be always in the > direction.
                 if nodes[id].orient == "<":
                     orient = orient_switch[orient]
             with timers("write_temp_walk"):
@@ -306,11 +336,11 @@ def write_rGFA(gfa, nodes, writer):
         if line.startswith("S"):
             with timers("write_s_lines"):
                 id = line.split("\t")[1]
-                node = nodes[id]
-                if isinstance(node, Node):
+                if isinstance(nodes[id], Node):
                     # no tags have been assigned to this node
-                    node = OutputNode(ln=node.ln, sn="unknown", so=0, sr=-1)
+                    nodes[id] = OutputNode(ln=nodes[id].ln, sn="unknown", so=0, sr=-1)
                     stats_counter["unknown nodes"] += 1
+                node = nodes[id]
                 stats_counter["rank-0 nodes"] += 1 if node.sr == 0 else 0
                 _, id, seq = line.strip().split("\t")[0:3]
                 if node.orient == "<":

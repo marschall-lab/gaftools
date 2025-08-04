@@ -152,7 +152,24 @@ def test_untagged_input(tmp_path):
     seqfile = "tests/data/graph-conversioncheck-samples.seqfile"
     truth_rgfa = "tests/data/graph-conversioncheck-rgfa.gfa"
     output = str(tmp_path) + "/output-rgfa.gfa"
+
+    # running with seqfile
     run(gfa=input_gfa, reference_name="REF", reference_tagged=False, seqfile=seqfile, output=output)
+    output_lines = parse_gfa(output)
+    truth_lines = parse_gfa(truth_rgfa)
+    # checking for tag exactness
+    for n in range(len(output_lines)):
+        assert output_lines[n] == truth_lines[n]
+    output_lines = parse_output(output)
+    truth_lines = parse_output(truth_rgfa)
+    # checking for exactness
+    for n in range(len(output_lines)):
+        assert output_lines[n] == truth_lines[n]
+    # checking for coordinates
+    parse_coordinates(output, seqfile)
+
+    # running without seqfile
+    run(gfa=input_gfa, reference_name="REF", reference_tagged=False, output=output)
     output_lines = parse_gfa(output)
     truth_lines = parse_gfa(truth_rgfa)
     # checking for tag exactness
@@ -173,7 +190,24 @@ def test_partial_tagged_input(tmp_path):
     seqfile = "tests/data/graph-conversioncheck-samples.seqfile"
     truth_rgfa = "tests/data/graph-conversioncheck-rgfa.gfa"
     output = str(tmp_path) + "/output-rgfa.gfa"
+
+    # running with seqfile
     run(gfa=input_gfa, reference_name="REF", reference_tagged=True, seqfile=seqfile, output=output)
+    output_lines = parse_gfa(output)
+    truth_lines = parse_gfa(truth_rgfa)
+    # checking for tag exactness
+    for n in range(len(output_lines)):
+        assert output_lines[n] == truth_lines[n]
+    output_lines = parse_output(output)
+    truth_lines = parse_output(truth_rgfa)
+    # checking for exactness
+    for n in range(len(output_lines)):
+        assert output_lines[n] == truth_lines[n]
+    # checking for coordinates
+    parse_coordinates(output, seqfile)
+
+    # running without seqfile
+    run(gfa=input_gfa, reference_name="REF", reference_tagged=True, output=output)
     output_lines = parse_gfa(output)
     truth_lines = parse_gfa(truth_rgfa)
     # checking for tag exactness
