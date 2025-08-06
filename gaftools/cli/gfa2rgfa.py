@@ -104,8 +104,8 @@ def run(gfa=None, reference_name="CHM13", reference_tagged=False, seqfile=None, 
     # fmt: off
     logger.info("Time to read GFA file:                       %9.2f s", timers.elapsed("read_gfa"))
     logger.info("Time to tag reference nodes:                 %9.2f s", timers.elapsed("tag_reference"))
-    logger.info("Time to tag assembly nodes:                  %9.2f s", timers.elapsed("walk_generator")+timers.elapsed("write_temp_walk")+timers.elapsed("checking_node_class")+timers.elapsed("checking_orientation")+timers.elapsed("splitting_walk"))
-    logger.info("  Time for walk generator:                   %9.2f s", timers.elapsed("walk_generator"))
+    logger.info("Time to tag assembly nodes:                  %9.2f s", timers.elapsed("yield_walks")+timers.elapsed("write_temp_walk")+timers.elapsed("checking_node_class")+timers.elapsed("checking_orientation")+timers.elapsed("splitting_walk"))
+    logger.info("  Time for yielding walks:                   %9.2f s", timers.elapsed("yield_walks"))
     logger.info("  Time for writing temporary walks:          %9.2f s", timers.elapsed("write_temp_walk"))
     logger.info("  Time for checking node class:              %9.2f s", timers.elapsed("checking_node_class"))
     logger.info("  Time for checking orientation:             %9.2f s", timers.elapsed("checking_orientation"))
@@ -206,13 +206,14 @@ def process_gfa(gfa):
 
 
 def yield_walks(file, offsets, gzipped):
-    for offset in offsets:
-        file.seek(offset)
-        line = file.readline().decode("utf-8") if gzipped else file.readline()
-        _, _, _, assm_name, start, end, path = line.strip().split(
-            "\t",
-        )
-        yield assm_name, int(start), int(end), path
+    with timers("yield_walks"):
+        for offset in offsets:
+            file.seek(offset)
+            line = file.readline().decode("utf-8") if gzipped else file.readline()
+            _, _, _, assm_name, start, end, path = line.strip().split(
+                "\t",
+            )
+            yield assm_name, int(start), int(end), path
 
 
 def revcomp(seq):
@@ -273,12 +274,11 @@ def create_assembly_tags(nodes, walks, sample, index, file, tmp_walk_file):
         gzipped = True
     else:
         opened_file = open(file, "r")
-    with timers("walk_generator"):
-        try:
-            walks_list = yield_walks(opened_file, walks[(sample_name, hap)], gzipped)
-        except KeyError:
-            logger.error(f"No walks found for sample {sample_name}#{hap}.")
-            return
+    try:
+        walks_list = yield_walks(opened_file, walks[(sample_name, hap)], gzipped)
+    except KeyError:
+        logger.error(f"No walks found for sample {sample_name}#{hap}.")
+        return
     for assm_name, walk_start, walk_end, walk_path in walks_list:
         # writing the initial fields of walk to a temporary file.
         with timers("write_temp_walk"):
@@ -318,7 +318,12 @@ def create_assembly_tags(nodes, walks, sample, index, file, tmp_walk_file):
 
 # writing the rGFA file.
 def write_rGFA(gfa, nodes, writer):
-    stats_counter = {"rank-0 nodes": 0, "unknown nodes": 0}
+    stats_counter = {
+        "rank-0 nodes": 0,
+        "non rank-0 nodes": 0,
+        "unknown nodes": 0,
+        "flipped nodes": 0,
+    }
     reader_gzipped = False
     reader = None
     if gfa.endswith(".gz"):
@@ -342,8 +347,10 @@ def write_rGFA(gfa, nodes, writer):
                     stats_counter["unknown nodes"] += 1
                 node = nodes[id]
                 stats_counter["rank-0 nodes"] += 1 if node.sr == 0 else 0
+                stats_counter["non rank-0 nodes"] += 1 if node.sr != 0 else 0
                 _, id, seq = line.strip().split("\t")[0:3]
                 if node.orient == "<":
+                    stats_counter["flipped nodes"] += 1
                     seq = revcomp(seq)
                 new_line = f"S\t{id}\t{seq}"
                 new_line += node.tags_to_string()
