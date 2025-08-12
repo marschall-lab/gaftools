@@ -81,7 +81,7 @@ def run_realign(gaf, graph, fasta, output=None, cores=1):
     total_time = timers.total()
     log_memory_usage(include_children=True)
     logger.info("Time to read GFA:                            %9.2f s", timers.elapsed("read_gfa"))
-    logger.info("Time to realign GAF:                         %9.2f s", timers.elapsed("realign"))
+    logger.info("Time to read, realign, and write GAF:        %9.2f s", timers.elapsed("realign"))
     logger.info("Time spent on rest:                          %9.2f s", total_time - timers.sum())
     logger.info("Total time:                                  %9.2f s", total_time)
 
@@ -106,9 +106,8 @@ def wfa_alignment(seq_batch, qu):
             # queue.put(out_string + "\n")
 
         else:
-            with timers("realign"):
-                aligner = WavefrontAligner(ref)
-                res = aligner(query, clip_cigar=False)
+            aligner = WavefrontAligner(ref)
+            res = aligner(query, clip_cigar=False)
 
             match, mismatch, cigar_len, ins, deletion, soft_clip = 0, 0, 0, 0, 0, 0
             cigar = ""
@@ -169,63 +168,64 @@ def realign_gaf(gaf, graph, fasta, writer, cores=1):
     gaf_file = GAF(gaf)
     priority_counter = 0
     logger.info("Reading GAF file and preparing batches for alignment.")
-    for line in gaf_file.read_file():
-        path_sequence = graph_obj.extract_path(line.path)
-        ref = path_sequence[line.path_start : line.path_end]
-        query = fastafile.fetch(line.query_name, line.query_start, line.query_end)
+    with timers("realign"):
+        for line in gaf_file.read_file():
+            path_sequence = graph_obj.extract_path(line.path)
+            ref = path_sequence[line.path_start : line.path_end]
+            query = fastafile.fetch(line.query_name, line.query_start, line.query_end)
 
-        seq_batch.append((line, ref, query, priority_counter))
-        priority_counter += 1
-        if len(seq_batch) != batch_size:
-            continue
-        else:
-            # logger.info(f"{time.time()} finished preparing one batch and adding a process for it")
-            processes.append(
-                mp.Process(
-                    target=wfa_alignment,
-                    args=(
-                        seq_batch,
-                        align_queue,
-                    ),
+            seq_batch.append((line, ref, query, priority_counter))
+            priority_counter += 1
+            if len(seq_batch) != batch_size:
+                continue
+            else:
+                # logger.info(f"{time.time()} finished preparing one batch and adding a process for it")
+                processes.append(
+                    mp.Process(
+                        target=wfa_alignment,
+                        args=(
+                            seq_batch,
+                            align_queue,
+                        ),
+                    )
                 )
-            )
-            seq_batch = []
+                seq_batch = []
 
-        if len(processes) == cores:
-            p_queue = queue.PriorityQueue()
-            # logger.info(f"{time.time()} Running the prepared batches of processes")
-            for p in processes:
-                p.start()
-            n_sentinels = 0
-            while n_sentinels != len(processes):  # exits when all processes finished
-                try:
-                    out_string_obj = align_queue.get(timeout=0.5)
-                except queue.Empty:  # queue throws Empty exception after timeout
-                    # check if all threads are still alive
-                    if one_is_alive(processes):
-                        continue
-                    else:
-                        # all_exited returns false if one exited with non-zero code
-                        if not all_exited(processes):
-                            logger.error(
-                                "One of the processes had a none-zero exit code. One reason could be that one of the processes consumed too much memory and was killed"
-                            )
-                            sys.exit(1)
-                if out_string_obj is None:  # sentinel counter to count finished processes
-                    n_sentinels += 1
-                else:  # priority queue to keep the output order same as input order
-                    p_queue.put(out_string_obj)
-                    # output.write(out_string_obj)
+            if len(processes) == cores:
+                p_queue = queue.PriorityQueue()
+                # logger.info(f"{time.time()} Running the prepared batches of processes")
+                for p in processes:
+                    p.start()
+                n_sentinels = 0
+                while n_sentinels != len(processes):  # exits when all processes finished
+                    try:
+                        out_string_obj = align_queue.get(timeout=0.5)
+                    except queue.Empty:  # queue throws Empty exception after timeout
+                        # check if all threads are still alive
+                        if one_is_alive(processes):
+                            continue
+                        else:
+                            # all_exited returns false if one exited with non-zero code
+                            if not all_exited(processes):
+                                logger.error(
+                                    "One of the processes had a none-zero exit code. One reason could be that one of the processes consumed too much memory and was killed"
+                                )
+                                sys.exit(1)
+                    if out_string_obj is None:  # sentinel counter to count finished processes
+                        n_sentinels += 1
+                    else:  # priority queue to keep the output order same as input order
+                        p_queue.put(out_string_obj)
+                        # output.write(out_string_obj)
 
-            for p in processes:
-                p.join()
-            queue_len = len(p_queue.queue)
-            for _ in range(queue_len):
-                writer.write(p_queue.get().seq)
-            processes = []
-            align_queue = mp.Queue()
-            p_queue = queue.PriorityQueue()
-    gaf_file.close()
+                for p in processes:
+                    p.join()
+                queue_len = len(p_queue.queue)
+                for _ in range(queue_len):
+                    writer.write(p_queue.get().seq)
+                processes = []
+                align_queue = mp.Queue()
+                p_queue = queue.PriorityQueue()
+        gaf_file.close()
 
     if len(seq_batch) > 0:  # leftover alignments to re-align
         processes.append(

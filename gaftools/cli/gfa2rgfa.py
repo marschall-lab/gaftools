@@ -110,9 +110,11 @@ def run(gfa=None, reference_name="CHM13", reference_tagged=False, seqfile=None, 
     logger.info("  Time for checking node class:              %9.2f s", timers.elapsed("checking_node_class"))
     logger.info("  Time for checking orientation:             %9.2f s", timers.elapsed("checking_orientation"))
     logger.info("  Time for splitting walk:                   %9.2f s", timers.elapsed("splitting_walk"))
-    logger.info("Time to write S lines:                       %9.2f s", timers.elapsed("write_s_lines"))
-    logger.info("Time to write L lines:                       %9.2f s", timers.elapsed("write_l_lines"))
-    logger.info("Time to write W lines:                       %9.2f s", timers.elapsed("write_w_lines"))
+    logger.info("Time for writing GFA:                        %9.2f s", timers.elapsed("reread_gfa_lines")+timers.elapsed("write_s_lines")+timers.elapsed("write_l_lines")+timers.elapsed("write_w_lines"))
+    logger.info("  Time to re-read GFA:                       %9.2f s", timers.elapsed("reread_gfa_lines"))
+    logger.info("  Time to write S lines:                     %9.2f s", timers.elapsed("write_s_lines"))
+    logger.info("  Time to write L lines:                     %9.2f s", timers.elapsed("write_l_lines"))
+    logger.info("  Time to write W lines:                     %9.2f s", timers.elapsed("write_w_lines"))
     logger.info("Time to cleanup temporary files:             %9.2f s", timers.elapsed("cleanup"))
     logger.info("Time spent on rest:                          %9.2f s", total_time - timers.sum())
     logger.info("Total time:                                  %9.2f s", total_time)
@@ -206,14 +208,14 @@ def process_gfa(gfa):
 
 
 def yield_walks(file, offsets, gzipped):
-    with timers("yield_walks"):
-        for offset in offsets:
+    for offset in offsets:
+        with timers("yield_walks"):
             file.seek(offset)
             line = file.readline().decode("utf-8") if gzipped else file.readline()
             _, _, _, assm_name, start, end, path = line.strip().split(
                 "\t",
             )
-            yield assm_name, int(start), int(end), path
+        yield assm_name, int(start), int(end), path
 
 
 def revcomp(seq):
@@ -332,7 +334,8 @@ def write_rGFA(gfa, nodes, writer):
     else:
         reader = open(gfa, "r")
     while True:
-        line = reader.readline().decode("utf-8") if reader_gzipped else reader.readline()
+        with timers("reread_gfa_lines"):
+            line = reader.readline().decode("utf-8") if reader_gzipped else reader.readline()
         if not line:
             break
         if line.startswith("W"):
