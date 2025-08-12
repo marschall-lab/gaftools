@@ -241,3 +241,15 @@ def test_untagged_input_invertednodes(tmp_path):
         assert output_lines[n] == truth_lines[n]
     # checking for coordinates
     parse_coordinates(output, seqfile)
+
+
+# testing the conversion when the wrong order of W lines is given in the input GFA
+# the test is to check if the tag coordinates are still correct in terms of the coordinates still show the correct sequence in the assembly.
+def test_untagged_input_wrongorder(tmp_path):
+    input_gfa = "tests/data/graph-conversioncheck-gfa-wrong-Wline-order.gfa"
+    seqfile = "tests/data/graph-conversioncheck-samples.seqfile"
+    output = str(tmp_path) + "/output-rgfa.gfa"
+    run(gfa=input_gfa, reference_name="REF", reference_tagged=False, output=output)
+    # No point in checking for exactness of tags, as the W lines are not in the correct order.
+    # checking for coordinates
+    parse_coordinates(output, seqfile)
