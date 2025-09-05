@@ -156,19 +156,26 @@ def realign_gaf(gaf, graph, fasta, writer, cores=1):
     """
     # tracemalloc.start()
 
+    logger.debug(f"Using {cores} cores for realignment")
+    logger.debug(f"Reading Fasta: {fasta}")
     fastafile = pysam.FastaFile(fasta)
+    logger.info("Complete initializing FASTA file.")
+    logger.debug(f"Reading GFA: {graph}")
     with timers("read_gfa"):
         graph_obj = GFA(graph)
-    logger.info("Complete reading GFA file.")
+    logger.info("Complete initializing GFA file.")
     processes = []
     align_queue = mp.Queue()
 
     seq_batch = []
     batch_size = 1000
+    logger.debug(f"Reading GAF: {gaf}")
     gaf_file = GAF(gaf)
+    logger.info("Complete initializing GAF file.")
     priority_counter = 0
     logger.info("Reading GAF file and preparing batches for alignment.")
     with timers("realign"):
+        logger.debug("Starting realignment of GAF file.")
         for line in gaf_file.read_file():
             path_sequence = graph_obj.extract_path(line.path)
             ref = path_sequence[line.path_start : line.path_end]
@@ -226,45 +233,47 @@ def realign_gaf(gaf, graph, fasta, writer, cores=1):
                 align_queue = mp.Queue()
                 p_queue = queue.PriorityQueue()
         gaf_file.close()
-
-    if len(seq_batch) > 0:  # leftover alignments to re-align
-        processes.append(
-            mp.Process(
-                target=wfa_alignment,
-                args=(
-                    seq_batch,
-                    align_queue,
-                ),
+        logger.debug("Completed realignment of GAF file.")
+        logger.debug("Re-aligning leftover alignments.")
+        if len(seq_batch) > 0:  # leftover alignments to re-align
+            processes.append(
+                mp.Process(
+                    target=wfa_alignment,
+                    args=(
+                        seq_batch,
+                        align_queue,
+                    ),
+                )
             )
-        )
-    # leftover batches
-    if len(processes) != 0:
-        p_queue = queue.PriorityQueue()
-        for p in processes:
-            p.start()
-        n_sentinels = 0
-        while n_sentinels != len(processes):  # exits when all processes finished
-            try:
-                out_string_obj = align_queue.get(timeout=0.1)
-            except queue.Empty:
-                # check if all threads are still alive
-                if one_is_alive(processes):
-                    continue
+        # leftover batches
+        if len(processes) != 0:
+            p_queue = queue.PriorityQueue()
+            for p in processes:
+                p.start()
+            n_sentinels = 0
+            while n_sentinels != len(processes):  # exits when all processes finished
+                try:
+                    out_string_obj = align_queue.get(timeout=0.1)
+                except queue.Empty:
+                    # check if all threads are still alive
+                    if one_is_alive(processes):
+                        continue
+                    else:
+                        # all_exited returns false if one exited with non-zero code
+                        if not all_exited(processes):
+                            logger.error("One of the processes had a none-zero exit code")
+                            sys.exit(1)
+                if out_string_obj is None:
+                    n_sentinels += 1
                 else:
-                    # all_exited returns false if one exited with non-zero code
-                    if not all_exited(processes):
-                        logger.error("One of the processes had a none-zero exit code")
-                        sys.exit(1)
-            if out_string_obj is None:
-                n_sentinels += 1
-            else:
-                p_queue.put(out_string_obj)
-                # output.write(out_string_obj)
-        for p in processes:
-            p.join()
-        queue_len = len(p_queue.queue)
-        for _ in range(queue_len):
-            writer.write(p_queue.get().seq)
+                    p_queue.put(out_string_obj)
+                    # output.write(out_string_obj)
+            for p in processes:
+                p.join()
+            queue_len = len(p_queue.queue)
+            for _ in range(queue_len):
+                writer.write(p_queue.get().seq)
+        logger.debug("Finished all re-alignments along with the leftover alignments.")
     logger.info("Realignment complete.")
 
     fastafile.close()
