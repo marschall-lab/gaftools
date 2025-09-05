@@ -91,9 +91,10 @@ def sort(gaf, nodes, writer, index_dict, index_file):
         gaf_alignments.sort(key=functools.cmp_to_key(compare_gaf))
 
     # Writing the sorted file
+    start_offset = writer.tell()
     with timers("write_gaf"):
         logger.debug("Writing Output File...")
-        for alignment in gaf_alignments:
+        for index, alignment in enumerate(gaf_alignments):
             off = alignment.offset
             reader.seek(off)
             line = reader.readline()
@@ -108,7 +109,7 @@ def sort(gaf, nodes, writer, index_dict, index_file):
             if index_file is not None:
                 out_off = writer.tell()
                 if index_dict[alignment.sn][0] is None:
-                    index_dict[alignment.sn][0] = out_off
+                    index_dict[alignment.sn][0] = out_off if index != 0 else start_offset
                     index_dict[alignment.sn][1] = out_off
                 else:
                     index_dict[alignment.sn][1] = out_off
