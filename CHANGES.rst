@@ -1,6 +1,14 @@
 Changes
 =======
 
+v1.2.1 (08/09/2025)
+-------------------
+
+* Updated :code:`gaftools gfa2rgfa` subcommand to no longer require :code:`seqfile` by default. The default behaviour is to use the order of assemblies as given in the GFA file.
+* Fixing the time logger issue with :code:`gaftools realign` subcommand.
+* Bug fix in the index file created by :code:`gaftools sort` subcommand. The index file was incorrectly skipping the first alignment record.
+* Minor updates to documentation regarding :code:`seqfile` in :code:`gaftools gfa2rgfa` subcommand.
+
 v1.2.0 (03/07/2025)
 -------------------
 
