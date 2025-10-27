@@ -1,5 +1,5 @@
 """
-Converting a GFA file to rGFA format using the W-lines
+Converting a GFA file to rGFA format using the W-lines and the acyclic reference path. (e.g., minigraph-based graphs)
 """
 
 import os
