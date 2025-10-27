@@ -104,7 +104,7 @@ gaftools gfa2rgfa
 
 This subcommand creates rGFA equivalent of GFA files using the W lines present in the GFA.
 
-For creating the rGFA tags for all the reference nodes, the minimum requirements (as specified below) should be given.
+For creating the rGFA tags for all the reference nodes, the minimum requirements (as specified below) should be given. We assume that the pangenome graph is based on a pangenome reference (as is the case with minigraph-based graph constructions methods).
 
 For further tagging the non-reference nodes coming from assemblies added to the reference assembly, the :code:`seqfile` can be provided and corresponding W lines should be available in the GFA (refer to 'Format of seqfile').
 If the :code:`seqfile` is not provided, then the order in which walks are given in the GFA will be used to tag the non-reference nodes. Users can provide their own order of assemblies in the seqfile, and the coordinates will be generated accordingly.
@@ -120,6 +120,8 @@ Minimum Requirements
 
 * The GFA should have a W line corresponding to the reference name provided as part of the command (using :code:`--reference-name`).
 * The reference path described by the W line should be cycle-free and oriented in the forward direction (path of the format :code:`>node_1>node_2....>node_N`)
+
+Note: From the Human Pangenome Reference Consortium, the graphs generated using minigraph-cactus follow these requirements. The PGGB graphs do not.
 
 Format of seqfile
 -----------------
@@ -146,7 +148,7 @@ The :code:`gfa2rgfa` subcommand takes 1 obligatory input, a GFA file. It creates
 
   usage: gaftools gfa2rgfa [-h] [--reference-name REFERENCE NAME] [--reference-tagged] [--seqfile SEQFILE] [--output GFA] GFA
 
-  Converting a GFA file to rGFA format using the W-lines
+  Converting a GFA file to rGFA format using the W-lines and the acyclic reference path. (e.g., minigraph-based graphs).
 
   positional arguments:
     GFA                   GFA file (can be bgzip-compressed). This GFA should have a W-line corresponding to the reference genome or the
