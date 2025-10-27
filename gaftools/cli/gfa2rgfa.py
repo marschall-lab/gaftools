@@ -56,7 +56,8 @@ def run(gfa=None, reference_name="CHM13", reference_tagged=False, seqfile=None, 
             logger.info(
                 f"Tagging assembly nodes for haplotype assembly {sample} and writing corrected walks to temp file."
             )
-            create_assembly_tags(node_dict, walks, sample, index, gfa, tmp_walk_file)
+            with timers("tag_assembly"):
+                create_assembly_tags(node_dict, walks, sample, index, gfa, tmp_walk_file)
     else:
         logger.info(
             "No seqfile was provided. Defaulting to the order of assemblies provided in the GFA."
@@ -70,22 +71,22 @@ def run(gfa=None, reference_name="CHM13", reference_tagged=False, seqfile=None, 
             logger.info(
                 f"Tagging assembly nodes for haplotype assembly {sample} and writing corrected walks to temp file."
             )
-            create_assembly_tags(node_dict, walks, sample, index + 1, gfa, tmp_walk_file)
+            with timers("tag_assembly"):
+                create_assembly_tags(node_dict, walks, sample, index + 1, gfa, tmp_walk_file)
 
     tmp_walk_file.close()
     # reading the temporary file to write the rGFA file.
     writer = FileWriter(output)
     logger.info("Writing S and L lines to temp file.")
-    stats_counter = write_rGFA(gfa, node_dict, writer)
-    with timers("write_w_lines"):
+    with timers("write_gfa"):
+        stats_counter = write_rGFA(gfa, node_dict, writer)
         logger.info("Writing the corrected W lines to the rGFA file.")
         with libcbgzf.BGZFile(output + "-walks.tmp.gz", "rb") as reader:
             for line in reader:
                 writer.write(line.decode("utf-8"))
                 writer.write("\n")
-    with timers("cleanup"):
-        logger.info("Cleaning up temporary files.")
-        os.remove(output + "-walks.tmp.gz")
+    logger.info("Cleaning up temporary files.")
+    os.remove(output + "-walks.tmp.gz")
     logger.info("\n== NODE STATS ==")
     for key, value in stats_counter.items():
         logger.info(f"Number of {key}: {value}")
@@ -104,18 +105,8 @@ def run(gfa=None, reference_name="CHM13", reference_tagged=False, seqfile=None, 
     # fmt: off
     logger.info("Time to read GFA file:                       %9.2f s", timers.elapsed("read_gfa"))
     logger.info("Time to tag reference nodes:                 %9.2f s", timers.elapsed("tag_reference"))
-    logger.info("Time to tag assembly nodes:                  %9.2f s", timers.elapsed("yield_walks")+timers.elapsed("write_temp_walk")+timers.elapsed("checking_node_class")+timers.elapsed("checking_orientation")+timers.elapsed("splitting_walk"))
-    logger.info("  Time for yielding walks:                   %9.2f s", timers.elapsed("yield_walks"))
-    logger.info("  Time for writing temporary walks:          %9.2f s", timers.elapsed("write_temp_walk"))
-    logger.info("  Time for checking node class:              %9.2f s", timers.elapsed("checking_node_class"))
-    logger.info("  Time for checking orientation:             %9.2f s", timers.elapsed("checking_orientation"))
-    logger.info("  Time for splitting walk:                   %9.2f s", timers.elapsed("splitting_walk"))
-    logger.info("Time for writing GFA:                        %9.2f s", timers.elapsed("reread_gfa_lines")+timers.elapsed("write_s_lines")+timers.elapsed("write_l_lines")+timers.elapsed("write_w_lines"))
-    logger.info("  Time to re-read GFA:                       %9.2f s", timers.elapsed("reread_gfa_lines"))
-    logger.info("  Time to write S lines:                     %9.2f s", timers.elapsed("write_s_lines"))
-    logger.info("  Time to write L lines:                     %9.2f s", timers.elapsed("write_l_lines"))
-    logger.info("  Time to write W lines:                     %9.2f s", timers.elapsed("write_w_lines"))
-    logger.info("Time to cleanup temporary files:             %9.2f s", timers.elapsed("cleanup"))
+    logger.info("Time to tag assembly nodes:                  %9.2f s", timers.elapsed("tag_assembly"))
+    logger.info("Time for writing GFA:                        %9.2f s", timers.elapsed("write_gfa"))
     logger.info("Time spent on rest:                          %9.2f s", total_time - timers.sum())
     logger.info("Total time:                                  %9.2f s", total_time)
     # fmt: on
@@ -209,12 +200,11 @@ def process_gfa(gfa):
 
 def yield_walks(file, offsets, gzipped):
     for offset in offsets:
-        with timers("yield_walks"):
-            file.seek(offset)
-            line = file.readline().decode("utf-8") if gzipped else file.readline()
-            _, _, _, assm_name, start, end, path = line.strip().split(
-                "\t",
-            )
+        file.seek(offset)
+        line = file.readline().decode("utf-8") if gzipped else file.readline()
+        _, _, _, assm_name, start, end, path = line.strip().split(
+            "\t",
+        )
         yield assm_name, int(start), int(end), path
 
 
@@ -283,11 +273,9 @@ def create_assembly_tags(nodes, walks, sample, index, file, tmp_walk_file):
         return
     for assm_name, walk_start, walk_end, walk_path in walks_list:
         # writing the initial fields of walk to a temporary file.
-        with timers("write_temp_walk"):
-            tmp_walk_file.write(f"W\t{sample_name}\t{hap}\t{assm_name}\t{walk_start}\t{walk_end}\t")
+        tmp_walk_file.write(f"W\t{sample_name}\t{hap}\t{assm_name}\t{walk_start}\t{walk_end}\t")
         sn = f"{sample_name}#{hap}#{assm_name}"
-        with timers("splitting_walk"):
-            walk = list(filter(None, re.split("(>)|(<)", walk_path)))
+        walk = list(filter(None, re.split("(>)|(<)", walk_path)))
         so = walk_start  # initializing SO tag
         orient = None
         for i in range(len(walk)):
@@ -297,24 +285,20 @@ def create_assembly_tags(nodes, walks, sample, index, file, tmp_walk_file):
             id = walk[i]
             # writing the temporary walk file and doing this conversion increased runtime significantly.
             # is this from the IO operation or the switching operations?
-            with timers("checking_node_class"):
-                if isinstance(nodes[id], Node):
-                    nodes[id] = OutputNode(ln=nodes[id].ln, so=so, sn=sn, sr=index, orient=orient)
-            with timers("checking_orientation"):
-                # this block is to check if any node was introduced in the reverse orientation.
-                # for example if s26 introduced in BAR.1.ASSM1 was introduced in the reverse orientation,
-                # (i.e instead of <s8<s23>s26>s27<s6>s28<s4, it was <s8<s23<s26>s27<s6>s28<s4)
-                # then the orientation has to be corrected.
-                # Hence we store that the original orientation of the node as node.orient.
-                # When the node is encountered in other place, the orientation is switched.
-                # If the GFA is correctly formatted, then the orientation should be always in the > direction.
-                if nodes[id].orient == "<":
-                    orient = orient_switch[orient]
-            with timers("write_temp_walk"):
-                tmp_walk_file.write(f"{orient}{id}")
+            if isinstance(nodes[id], Node):
+                nodes[id] = OutputNode(ln=nodes[id].ln, so=so, sn=sn, sr=index, orient=orient)
+            # this block is to check if any node was introduced in the reverse orientation.
+            # for example if s26 introduced in BAR.1.ASSM1 was introduced in the reverse orientation,
+            # (i.e instead of <s8<s23>s26>s27<s6>s28<s4, it was <s8<s23<s26>s27<s6>s28<s4)
+            # then the orientation has to be corrected.
+            # Hence we store that the original orientation of the node as node.orient.
+            # When the node is encountered in other place, the orientation is switched.
+            # If the GFA is correctly formatted, then the orientation should be always in the > direction.
+            if nodes[id].orient == "<":
+                orient = orient_switch[orient]
+            tmp_walk_file.write(f"{orient}{id}")
             so = so + nodes[id].ln
-        with timers("write_temp_walk"):
-            tmp_walk_file.write("\n")
+        tmp_walk_file.write("\n")
     opened_file.close()
 
 
@@ -334,42 +318,39 @@ def write_rGFA(gfa, nodes, writer):
     else:
         reader = open(gfa, "r")
     while True:
-        with timers("reread_gfa_lines"):
-            line = reader.readline().decode("utf-8") if reader_gzipped else reader.readline()
+        line = reader.readline().decode("utf-8") if reader_gzipped else reader.readline()
         if not line:
             break
         if line.startswith("W"):
             # writing the W lines from the temporary file.
             continue
         if line.startswith("S"):
-            with timers("write_s_lines"):
-                id = line.split("\t")[1]
-                if isinstance(nodes[id], Node):
-                    # no tags have been assigned to this node
-                    nodes[id] = OutputNode(ln=nodes[id].ln, sn="unknown", so=0, sr=-1)
-                    stats_counter["unknown nodes"] += 1
-                node = nodes[id]
-                stats_counter["rank-0 nodes"] += 1 if node.sr == 0 else 0
-                stats_counter["non rank-0 nodes"] += 1 if node.sr != 0 else 0
-                _, id, seq = line.strip().split("\t")[0:3]
-                if node.orient == "<":
-                    stats_counter["flipped nodes"] += 1
-                    seq = revcomp(seq)
-                new_line = f"S\t{id}\t{seq}"
-                new_line += node.tags_to_string()
-                new_line += "\n"
-                writer.write(new_line)
+            id = line.split("\t")[1]
+            if isinstance(nodes[id], Node):
+                # no tags have been assigned to this node
+                nodes[id] = OutputNode(ln=nodes[id].ln, sn="unknown", so=0, sr=-1)
+                stats_counter["unknown nodes"] += 1
+            node = nodes[id]
+            stats_counter["rank-0 nodes"] += 1 if node.sr == 0 else 0
+            stats_counter["non rank-0 nodes"] += 1 if node.sr != 0 else 0
+            _, id, seq = line.strip().split("\t")[0:3]
+            if node.orient == "<":
+                stats_counter["flipped nodes"] += 1
+                seq = revcomp(seq)
+            new_line = f"S\t{id}\t{seq}"
+            new_line += node.tags_to_string()
+            new_line += "\n"
+            writer.write(new_line)
         elif line.startswith("L"):
-            with timers("write_l_lines"):
-                _, n1, o1, n2, o2, overlap = line.strip().split("\t")
-                if nodes[n1].orient == "<":
-                    o1 = orient_switch[o1]
-                if nodes[n2].orient == "<":
-                    o2 = orient_switch[o2]
-                if o1 == o2 and o1 == "-":
-                    writer.write(f"L\t{n2}\t+\t{n1}\t+\t{overlap}\n")
-                else:
-                    writer.write(f"L\t{n1}\t{o1}\t{n2}\t{o2}\t{overlap}\n")
+            _, n1, o1, n2, o2, overlap = line.strip().split("\t")
+            if nodes[n1].orient == "<":
+                o1 = orient_switch[o1]
+            if nodes[n2].orient == "<":
+                o2 = orient_switch[o2]
+            if o1 == o2 and o1 == "-":
+                writer.write(f"L\t{n2}\t+\t{n1}\t+\t{overlap}\n")
+            else:
+                writer.write(f"L\t{n1}\t{o1}\t{n2}\t{o2}\t{overlap}\n")
         else:
             writer.write(line)
     reader.close()
