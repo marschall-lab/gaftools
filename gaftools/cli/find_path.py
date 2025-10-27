@@ -18,7 +18,10 @@ def run(gfa_path, input_path, output=None, fasta=False):
     if input_path[0] in [">", "<"]:
         # detected node path
         nodes = [input_path]
-        path_seqs = [graph.extract_path(input_path)]
+        seq = graph.extract_path(input_path)
+        if not seq:
+            logger.warning(f"The path {input_path} does not exist in the GFA")
+        path_seqs = [seq]
     else:
         # detected file
         reader = open(input_path, "r")
@@ -26,17 +29,22 @@ def run(gfa_path, input_path, output=None, fasta=False):
         path_seqs = []
         for line in reader:
             nodes.append(line.strip())
-            path_seqs.append(graph.extract_path(nodes[-1]))
+            seq = graph.extract_path(nodes[-1])
+            if not seq:
+                logger.warning(f"The path {input_path} does not exist in the GFA")
+            path_seqs.append(seq)
         reader.close()
 
     writer = FileWriter(output)
     if fasta:
         for node, path_seq in zip(nodes, path_seqs):
-            writer.write(f">seq_{node}\n")
-            writer.write(f"{path_seq}\n")
+            if path_seq:
+                writer.write(f">seq_{node}\n")
+                writer.write(f"{path_seq}\n")
     else:
         for node, path_seq in zip(nodes, path_seqs):
-            writer.write(f"{path_seq}\n")
+            if path_seq:
+                writer.write(f"{path_seq}\n")
 
     writer.close()
 

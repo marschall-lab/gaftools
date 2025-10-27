@@ -757,15 +757,15 @@ class GFA:
             logging.error(f"The path {path} does not start with < or > ")
             return ""
 
-        path = re.findall("[><][^><]+", path)
+        path_list = re.findall("[><][^><]+", path)
+        for n in path_list:
+            assert n[1:] in self.nodes, f"Node {n[1:]} in path {path} does not exist in the graph"
 
-        if not self.path_exists(path):
+        if not self.path_exists(path_list):
             return ""
 
-        for n in path:
-            if n[1:] not in self:
-                logging.error(f"The node {n[1:]} in path {path} does not seem to exist in this GFA")
-                return ""
+        for n in path_list:
+
             # print(n)
             if n.startswith(">"):
                 seq.append(self.nodes[n[1:]].seq)
