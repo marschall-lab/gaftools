@@ -152,6 +152,17 @@ def get_sample_order(seqfile):
     return order
 
 
+def readS(line):
+    line = line.strip().split("\t")
+    node_id = line[1]
+    seq = line[2]
+    tags = {}
+    for field in line[3:]:
+        tag, type, value = field.split(":")
+        tags[tag] = (type, value)
+    return node_id, seq, tags
+
+
 # This function processes the GFA file and returns the node dictionary and the walk dictionary.
 def process_gfa(gfa):
     nodes = {}
@@ -169,22 +180,19 @@ def process_gfa(gfa):
         if not line:
             break
         if line.startswith("S"):
-            line = line.strip().split("\t")
-            node_id = line[1]
-            if len(line) > 3:
-                ln = len(line[2])
-                for field in line[3:]:
-                    tag, _, value = field.split(":")
-                    if tag == "LN":
-                        ln = int(value)
-                    elif tag == "SN":
-                        sn = value
-                    elif tag == "SO":
-                        so = int(value)
-                    elif tag == "SR":
-                        sr = int(value)
+            node_id, seq, tags = readS(line)
+            if "SN" in tags and "SO" in tags and "SR" in tags:
+                if "LN" in tags:
+                    ln = int(tags["LN"][1])
+                else:
+                    ln = len(seq)
+                sn = tags["SN"][1]
+                so = int(tags["SO"][1])
+                sr = int(tags["SR"][1])
                 nodes[node_id] = OutputNode(ln=ln, so=so, sn=sn, sr=sr)
+                continue
             else:
+                line = line.strip().split("\t")
                 nodes[node_id] = Node(line)
         elif line.startswith("W"):
             _, name, hap, _, _, _, _ = line.strip().split(
@@ -325,7 +333,7 @@ def write_rGFA(gfa, nodes, writer):
             # writing the W lines from the temporary file.
             continue
         if line.startswith("S"):
-            id = line.split("\t")[1]
+            id, seq, original_tags = readS(line)
             if isinstance(nodes[id], Node):
                 # no tags have been assigned to this node
                 nodes[id] = OutputNode(ln=nodes[id].ln, sn="unknown", so=0, sr=-1)
@@ -333,12 +341,15 @@ def write_rGFA(gfa, nodes, writer):
             node = nodes[id]
             stats_counter["rank-0 nodes"] += 1 if node.sr == 0 else 0
             stats_counter["non rank-0 nodes"] += 1 if node.sr != 0 else 0
-            _, id, seq = line.strip().split("\t")[0:3]
             if node.orient == "<":
                 stats_counter["flipped nodes"] += 1
                 seq = revcomp(seq)
-            new_line = f"S\t{id}\t{seq}"
-            new_line += node.tags_to_string()
+            new_line = f"S\t{id}\t{seq}"  # adding S line initial fields
+            new_line += node.tags_to_string()  # adding rGFA tags
+            for tag in original_tags:
+                if tag not in ["LN", "SO", "SN", "SR"]:
+                    type, value = original_tags[tag]
+                    new_line += f"\t{tag}:{type}:{value}"  # adding original tags except rGFA tags
             new_line += "\n"
             writer.write(new_line)
         elif line.startswith("L"):
