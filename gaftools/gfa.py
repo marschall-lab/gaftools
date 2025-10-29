@@ -541,7 +541,7 @@ class GFA:
         if size not given then it keeps going until it runs out of nodes
         """
         if reset_visited:
-            self.set_visited(reset_visited)
+            self.set_visited(False)
 
         if len(self.nodes[start_id].neighbors()) == 0:
             return {start_id}
@@ -553,7 +553,7 @@ class GFA:
         queue.append(start_id)
         self.nodes[start_id].visited = True
         neighborhood = set()
-        while (len(neighborhood) <= size) and len(queue) > 0:
+        while (len(neighborhood) < size) and len(queue) > 0:
             s = queue.popleft()
             neighborhood.add(s)
             self.nodes[s].visited = True
@@ -792,6 +792,7 @@ class GFA:
         Performs depth first search from start node given by user
         return the path as a list
         """
+        print("hi")
         if start_node not in self:
             return []
         if len(self) == 1:
@@ -799,19 +800,23 @@ class GFA:
         if len(self[start_node].neighbors()) == 0:
             return [start_node]
 
-        dfs_out = set()
+        self.set_visited(False)
+        # dfs_out = set()
         ordered_dfs_out = list()
         stack = [start_node]
         while stack:
             s = stack.pop()
-            # Note: this is doing membership check on a list, which is O(n) time
-            # this is slow, but for now it's ok, might need to change later to a set
-            # However, a set is not ordered, so would need to add an ordering function
-            if s not in dfs_out:
-                dfs_out.add(s)
+            if not self[s].visited:
+                self[s].visited = True
+            # if s not in dfs_out:
+            #     dfs_out.add(s)
                 ordered_dfs_out.append(s)
             else:
                 continue
+            # I can limit the traversal here to a linear path by adding this instead
+            # if len(self[s].neighbors()) == 1:
+            #     ordered_dfs_out.append(s)
+            # but then I have to several scans through the graph to always find an unvisited node and start dfs again
             for neighbour in self[s].neighbors():
                 stack.append(neighbour)
         return ordered_dfs_out

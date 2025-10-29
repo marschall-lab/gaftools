@@ -1,5 +1,5 @@
 """
-Find the genomic sequence of a given GFA path.
+Find the genomic sequence of a given connected GFA path.
 """
 
 import logging
@@ -66,6 +66,7 @@ def add_arguments(parser):
         help="Output file. If omitted, use standard output.")
     arg("-f", "--fasta", action="store_true",
         help="Flag to output the sequence as a FASTA file with the seqeunce named seq_<node path>")
+
 # fmt:on
 
 

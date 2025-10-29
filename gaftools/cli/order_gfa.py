@@ -22,6 +22,7 @@ def run_order_gfa(
     by_chrom,
     chromosome_order=None,
     with_sequence=False,
+    output_scaffold=None
 ):
     if chromosome_order is not None:
         chromosome_order = chromosome_order.split(sep=",")
@@ -85,11 +86,13 @@ def run_order_gfa(
     for chromosome in chromosome_order:
         logger.info("Processing %s", chromosome)
         component_nodes = components[chromosome]
-        # Initialize files
-        # f_gfa = open(outdir+'/'+gfa_filename.split("/")[-1][:-4]+'-'+chromosome+'.gfa', 'w')
+        if output_scaffold:
+            scaffold_file = outdir + os.sep + gfa_filename.split("/")[-1].split(".")[0] + "_" + chromosome + "_scaffold_graph.gfa"
+        else:
+            scaffold_file = None
 
         scaffold_nodes, inside_nodes, node_order, bo, bubble_count = decompose_and_order(
-            graph, component_nodes, chromosome, bo
+            graph, component_nodes, chromosome, scaffold_file, bo
         )
 
         # skip a chromosome if something went wrong
@@ -148,40 +151,41 @@ def run_order_gfa(
         else:
             logger.warning(f"Chromosome {chromosome} was skipped")
     if not by_chrom:
-        final_gfa = (
-            outdir + os.sep + gfa_filename.split(os.sep)[-1].split(".")[0] + "-complete" + ".gfa"
-        )
-        final_csv = (
-            outdir + os.sep + gfa_filename.split(os.sep)[-1].split(".")[0] + "-complete" + ".csv"
-        )
-        with open(final_gfa, "w") as outfile:
-            # outputting all the S lines first
-            for f in out_gfa:
-                with open(f, "r") as infile:
-                    for l in infile:
-                        if l.startswith("S"):
-                            outfile.write(l)
-            # outputting all the S lines
-            for f in out_gfa:
-                with open(f, "r") as infile:
-                    for l in infile:
-                        if l.startswith("L"):
-                            outfile.write(l)
-            for f in out_gfa:
-                os.remove(f)
+        if out_gfa:
+            final_gfa = (
+                outdir + os.sep + gfa_filename.split(os.sep)[-1].split(".")[0] + "-complete" + ".gfa"
+            )
+            final_csv = (
+                outdir + os.sep + gfa_filename.split(os.sep)[-1].split(".")[0] + "-complete" + ".csv"
+            )
+            with open(final_gfa, "w") as outfile:
+                # outputting all the S lines first
+                for f in out_gfa:
+                    with open(f, "r") as infile:
+                        for l in infile:
+                            if l.startswith("S"):
+                                outfile.write(l)
+                # outputting all the L lines
+                for f in out_gfa:
+                    with open(f, "r") as infile:
+                        for l in infile:
+                            if l.startswith("L"):
+                                outfile.write(l)
+                for f in out_gfa:
+                    os.remove(f)
 
-        with open(final_csv, "w") as outfile:
-            for f in out_csv:
-                with open(f, "r") as infile:
-                    for l in infile:
-                        outfile.write(l)
-            for f in out_csv:
-                os.remove(f)
+            with open(final_csv, "w") as outfile:
+                for f in out_csv:
+                    with open(f, "r") as infile:
+                        for l in infile:
+                            outfile.write(l)
+                for f in out_csv:
+                    os.remove(f)
 
     logger.info("Total bubbles: %d", total_bubbles)
 
 
-def decompose_and_order(graph, component, component_name, bo_start=0):
+def decompose_and_order(graph, component, component_name, scaffold_file=None, bo_start=0):
     """
     This function takes the graph and a component
     detects all biconnected components, order the scaffold nodes and starts ordering
@@ -203,6 +207,7 @@ def decompose_and_order(graph, component, component_name, bo_start=0):
     scaffold_node_types = dict()
     for n in artic_points:
         scaffold_graph.add_node(n)
+        scaffold_graph[n].tags = graph[n].tags
         scaffold_node_types[n] = "s"
     inside_nodes = set()
 
@@ -220,22 +225,43 @@ def decompose_and_order(graph, component, component_name, bo_start=0):
         else:
             bubble_index = len(bubbles)
             bubbles.append(bc_inside_nodes)
-            scaffold_graph.add_node(str(bubble_index))
-            scaffold_node_types[str(bubble_index)] = "b"
+            bubble_size = len(bc_inside_nodes)
+            scaffold_graph.add_node("b" + str(bubble_index))
+            scaffold_graph["b" + str(bubble_index)].tags = {"BS": ("i", bubble_size)}
+            scaffold_node_types["b" + str(bubble_index)] = "b"
             for end_node in bc_end_nodes:
-                scaffold_graph.add_edge(str(bubble_index), "+", end_node, "+", 0)
+                tags = [0]
+                scaffold_graph.add_edge("b" + str(bubble_index), "+", end_node, "+", 0, tags)
 
+    if scaffold_file:
+        logger.info(f"Writing scaffold graph to {scaffold_file}")
+        scaffold_graph.write_gfa(
+            set_of_nodes=None,
+            output_file=scaffold_file,
+            append=False,
+            order_bo=False
+        )
+    # maybe remove divergent paths where the scaffold nodes do not belong to the same SN tag that is the reference one
     logger.info(f"  Bubbles: {len(bubbles)}")
     logger.info(f"  Scaffold graph: {len(scaffold_graph)} nodes")
 
     # Find start/end points of the line by looking for nodes with degree 1
+    # import pdb
+    # pdb.set_trace()
     degree_one = [x.id for x in scaffold_graph.nodes.values() if len(x.neighbors()) == 1]
     degree_two = [x.id for x in scaffold_graph.nodes.values() if len(x.neighbors()) == 2]
-
+    """
+    If I decide to order the graph even if it has divergent paths, I need to modify the dfs as in the comment there
+    then I need to run a while loop maybe, where a dfs is run until it stops, then I run the next one from that point
+    and that node has to be unvisited.
+    I collect all the traversals, then I need to somehow connect all the traversals with the reference SN tag
+    and ignore the rest basically.
+    """
     try:
         assert len(degree_one) == 2
     except AssertionError:
-        logger.warning(
+        # print([x.id for x in scaffold_graph.nodes.values() if len(x.neighbors()) > 3])
+        logger.error(
             f"Error: In Chromosome {component_name}, we found more or less than two nodes with degree 1. Skipping this chromosome"
         )
         # hacky but for now maybe ok
@@ -244,8 +270,8 @@ def decompose_and_order(graph, component, component_name, bo_start=0):
     try:
         assert len(degree_two) == len(scaffold_graph) - 2
     except AssertionError:
-        logger.warning(
-            f"Error: In Chromosome {component_name}, the number of nodes with degree 2 did not mach the expected number"
+        logger.error(
+            f"Error: In Chromosome {component_name}, the number of nodes with degree 2 did not match the expected number. Skipping this chromosome"
         )
         return None, None, None, None, None
 
@@ -274,7 +300,7 @@ def decompose_and_order(graph, component, component_name, bo_start=0):
         if node_type == "s":
             node_order[node] = (bo, 0)
         elif node_type == "b":
-            for i, n in enumerate(sorted(bubbles[int(node)])):
+            for i, n in enumerate(sorted(bubbles[int(node[1:])])):
                 node_order[n] = (bo, i + 1)
         else:
             assert False
@@ -329,6 +355,8 @@ def add_arguments(parser):
         help='Output Directory to store all the GFA and CSV files. Default location is a "out" folder from the directory of execution.')
     arg("--by-chrom", default=False, action="store_true",
         help="Outputs each chromosome as a separate GFA, otherwise, all chromosomes in one GFA file")
+    arg("--output_scaffold", action="store_true",
+        help="Output the scaffold graph in GFA format. The scaffold graph is the graph created from collapsing all the biconnected components.")
 # fmt: on
 
 
