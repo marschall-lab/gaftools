@@ -2,6 +2,8 @@
 Converting a GFA file to rGFA format using the W-lines and the acyclic reference path. (e.g., minigraph-based graphs)
 """
 
+# TODO: Need to handle deletion of temporary files in case of errors.
+
 import os
 import sys
 import logging
@@ -40,7 +42,11 @@ def run(gfa=None, reference_name="CHM13", reference_tagged=False, seqfile=None, 
     with timers("read_gfa"):
         logger.info("Reading GFA file.")
         node_dict, walks = process_gfa(gfa)
-    tmp_walk_file = FileWriter(output + "-walks.tmp.gz")
+    if output is None:
+        tmp_walk_fname = "tmp_walks.gz"
+    else:
+        tmp_walk_fname = output + "-walks.tmp.gz"
+    tmp_walk_file = FileWriter(tmp_walk_fname)
     with timers("tag_reference"):
         logger.info("Tagging reference nodes and writing reference walks to temp file.")
         create_ref_tags(node_dict, walks, reference_name, gfa, tmp_walk_file, reference_tagged)
@@ -86,7 +92,7 @@ def run(gfa=None, reference_name="CHM13", reference_tagged=False, seqfile=None, 
                 writer.write(line.decode("utf-8"))
                 writer.write("\n")
     logger.info("Cleaning up temporary files.")
-    os.remove(output + "-walks.tmp.gz")
+    os.remove(tmp_walk_fname)
     logger.info("\n== NODE STATS ==")
     for key, value in stats_counter.items():
         logger.info(f"Number of {key}: {value}")
@@ -232,6 +238,7 @@ def create_ref_tags(nodes, walks, reference_name, file, tmp_walk_file, reference
     try:
         walks_list = yield_walks(opened_file, walks[(reference_name, "0")], gzipped)
     except KeyError:
+        os.remove(tmp_walk_file.name)
         logger.error(f"No walks found for reference genome {reference_name}.")
         sys.exit(1)
     for assm_name, walk_start, walk_end, walk_path in walks_list:
