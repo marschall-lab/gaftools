@@ -5,10 +5,14 @@ The BO (Bubble Order) tags order bubbles in the GFA.
 The NO (Node Order) tags order the nodes in a bubble (in a lexicographic order).
 """
 
+# TODO change the flag to actually laod the sequence as default (Done!)
+#      look into pushing the nodes with -1 bo no tags to the end of the file
+#      stop when a chromosome can't be ordered and tell the user they can force the ordering
 import sys
 import os
 import logging
 import time
+import pdb
 from collections import defaultdict
 from gaftools.gfa import GFA
 from gaftools.utils import DEFAULT_CHROMOSOME
@@ -21,7 +25,8 @@ def run_order_gfa(
     outdir,
     by_chrom,
     chromosome_order=None,
-    with_sequence=False,
+    without_sequence=False,
+    ignore_branching=False,
     output_scaffold=None
 ):
     if chromosome_order is not None:
@@ -42,10 +47,8 @@ def run_order_gfa(
             sys.exit()
 
     logger.info(f"Reading {gfa_filename}")
-    if with_sequence:
-        graph = GFA(gfa_filename, low_memory=False)
-    else:
-        graph = GFA(gfa_filename, low_memory=True)
+    # if true then sequences are stripped
+    graph = GFA(gfa_filename, low_memory=without_sequence)
     # the __str__ functions print the number of nodes and edges
     logger.info("The graph has:")
     logger.info(graph.__str__())
@@ -80,7 +83,6 @@ def run_order_gfa(
     # running index for the bubble index (BO) already used
     bo = 0
     total_bubbles = 0
-    # todo output final GFA with all the chromosomes ordered
     out_gfa = []
     out_csv = []
     for chromosome in chromosome_order:
@@ -92,7 +94,7 @@ def run_order_gfa(
             scaffold_file = None
 
         scaffold_nodes, inside_nodes, node_order, bo, bubble_count = decompose_and_order(
-            graph, component_nodes, chromosome, scaffold_file, bo
+            graph, component_nodes, chromosome, ignore_branching, scaffold_file, bo
         )
 
         # skip a chromosome if something went wrong
@@ -185,11 +187,159 @@ def run_order_gfa(
     logger.info("Total bubbles: %d", total_bubbles)
 
 
-def decompose_and_order(graph, component, component_name, scaffold_file=None, bo_start=0):
+def force_graph_order(graph, scaffold_graph, bubbles, artic_points, component_name, inside_nodes, bo_start=0):
+    """
+    This function forces the order of a none-linear scaffold graph by only ordering the reference paths
+    and giving -1 BO and NO tags for the rest of the paths.
+    returns artic_points, inside_nodes, node_order, bo, len(bubbles)
+    """
+
+    candidates = [x.id for x in scaffold_graph.nodes.values() if len(x.neighbors()) != 2]
+    new_candidates = set()
+    for n in candidates:
+        for nn in scaffold_graph[n].neighbors():
+            new_candidates.add(nn)
+    candidates = new_candidates
+
+    # traversals = []
+    # for n in scaffold_graph.nodes.values():
+    #     if not n.visited:
+    #         traversals.append(scaffold_graph.dfs_line(n.id))
+    traversals = []
+    for n in candidates:
+        traversals.append(scaffold_graph.dfs_line(n))
+
+    pdb.set_trace()
+    ref_traversals = []
+    non_ref_traversals = []
+    # now we need to filter the traversals to only keep the ones that have the reference SN tag
+    for trav in traversals:
+        trav_sn_tags = set(graph[n].tags["SN"][1] for n in trav if not n.startswith('bb_'))
+        if len(trav_sn_tags) != 1:
+            non_ref_traversals.append(trav)
+        else:
+            if list(trav_sn_tags)[0] == component_name:
+                ref_traversals.append(trav)
+            else:
+                non_ref_traversals.append(trav)
+
+
+    if not ref_traversals:
+        logger.error(f"traversals in the graph had mixed reference articulation point, cannot order chromosome {component_name}")
+        return None, None, None, None, None
+
+    # we deal with the non-reference nodes and give them -1 for BO and NO tag, un-ordered
+    node_order = dict()
+    for trav in non_ref_traversals:
+        for n in trav:
+            if not n.startswith('bb_'):
+                node_order[n] = (-1, -1)
+            else:
+                for i, nn in enumerate(sorted(bubbles[int(n[3:])])):
+                    node_order[nn] = (-1, -1)
+
+    # sort each ref traversal according to the SO tag
+    for trav in ref_traversals:
+        # I already know that the traversals in ref_traversals have the reference SN tag
+        trav_scaffold = [n for n in trav if not n.startswith('bb_')]
+        pdb.set_trace()
+        coordinates = list(int(scaffold_graph[n].tags["SO"][1]) for n in trav_scaffold)
+        # make sure that the traversal is in ascending order
+        if coordinates[0] > coordinates[-1]:
+            trav.reverse()
+            coordinates.reverse()
+            # traversal_scaffold_only.reverse()
+        #     coordinates.reverse()
+        for i in range(len(coordinates) - 1):
+            assert coordinates[i] < coordinates[i + 1]
+        trav.append(coordinates[0])  # a bit hacky, but I'll use this to sort all the traversals later
+
+    # now I need to sort the traversals between each other
+    ref_traversals.sort(key=lambda x: x[-1])
+    # add tags
+    bo = bo_start
+    for trav in ref_traversals:
+        for node in trav[0:-1]:  # last item was an added integer to sort the traversals
+            if not node.startswith('bb_'):
+                node_order[node] = (bo, 0)
+            else:
+                for i, n in enumerate(sorted(bubbles[int(node[3:])])):
+                    node_order[n] = (bo, i + 1)
+            bo += 1
+
+    return artic_points, inside_nodes, node_order, bo, len(bubbles)
+
+    pdb.set_trace()
+    # this strategy didn't work very well, I was trying to also give the bb_ nodes a fake SO tag to easily sort
+    # the traversal, but that had too many caveats that caused problems and special cases
+    # for trav in ref_traversals:
+    #     for n in trav:
+    #         to_finalize = []
+    #         if n.startswith('bb_'):
+    #             neighbors = scaffold_graph[n].neighbors()
+    #             if len(neighbors) > 2:
+    #                 # the branching point can have more than 2 neighbors, but we only care
+    #                 # about the ones in the traversal
+    #                 neighbors = [nn for nn in neighbors if nn in trav]
+    #             # both neighbors are artic point, the bubble is in the middle of the traversal
+    #             # can give it fake mid-point SO for the sorting later
+    #             if len(neighbors) == 2:
+    #                 scaffold_graph[n].tags["SO"] = ("i",
+    #                                                 str(
+    #                                                     int(
+    #                                                         (int(scaffold_graph[neighbors[0]].tags["SO"][1]) +
+    #                                                         int(scaffold_graph[neighbors[1]].tags["SO"][1]))/2
+    #                                                     )
+    #                                                 )
+    #                                                 )
+    #             elif len(neighbors) == 1:
+    #                 to_finalize.append((n, neighbors[0]))
+    #     if len(to_finalize) == 1:
+    #         # pdb.set_trace()
+    #         nn = to_finalize[0][1]
+    #         nn_neighbors = scaffold_graph[nn].neighbors()
+    #         nn_neighbors.remove(to_finalize[0][0])
+    #         assert len(nn_neighbors) == 1
+    #
+    #         if scaffold_graph[nn_neighbors[0]].tags["SO"][1] > scaffold_graph[nn].tags["SO"][1]:
+    #             to_modify = -1
+    #         else:
+    #             to_modify = 1
+    #         # not necessarily bigger, I should look at the neighbors of to_finalize[0][1]
+    #         # and check the SO tag of that neighbor, if it's smaller than to_finalize[0][1] then + 1
+    #         # if it's bigger then -1
+    #         scaffold_graph[to_finalize[0][0]].tags["SO"] = ("i", str(int(scaffold_graph[to_finalize[0][1]].tags["SO"][1]) + to_modify))
+    #
+    #     elif len(to_finalize) == 2:
+    #         print(len(to_finalize))
+    #         pdb.set_trace()
+    #
+    #     for n in trav:
+    #         if "SO" not in scaffold_graph[n].tags:
+    #             pdb.set_trace()
+    #
+    #     # all nodes traversal should have SO tag and can sort
+    #     try:
+    #         trav.sort(key=lambda x: int(scaffold_graph[x].tags["SO"][1]))
+    #     except KeyError:
+    #         pdb.set_trace()
+
+    # for trav in
+    # now we order the set of reference traversal by sorting each one according to the SO tag
+    # and numbering them with the bo and no tag
+    # I don't really need to connect them, in the end I just need to produce the node_order dict
+    # I should be able to access the bubble's inside nodes with this
+    # should enumerate the bubbles with (bo) that is the idx + bo_start
+    # for i, n in enumerate(sorted(bubbles[int(node[1:])])):
+    #     node_order[n] = (bo, i + 1)
+
+def decompose_and_order(graph, component, component_name, ignore_branching = False, scaffold_file=None, bo_start=0):
     """
     This function takes the graph and a component
     detects all biconnected components, order the scaffold nodes and starts ordering
     """
+    import pdb
+
     logger.info(f" Input component: {len(component)} nodes")
     logger.info(f" Finding Biconnected Components of the component {component_name}")
     if len(component) == 1:
@@ -209,29 +359,31 @@ def decompose_and_order(graph, component, component_name, scaffold_file=None, bo
         scaffold_graph.add_node(n)
         scaffold_graph[n].tags = graph[n].tags
         scaffold_node_types[n] = "s"
-    inside_nodes = set()
 
+    inside_nodes = set()
     for bc in all_biccs:
         # the components still have the articulation nodes in, need to be removed
         bc_inside_nodes = bc.difference(artic_points)
         bc_end_nodes = bc.intersection(artic_points)
         inside_nodes.update(bc_inside_nodes)
-
         if len(bc_inside_nodes) == 0:
             assert len(bc_end_nodes) == 2
             node1, node2 = tuple(bc_end_nodes)
-            scaffold_graph.add_edge(node1, "+", node2, "+", 0)
+            tags = [0]
+            scaffold_graph.add_edge(node1, "+", node2, "+", 0, tags)
 
         else:
             bubble_index = len(bubbles)
             bubbles.append(bc_inside_nodes)
             bubble_size = len(bc_inside_nodes)
-            scaffold_graph.add_node("b" + str(bubble_index))
-            scaffold_graph["b" + str(bubble_index)].tags = {"BS": ("i", bubble_size)}
-            scaffold_node_types["b" + str(bubble_index)] = "b"
+            scaffold_graph.add_node("bb_" + str(bubble_index))
+            scaffold_graph["bb_" + str(bubble_index)].tags = {"BS": ("i", bubble_size)}
+            scaffold_node_types["bb_" + str(bubble_index)] = "b"
+
+            # adding edges
             for end_node in bc_end_nodes:
                 tags = [0]
-                scaffold_graph.add_edge("b" + str(bubble_index), "+", end_node, "+", 0, tags)
+                scaffold_graph.add_edge("bb_" + str(bubble_index), "+", end_node, "+", 0, tags)
 
     if scaffold_file:
         logger.info(f"Writing scaffold graph to {scaffold_file}")
@@ -246,40 +398,41 @@ def decompose_and_order(graph, component, component_name, scaffold_file=None, bo
     logger.info(f"  Scaffold graph: {len(scaffold_graph)} nodes")
 
     # Find start/end points of the line by looking for nodes with degree 1
-    # import pdb
-    # pdb.set_trace()
     degree_one = [x.id for x in scaffold_graph.nodes.values() if len(x.neighbors()) == 1]
     degree_two = [x.id for x in scaffold_graph.nodes.values() if len(x.neighbors()) == 2]
-    """
-    If I decide to order the graph even if it has divergent paths, I need to modify the dfs as in the comment there
-    then I need to run a while loop maybe, where a dfs is run until it stops, then I run the next one from that point
-    and that node has to be unvisited.
-    I collect all the traversals, then I need to somehow connect all the traversals with the reference SN tag
-    and ignore the rest basically.
-    """
-    try:
-        assert len(degree_one) == 2
-    except AssertionError:
-        # print([x.id for x in scaffold_graph.nodes.values() if len(x.neighbors()) > 3])
-        logger.error(
-            f"Error: In Chromosome {component_name}, we found more or less than two nodes with degree 1. Skipping this chromosome"
-        )
-        # hacky but for now maybe ok
-        return None, None, None, None, None
 
-    try:
-        assert len(degree_two) == len(scaffold_graph) - 2
-    except AssertionError:
-        logger.error(
-            f"Error: In Chromosome {component_name}, the number of nodes with degree 2 did not match the expected number. Skipping this chromosome"
-        )
-        return None, None, None, None, None
+    if len(degree_one) != 2:
+        if ignore_branching:
+            logger.info(f"Scaffold graph is not a line, user chose to ignore the branching")
+            return force_graph_order(graph, scaffold_graph, bubbles, artic_points, component_name, inside_nodes, bo_start)
+            # function for forcing the order
+        else:
+            logger.error(
+            f"In Chromosome {component_name}, we expect only two nodes with degree one for a line graph, that was not the case."
+            f"Ordering can be forced with --ignore-branching"
+            )
+            sys.exit(1)
+            return None, None, None, None, None
+
+    if len(degree_two) != len(scaffold_graph) - 2:
+        if ignore_branching:
+            logger.info(f"Scaffold graph is not a line, forcing the order of the graph")
+            return force_graph_order(graph, scaffold_graph, bubbles, artic_points, component_name, inside_nodes, bo_start)
+
+        else:
+            logger.error(
+                f"Error: In Chromosome {component_name}, the number of nodes with degree 2 did not match the expected number. Skipping this chromosome"
+                f"Ordering can be forced with --ignore-branching"
+
+            )
+            return None, None, None, None, None
 
     # the scaffold graph should be a line graph here
     traversal = scaffold_graph.dfs(degree_one[0])
     traversal_scaffold_only = [
         node_name for node_name in traversal if scaffold_node_types[node_name] == "s"
     ]
+
     # check that all scaffold nodes carry the same sequence name (SN), i.e. all came for the linear reference
     assert len(set(new_graph[n].tags["SN"] for n in traversal_scaffold_only)) == 1
     # I save tags as key:(type, value), so "SO":(i, '123')
@@ -288,10 +441,11 @@ def decompose_and_order(graph, component, component_name, scaffold_file=None, bo
     # make sure that the traversal is in ascending order
     if coordinates[0] > coordinates[-1]:
         traversal.reverse()
-        traversal_scaffold_only.reverse()
+        # traversal_scaffold_only.reverse()
         coordinates.reverse()
     for i in range(len(coordinates) - 1):
         assert coordinates[i] < coordinates[i + 1]
+
     # compute dictionary mapping each node name to the corresponding "bubble order" and "node order" (BO,NO)
     node_order = dict()
     bo = bo_start
@@ -300,10 +454,8 @@ def decompose_and_order(graph, component, component_name, scaffold_file=None, bo
         if node_type == "s":
             node_order[node] = (bo, 0)
         elif node_type == "b":
-            for i, n in enumerate(sorted(bubbles[int(node[1:])])):
+            for i, n in enumerate(sorted(bubbles[int(node[3:])])):
                 node_order[n] = (bo, i + 1)
-        else:
-            assert False
         bo += 1
     return artic_points, inside_nodes, node_order, bo, len(bubbles)
 
@@ -347,14 +499,16 @@ def add_arguments(parser):
     arg("--chromosome-order", default="",
         help="Order in which to arrange chromosomes in terms of BO sorting. By default, it is arranged in the lexicographic order of identified component names. "
         "Expecting comma-separated list. Example: 'chr1,chr2,chr3'")
-    arg("--with-sequence", default=False, action="store_true",
-        help="Retain sequences in output (default is to strip sequences)")
+    arg("--without-sequence", default=False, action="store_true",
+        help="Strip sequences from the output graph (for less memory usage and easier visualization). Default = False")
     arg("gfa_filename", metavar="GRAPH",
         help="Input rGFA file")
     arg("--outdir", default="./out",
         help='Output Directory to store all the GFA and CSV files. Default location is a "out" folder from the directory of execution.')
     arg("--by-chrom", default=False, action="store_true",
         help="Outputs each chromosome as a separate GFA, otherwise, all chromosomes in one GFA file")
+    arg("--ignore-branching", action="store_true",
+        help="Force the order even when branching paths occur in the scaffold graph. Alternative alleles will not be ordered")
     arg("--output_scaffold", action="store_true",
         help="Output the scaffold graph in GFA format. The scaffold graph is the graph created from collapsing all the biconnected components.")
 # fmt: on

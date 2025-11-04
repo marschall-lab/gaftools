@@ -9,6 +9,7 @@ from pysam import libcbgzf
 
 E_DIR = {("+", "+"): (1, 0), ("+", "-"): (1, 1), ("-", "+"): (0, 0), ("-", "-"): (0, 1)}
 
+logger = logging.getLogger(__name__)
 
 class Node:
     __slots__ = ("id", "seq", "seq_len", "start", "end", "visited", "tags")
@@ -759,7 +760,11 @@ class GFA:
 
         path_list = re.findall("[><][^><]+", path)
         for n in path_list:
-            assert n[1:] in self.nodes, f"Node {n[1:]} in path {path} does not exist in the graph"
+            try:
+                assert n[1:] in self.nodes, f"Node {n[1:]} in path {path} does not exist in the graph"
+            except AssertionError:
+                logger.warning(f"Node {n[1:]} in path {path} does not exist in the graph")
+                return ""
 
         if not self.path_exists(path_list):
             return ""
@@ -787,6 +792,31 @@ class GFA:
     #     logging.info(f"finished finding bubbles and found {len(bubbles)}")
     #     return bubbles
 
+    def dfs_line(self, start_node):
+        """
+        Performs depth first search from start node given by user and only looks for linear stretches, no branches
+        return the path as a list
+        """
+        if start_node not in self:
+            return []
+        if len(self) == 1:
+            return [list(self.nodes.keys())[0]]
+        if len(self[start_node].neighbors()) == 0:
+            return [start_node]
+
+        ordered_dfs_out = list()
+        stack = [start_node]
+        while stack:
+            s = stack.pop()
+            if not self[s].visited:
+                self[s].visited = True
+                ordered_dfs_out.append(s)
+            else:
+                continue
+            if len(self[s].neighbors()) <= 2:
+                for neighbour in self[s].neighbors():
+                    stack.append(neighbour)
+        return ordered_dfs_out
     def dfs(self, start_node):
         """
         Performs depth first search from start node given by user

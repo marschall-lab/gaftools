@@ -13,9 +13,10 @@ def test_order_gfa(tmp_path):
         outdir=str(tmp_path),
         by_chrom=True,
         chromosome_order="chr1",
-        with_sequence=False,
+        without_sequence=True,
     )
     output_gfa = str(tmp_path) + "/smallgraph-chr1.gfa"
+    print(output_gfa)
     graph1 = GFA("tests/data/smallgraph-ordered.gfa", low_memory=True)
     graph2 = GFA(output_gfa, low_memory=True)
     assert graph1.is_equal_to(graph2)
