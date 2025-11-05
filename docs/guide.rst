@@ -76,26 +76,32 @@ This subcommand retrieves the base seqeunce of paths in the given GFA.
 Usage
 -----
 
-The :code:`find_path` subcommand takes 2 obligatory inputs, a GFA file and node path (like :code:`">s82312<s82313"` (with the quotes))  or file path which has node paths.
+The :code:`find_path` subcommand takes 2 obligatory inputs, a GFA file and either a node path :code:`-p, --path` (e.g., :code:`">s82312<s82313"` (with the quotes))
+or file path which has node paths each on a separate line with :code:`--paths_file`.
 It returns the sequence of the path(s) by default but using the :code:`--fasta` flag, the sequences will be returned as a FASTA file.
+
+If one of the paths does not exist, the process will terminate, the user can use :code:`-k, --keep-going` to skip the paths that do not exist and continue with the next path if available.
 
 .. code-block::
   :caption: find_path arguments
 
-  usage: gaftools find_path [-h] [-o OUTPUT] [-f] GFA path
+    usage: gaftools find_path [-h] [-p PATH] [--paths_file PATHS_FILE] [-k] [-o OUTPUT] [-f] GFA
 
-  Find the genomic sequence of a given GFA path.
+    Find the genomic sequence of a given connected GFA path.
 
-  positional arguments:
-    GFA                   Input GFA file (can be bgzip-compressed)
-    path                  GFA node path to retrieve the sequence (e.g., ">s82312<s82313") OR a filepath containing node paths in different lines
+    positional arguments:
+      GFA                   GFA file (can be bgzip-compressed)
 
-  optional arguments:
-    -h, --help            show this help message and exit
-    -o OUTPUT, --output OUTPUT
-                          Output file. If omitted, use standard output.
-    -f, --fasta           Flag to output the sequence as a FASTA file with the seqeunce named seq_<node path>
-
+    options:
+      -h, --help            show this help message and exit
+      -p PATH, --path PATH  GFA node path to retrieve the sequence (e.g., ">s82312<s82313") with the quotes
+      --paths_file PATHS_FILE
+                            File containing the paths to retrieve the sequences for, each path on new line
+      -k, --keep-going      Keep going after instead of stopping when a path does not exist
+      -o OUTPUT, --output OUTPUT
+                            Output file. If omitted, use standard output.
+      -f, --fasta           Flag to output the sequence as a FASTA file with the seqeunce named seq_<node path>
+    gaftools error: the following arguments are required: GFA
 
 .. _gaftools-gfa2rgfa:
 
@@ -243,6 +249,14 @@ have a NO tag of 0, and the nodes inside a bubble are marked with an increasing 
 
 Note: The :code:`order_gfa` subcommand does not change the name of the nodes and only adds the BO and NO tags as additional information.
 
+
+Non-linear scaffold graphs:
+---------------------------
+
+In the cases where after collapsing the bi-connected component, the scaffold graph is not a line graph, the user can use
+:code:`--ignore-branching` to enforce an ordering where only the linear traversals in the scaffold graph where the articulation points
+have an SN tag matching the reference will be ordered and branches that belong to other haplotypes will be ignored, i.e., give BO and NO tag of -1.
+
 Usage
 -----
 The :code:`order_gfa` subcommand takes an rGFA as an obligatory input to order.
@@ -257,19 +271,26 @@ their BO tag then NO tag, also will output a CSV file with node colors similar t
 .. code-block::
   :caption: order_gfa arguments
 
-  usage: gaftools order_gfa [-h] [--chromosome_order CHROMOSOME_ORDER] [--with-sequence] [--outdir OUTDIR] [--by-chrom] GRAPH
+    usage: gaftools order_gfa [-h] [--chromosome-order CHROMOSOME_ORDER] [--without-sequence] [--outdir OUTDIR] [--by-chrom] [--ignore-branching] [--output_scaffold] GRAPH
 
-  positional arguments:
-    GRAPH                 Input rGFA file
+    Order bubbles in the GFA by adding BO and NO tags.
 
-  options:
-    -h, --help            show this help message and exit
-    --chromosome-order CHROMOSOME_ORDER
-                          Order in which to arrange chromosomes in terms of BO sorting. By default, it is arranged in the lexicographic order of identified component names. Expecting comma-separated list. Example: 'chr1,chr2,chr3'
-    --with-sequence       Retain sequences in output (default is to strip sequences)
-    --outdir OUTDIR       Output Directory to store all the GFA and CSV files. Default location is a "out" folder from the directory of execution.
-    --by-chrom            Outputs each chromosome as a separate GFA, otherwise, all chromosomes in one GFA file
+    The BO (Bubble Order) tags order bubbles in the GFA.
+    The NO (Node Order) tags order the nodes in a bubble (in a lexicographic order).
 
+    positional arguments:
+      GRAPH                 Input rGFA file
+
+    options:
+      -h, --help            show this help message and exit
+      --chromosome-order CHROMOSOME_ORDER
+                            Order in which to arrange chromosomes in terms of BO sorting. By default, it is arranged in the lexicographic order of identified component names. Expecting comma-separated list. Example: 'chr1,chr2,chr3'
+      --without-sequence    Strip sequences from the output graph (for less memory usage and easier visualization). Default = False
+      --outdir OUTDIR       Output Directory to store all the GFA and CSV files. Default location is a "out" folder from the directory of execution.
+      --by-chrom            Outputs each chromosome as a separate GFA, otherwise, all chromosomes in one GFA file
+      --ignore-branching    Force the order even when branching paths occur in the scaffold graph. Alternative alleles will not be ordered
+      --output_scaffold     Output the scaffold graph in GFA format. The scaffold graph is the graph created from collapsing all the biconnected components.
+    gaftools error: the following arguments are required: GRAPH
 
 .. _gaftools-phase:
 

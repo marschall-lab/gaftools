@@ -207,17 +207,16 @@ def force_graph_order(
     returns artic_points, inside_nodes, node_order, bo, len(bubbles)
     """
 
+    # nodes to start the traversal from
     candidates = [x.id for x in scaffold_graph.nodes.values() if len(x.neighbors()) != 2]
     new_candidates = set()
     for n in candidates:
         for nn in scaffold_graph[n].neighbors():
             new_candidates.add(nn)
+    # starting from the node next to the candidate, otherwise the traversal stops short
+    # as it is designed to stop at junction points
     candidates = new_candidates
 
-    # traversals = []
-    # for n in scaffold_graph.nodes.values():
-    #     if not n.visited:
-    #         traversals.append(scaffold_graph.dfs_line(n.id))
     traversals = []
     for n in candidates:
         traversals.append(scaffold_graph.dfs_line(n))
@@ -237,7 +236,7 @@ def force_graph_order(
 
     if not ref_traversals:
         logger.error(
-            f"traversals in the graph had mixed reference articulation point, cannot order chromosome {component_name}"
+            f"all traversals in the graph had mixed reference articulation point, cannot order chromosome {component_name}"
         )
         return None, None, None, None, None
 
@@ -260,20 +259,17 @@ def force_graph_order(
         if coordinates[0] > coordinates[-1]:
             trav.reverse()
             coordinates.reverse()
-            # traversal_scaffold_only.reverse()
-        #     coordinates.reverse()
         for i in range(len(coordinates) - 1):
             assert coordinates[i] < coordinates[i + 1]
-        trav.append(
-            coordinates[0]
-        )  # a bit hacky, but I'll use this to sort all the traversals later
+        trav.append(coordinates[0])
 
-    # now I need to sort the traversals between each other
+    # we need to sort the traversals between each other using the added coordinates at the end
     ref_traversals.sort(key=lambda x: x[-1])
     # add tags
     bo = bo_start
     for trav in ref_traversals:
-        for node in trav[0:-1]:  # last item was an added integer to sort the traversals
+        # the last item was an added integer to sort the traversals, is not part of the traversal
+        for node in trav[0:-1]:
             if not node.startswith("bb_"):
                 node_order[node] = (bo, 0)
             else:
@@ -282,69 +278,6 @@ def force_graph_order(
             bo += 1
 
     return artic_points, inside_nodes, node_order, bo, len(bubbles)
-
-    # this strategy didn't work very well, I was trying to also give the bb_ nodes a fake SO tag to easily sort
-    # the traversal, but that had too many caveats that caused problems and special cases
-    # for trav in ref_traversals:
-    #     for n in trav:
-    #         to_finalize = []
-    #         if n.startswith('bb_'):
-    #             neighbors = scaffold_graph[n].neighbors()
-    #             if len(neighbors) > 2:
-    #                 # the branching point can have more than 2 neighbors, but we only care
-    #                 # about the ones in the traversal
-    #                 neighbors = [nn for nn in neighbors if nn in trav]
-    #             # both neighbors are artic point, the bubble is in the middle of the traversal
-    #             # can give it fake mid-point SO for the sorting later
-    #             if len(neighbors) == 2:
-    #                 scaffold_graph[n].tags["SO"] = ("i",
-    #                                                 str(
-    #                                                     int(
-    #                                                         (int(scaffold_graph[neighbors[0]].tags["SO"][1]) +
-    #                                                         int(scaffold_graph[neighbors[1]].tags["SO"][1]))/2
-    #                                                     )
-    #                                                 )
-    #                                                 )
-    #             elif len(neighbors) == 1:
-    #                 to_finalize.append((n, neighbors[0]))
-    #     if len(to_finalize) == 1:
-    #         # pdb.set_trace()
-    #         nn = to_finalize[0][1]
-    #         nn_neighbors = scaffold_graph[nn].neighbors()
-    #         nn_neighbors.remove(to_finalize[0][0])
-    #         assert len(nn_neighbors) == 1
-    #
-    #         if scaffold_graph[nn_neighbors[0]].tags["SO"][1] > scaffold_graph[nn].tags["SO"][1]:
-    #             to_modify = -1
-    #         else:
-    #             to_modify = 1
-    #         # not necessarily bigger, I should look at the neighbors of to_finalize[0][1]
-    #         # and check the SO tag of that neighbor, if it's smaller than to_finalize[0][1] then + 1
-    #         # if it's bigger then -1
-    #         scaffold_graph[to_finalize[0][0]].tags["SO"] = ("i", str(int(scaffold_graph[to_finalize[0][1]].tags["SO"][1]) + to_modify))
-    #
-    #     elif len(to_finalize) == 2:
-    #         print(len(to_finalize))
-    #         pdb.set_trace()
-    #
-    #     for n in trav:
-    #         if "SO" not in scaffold_graph[n].tags:
-    #             pdb.set_trace()
-    #
-    #     # all nodes traversal should have SO tag and can sort
-    #     try:
-    #         trav.sort(key=lambda x: int(scaffold_graph[x].tags["SO"][1]))
-    #     except KeyError:
-    #         pdb.set_trace()
-
-    # for trav in
-    # now we order the set of reference traversal by sorting each one according to the SO tag
-    # and numbering them with the bo and no tag
-    # I don't really need to connect them, in the end I just need to produce the node_order dict
-    # I should be able to access the bubble's inside nodes with this
-    # should enumerate the bubbles with (bo) that is the idx + bo_start
-    # for i, n in enumerate(sorted(bubbles[int(node[1:])])):
-    #     node_order[n] = (bo, i + 1)
 
 
 def decompose_and_order(
