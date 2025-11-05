@@ -11,6 +11,7 @@ def parse_output(filename):
 
     return [parse_line(l) for l in open(filename)]
 
+
 # gfa_path, path=None, paths_file=None, keep_going=True, output=None, fasta=False
 # testing for a file input for path list
 def test_file_input(tmp_path):
@@ -18,7 +19,9 @@ def test_file_input(tmp_path):
     input_path_list = "tests/data/find_path-input.txt"
     output = str(tmp_path) + "/output.fasta"
     truth = "tests/data/find_path-output.fasta"
-    run(input_gfa, path=None, paths_file=input_path_list, keep_going=True, output=output, fasta=True)
+    run(
+        input_gfa, path=None, paths_file=input_path_list, keep_going=True, output=output, fasta=True
+    )
     output_lines = parse_output(output)
     truth_lines = parse_output(truth)
     for n in range(len(output_lines)):

@@ -11,6 +11,7 @@ E_DIR = {("+", "+"): (1, 0), ("+", "-"): (1, 1), ("-", "+"): (0, 0), ("-", "-"):
 
 logger = logging.getLogger(__name__)
 
+
 class Node:
     __slots__ = ("id", "seq", "seq_len", "start", "end", "visited", "tags")
 
@@ -761,7 +762,9 @@ class GFA:
         path_list = re.findall("[><][^><]+", path)
         for n in path_list:
             try:
-                assert n[1:] in self.nodes, f"Node {n[1:]} in path {path} does not exist in the graph"
+                assert (
+                    n[1:] in self.nodes
+                ), f"Node {n[1:]} in path {path} does not exist in the graph"
             except AssertionError:
                 logger.warning(f"Node {n[1:]} in path {path} does not exist in the graph")
                 return ""
@@ -770,7 +773,6 @@ class GFA:
             return ""
 
         for n in path_list:
-
             # print(n)
             if n.startswith(">"):
                 seq.append(self.nodes[n[1:]].seq)
@@ -817,6 +819,7 @@ class GFA:
                 for neighbour in self[s].neighbors():
                     stack.append(neighbour)
         return ordered_dfs_out
+
     def dfs(self, start_node):
         """
         Performs depth first search from start node given by user
@@ -838,8 +841,8 @@ class GFA:
             s = stack.pop()
             if not self[s].visited:
                 self[s].visited = True
-            # if s not in dfs_out:
-            #     dfs_out.add(s)
+                # if s not in dfs_out:
+                #     dfs_out.add(s)
                 ordered_dfs_out.append(s)
             else:
                 continue

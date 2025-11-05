@@ -29,7 +29,9 @@ def run(gfa_path, path=None, paths_file=None, keep_going=True, output=None, fast
             seq = graph.extract_path(path)
             if not seq:
                 if keep_going:
-                    logger.warning(f"The path {path} does not exist in the GFA, will keep going to next path if given")
+                    logger.warning(
+                        f"The path {path} does not exist in the GFA, will keep going to next path if given"
+                    )
                 else:
                     logger.error(f"The path {path} does not exist in the GFA")
                     sys.exit(1)
@@ -50,7 +52,9 @@ def run(gfa_path, path=None, paths_file=None, keep_going=True, output=None, fast
                 seq = graph.extract_path(nodes[-1])
                 if not seq:
                     if keep_going:
-                        logger.warning(f"The path {line} does not exist in the GFA, will keep going to next path if given")
+                        logger.warning(
+                            f"The path {line} does not exist in the GFA, will keep going to next path if given"
+                        )
                     else:
                         logger.error(f"The path {line} does not exist in the GFA")
                         sys.exit(1)
@@ -97,6 +101,7 @@ def add_arguments(parser):
         help="Flag to output the sequence as a FASTA file with the seqeunce named seq_<node path>")
 
 # fmt:on
+
 
 def main(args):
     run(**vars(args))

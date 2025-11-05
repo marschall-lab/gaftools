@@ -5,14 +5,10 @@ The BO (Bubble Order) tags order bubbles in the GFA.
 The NO (Node Order) tags order the nodes in a bubble (in a lexicographic order).
 """
 
-# TODO change the flag to actually laod the sequence as default (Done!)
-#      look into pushing the nodes with -1 bo no tags to the end of the file
-#      stop when a chromosome can't be ordered and tell the user they can force the ordering
 import sys
 import os
 import logging
 import time
-import pdb
 from collections import defaultdict
 from gaftools.gfa import GFA
 from gaftools.utils import DEFAULT_CHROMOSOME
@@ -27,7 +23,7 @@ def run_order_gfa(
     chromosome_order=None,
     without_sequence=False,
     ignore_branching=False,
-    output_scaffold=None
+    output_scaffold=None,
 ):
     if chromosome_order is not None:
         chromosome_order = chromosome_order.split(sep=",")
@@ -89,7 +85,14 @@ def run_order_gfa(
         logger.info("Processing %s", chromosome)
         component_nodes = components[chromosome]
         if output_scaffold:
-            scaffold_file = outdir + os.sep + gfa_filename.split("/")[-1].split(".")[0] + "_" + chromosome + "_scaffold_graph.gfa"
+            scaffold_file = (
+                outdir
+                + os.sep
+                + gfa_filename.split("/")[-1].split(".")[0]
+                + "_"
+                + chromosome
+                + "_scaffold_graph.gfa"
+            )
         else:
             scaffold_file = None
 
@@ -155,10 +158,18 @@ def run_order_gfa(
     if not by_chrom:
         if out_gfa:
             final_gfa = (
-                outdir + os.sep + gfa_filename.split(os.sep)[-1].split(".")[0] + "-complete" + ".gfa"
+                outdir
+                + os.sep
+                + gfa_filename.split(os.sep)[-1].split(".")[0]
+                + "-complete"
+                + ".gfa"
             )
             final_csv = (
-                outdir + os.sep + gfa_filename.split(os.sep)[-1].split(".")[0] + "-complete" + ".csv"
+                outdir
+                + os.sep
+                + gfa_filename.split(os.sep)[-1].split(".")[0]
+                + "-complete"
+                + ".csv"
             )
             with open(final_gfa, "w") as outfile:
                 # outputting all the S lines first
@@ -187,7 +198,9 @@ def run_order_gfa(
     logger.info("Total bubbles: %d", total_bubbles)
 
 
-def force_graph_order(graph, scaffold_graph, bubbles, artic_points, component_name, inside_nodes, bo_start=0):
+def force_graph_order(
+    graph, scaffold_graph, bubbles, artic_points, component_name, inside_nodes, bo_start=0
+):
     """
     This function forces the order of a none-linear scaffold graph by only ordering the reference paths
     and giving -1 BO and NO tags for the rest of the paths.
@@ -209,12 +222,11 @@ def force_graph_order(graph, scaffold_graph, bubbles, artic_points, component_na
     for n in candidates:
         traversals.append(scaffold_graph.dfs_line(n))
 
-    pdb.set_trace()
     ref_traversals = []
     non_ref_traversals = []
     # now we need to filter the traversals to only keep the ones that have the reference SN tag
     for trav in traversals:
-        trav_sn_tags = set(graph[n].tags["SN"][1] for n in trav if not n.startswith('bb_'))
+        trav_sn_tags = set(graph[n].tags["SN"][1] for n in trav if not n.startswith("bb_"))
         if len(trav_sn_tags) != 1:
             non_ref_traversals.append(trav)
         else:
@@ -223,16 +235,17 @@ def force_graph_order(graph, scaffold_graph, bubbles, artic_points, component_na
             else:
                 non_ref_traversals.append(trav)
 
-
     if not ref_traversals:
-        logger.error(f"traversals in the graph had mixed reference articulation point, cannot order chromosome {component_name}")
+        logger.error(
+            f"traversals in the graph had mixed reference articulation point, cannot order chromosome {component_name}"
+        )
         return None, None, None, None, None
 
     # we deal with the non-reference nodes and give them -1 for BO and NO tag, un-ordered
     node_order = dict()
     for trav in non_ref_traversals:
         for n in trav:
-            if not n.startswith('bb_'):
+            if not n.startswith("bb_"):
                 node_order[n] = (-1, -1)
             else:
                 for i, nn in enumerate(sorted(bubbles[int(n[3:])])):
@@ -241,8 +254,7 @@ def force_graph_order(graph, scaffold_graph, bubbles, artic_points, component_na
     # sort each ref traversal according to the SO tag
     for trav in ref_traversals:
         # I already know that the traversals in ref_traversals have the reference SN tag
-        trav_scaffold = [n for n in trav if not n.startswith('bb_')]
-        pdb.set_trace()
+        trav_scaffold = [n for n in trav if not n.startswith("bb_")]
         coordinates = list(int(scaffold_graph[n].tags["SO"][1]) for n in trav_scaffold)
         # make sure that the traversal is in ascending order
         if coordinates[0] > coordinates[-1]:
@@ -252,7 +264,9 @@ def force_graph_order(graph, scaffold_graph, bubbles, artic_points, component_na
         #     coordinates.reverse()
         for i in range(len(coordinates) - 1):
             assert coordinates[i] < coordinates[i + 1]
-        trav.append(coordinates[0])  # a bit hacky, but I'll use this to sort all the traversals later
+        trav.append(
+            coordinates[0]
+        )  # a bit hacky, but I'll use this to sort all the traversals later
 
     # now I need to sort the traversals between each other
     ref_traversals.sort(key=lambda x: x[-1])
@@ -260,7 +274,7 @@ def force_graph_order(graph, scaffold_graph, bubbles, artic_points, component_na
     bo = bo_start
     for trav in ref_traversals:
         for node in trav[0:-1]:  # last item was an added integer to sort the traversals
-            if not node.startswith('bb_'):
+            if not node.startswith("bb_"):
                 node_order[node] = (bo, 0)
             else:
                 for i, n in enumerate(sorted(bubbles[int(node[3:])])):
@@ -269,7 +283,6 @@ def force_graph_order(graph, scaffold_graph, bubbles, artic_points, component_na
 
     return artic_points, inside_nodes, node_order, bo, len(bubbles)
 
-    pdb.set_trace()
     # this strategy didn't work very well, I was trying to also give the bb_ nodes a fake SO tag to easily sort
     # the traversal, but that had too many caveats that caused problems and special cases
     # for trav in ref_traversals:
@@ -333,12 +346,14 @@ def force_graph_order(graph, scaffold_graph, bubbles, artic_points, component_na
     # for i, n in enumerate(sorted(bubbles[int(node[1:])])):
     #     node_order[n] = (bo, i + 1)
 
-def decompose_and_order(graph, component, component_name, ignore_branching = False, scaffold_file=None, bo_start=0):
+
+def decompose_and_order(
+    graph, component, component_name, ignore_branching=False, scaffold_file=None, bo_start=0
+):
     """
     This function takes the graph and a component
     detects all biconnected components, order the scaffold nodes and starts ordering
     """
-    import pdb
 
     logger.info(f" Input component: {len(component)} nodes")
     logger.info(f" Finding Biconnected Components of the component {component_name}")
@@ -388,10 +403,7 @@ def decompose_and_order(graph, component, component_name, ignore_branching = Fal
     if scaffold_file:
         logger.info(f"Writing scaffold graph to {scaffold_file}")
         scaffold_graph.write_gfa(
-            set_of_nodes=None,
-            output_file=scaffold_file,
-            append=False,
-            order_bo=False
+            set_of_nodes=None, output_file=scaffold_file, append=False, order_bo=False
         )
     # maybe remove divergent paths where the scaffold nodes do not belong to the same SN tag that is the reference one
     logger.info(f"  Bubbles: {len(bubbles)}")
@@ -403,27 +415,30 @@ def decompose_and_order(graph, component, component_name, ignore_branching = Fal
 
     if len(degree_one) != 2:
         if ignore_branching:
-            logger.info(f"Scaffold graph is not a line, user chose to ignore the branching")
-            return force_graph_order(graph, scaffold_graph, bubbles, artic_points, component_name, inside_nodes, bo_start)
+            logger.info("Scaffold graph is not a line, user chose to ignore the branching")
+            return force_graph_order(
+                graph, scaffold_graph, bubbles, artic_points, component_name, inside_nodes, bo_start
+            )
             # function for forcing the order
         else:
             logger.error(
-            f"In Chromosome {component_name}, we expect only two nodes with degree one for a line graph, that was not the case."
-            f"Ordering can be forced with --ignore-branching"
+                f"In Chromosome {component_name}, we expect only two nodes with degree one for a line graph, that was not the case."
+                "Ordering can be forced with --ignore-branching"
             )
             sys.exit(1)
             return None, None, None, None, None
 
     if len(degree_two) != len(scaffold_graph) - 2:
         if ignore_branching:
-            logger.info(f"Scaffold graph is not a line, forcing the order of the graph")
-            return force_graph_order(graph, scaffold_graph, bubbles, artic_points, component_name, inside_nodes, bo_start)
+            logger.info("Scaffold graph is not a line, forcing the order of the graph")
+            return force_graph_order(
+                graph, scaffold_graph, bubbles, artic_points, component_name, inside_nodes, bo_start
+            )
 
         else:
             logger.error(
                 f"Error: In Chromosome {component_name}, the number of nodes with degree 2 did not match the expected number. Skipping this chromosome"
-                f"Ordering can be forced with --ignore-branching"
-
+                "Ordering can be forced with --ignore-branching"
             )
             return None, None, None, None, None
 
