@@ -1,6 +1,15 @@
 Changes
 =======
 
+v1.3.0 (06/11/2025)
+-------------------
+
+* Minor updates to :code:`find_path` for improved error handling when given paths are invalid.
+* Fixed timer issue in :code:`gfa2rgfa` subcommand. Now reports more accurate time.
+* Minor fixes to :code:`gfa2rgfa` regarding parsing of S lines and handling of temporary files.
+* Major addition to :code:`order_gfa` subcommand to allow handling of branched graphs. Now users can provide :code:`--ignore-branching` flag to create a ordering even when the graph has a branched structure.
+* Addition of :code:`--output-scaffold` flag in :code:`order_gfa` subcommand to output the scaffold graph in GFA format. This graph has bubbles collapsed into single nodes to better visualise the scaffold structure.
+
 v1.2.1 (08/09/2025)
 -------------------
 
