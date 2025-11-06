@@ -457,7 +457,7 @@ def add_arguments(parser):
         help="Outputs each chromosome as a separate GFA, otherwise, all chromosomes in one GFA file")
     arg("--ignore-branching", action="store_true",
         help="Force the order even when branching paths occur in the scaffold graph. Alternative alleles will not be ordered")
-    arg("--output_scaffold", action="store_true",
+    arg("--output-scaffold", action="store_true",
         help="Output the scaffold graph in GFA format. The scaffold graph is the graph created from collapsing all the biconnected components.")
 # fmt: on
 
