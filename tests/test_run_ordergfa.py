@@ -27,7 +27,7 @@ def test_order_gfa(tmp_path):
             if l.startswith("Name"):
                 assert l == "Name,Color,SN,SO,BO,NO\n"
             if l.startswith("s9"):
-                assert l == "s9,blue,chr1,18093,8,2\n"
+                assert l == "s9,orange,chr1,18093,10,0\n"
 
 
 test_order_gfa("test_files")

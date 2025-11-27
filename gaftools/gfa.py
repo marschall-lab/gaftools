@@ -825,7 +825,6 @@ class GFA:
         Performs depth first search from start node given by user
         return the path as a list
         """
-        print("hi")
         if start_node not in self:
             return []
         if len(self) == 1:

@@ -44,6 +44,9 @@ def run_order_gfa(
 
     logger.info(f"Reading {gfa_filename}")
     # if true then sequences are stripped
+    if not os.path.exists(gfa_filename):
+        logger.error(f"The file {gfa_filename} does not exist")
+        sys.exit(1)
     graph = GFA(gfa_filename, low_memory=without_sequence)
     # the __str__ functions print the number of nodes and edges
     logger.info("The graph has:")
@@ -300,9 +303,13 @@ def decompose_and_order(
     logger.info(
         f" It took {time.perf_counter() - start} seconds to find the Biconnected Components"
     )
+    highest_artic_point = max(artic_points, key=lambda x: int(new_graph[x].tags["SO"][1]))
+    lowest_artic_point = min(artic_points, key=lambda x: int(new_graph[x].tags["SO"][1]))
+
     bubbles = []
     scaffold_graph = GFA()
     scaffold_node_types = dict()
+
     for n in artic_points:
         scaffold_graph.add_node(n)
         scaffold_graph[n].tags = graph[n].tags
@@ -321,6 +328,30 @@ def decompose_and_order(
             scaffold_graph.add_edge(node1, "+", node2, "+", 0, tags)
 
         else:
+            if len(bc_end_nodes) == 1:
+                # I find the lowest SO value for the reference nodes, I extract that and add it as an artic node
+                # and add this to the scaffold_graph i am creating
+                # import pdb
+                # pdb.set_trace()
+                to_adjust = None
+                inside_ref = [
+                    n for n in bc_inside_nodes if graph[n].tags["SN"][1] == component_name
+                ]
+                if bc_end_nodes == {lowest_artic_point}:
+                    to_adjust = min(inside_ref, key=lambda x: int(new_graph[x].tags["SO"][1]))
+                elif bc_end_nodes == {highest_artic_point}:
+                    to_adjust = max(inside_ref, key=lambda x: int(new_graph[x].tags["SO"][1]))
+                else:
+                    pass
+
+                if to_adjust:
+                    artic_points.add(to_adjust)
+                    scaffold_graph.add_node(to_adjust)
+                    scaffold_graph[to_adjust].tags = graph[to_adjust].tags
+                    scaffold_node_types[to_adjust] = "s"
+                    bc_inside_nodes.remove(to_adjust)
+                    bc_end_nodes.add(to_adjust)
+
             bubble_index = len(bubbles)
             bubbles.append(bc_inside_nodes)
             bubble_size = len(bc_inside_nodes)
@@ -333,6 +364,8 @@ def decompose_and_order(
                 tags = [0]
                 scaffold_graph.add_edge("bb_" + str(bubble_index), "+", end_node, "+", 0, tags)
 
+    # import pdb
+    # pdb.set_trace()
     if scaffold_file:
         logger.info(f"Writing scaffold graph to {scaffold_file}")
         scaffold_graph.write_gfa(
