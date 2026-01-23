@@ -8,7 +8,7 @@ import pysam
 import queue
 import multiprocessing as mp
 from dataclasses import dataclass, field
-from gaftools.cli import log_memory_usage
+from gaftools.cli import log_memory_usage, CommandLineError
 from gaftools.timer import StageTimer
 from gaftools.gaf import GAF
 from gaftools.gfa import GFA
@@ -177,6 +177,10 @@ def realign_gaf(gaf, graph, fasta, writer, cores=1):
     with timers("realign"):
         logger.debug("Starting realignment of GAF file.")
         for line in gaf_file.read_file():
+            if line.detect_path_format():
+                raise CommandLineError(
+                    "Detected stable coordinates in GAF. Sorting requires unstable coordinates. Please convert the GAF with gaftools view."
+                )
             path_sequence = graph_obj.extract_path(line.path)
             ref = path_sequence[line.path_start : line.path_end]
             query = fastafile.fetch(line.query_name, line.query_start, line.query_end)

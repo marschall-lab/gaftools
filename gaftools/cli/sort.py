@@ -12,7 +12,7 @@ from collections import defaultdict, namedtuple
 from gaftools.utils import is_file_gzipped, FileWriter
 from gaftools.timer import StageTimer
 from gaftools.gfa import GFA
-from gaftools.cli import log_memory_usage
+from gaftools.cli import log_memory_usage, CommandLineError
 
 logger = logging.getLogger(__name__)
 timers = StageTimer()
@@ -30,7 +30,6 @@ It adds some tags into the sorted GAF file. The tags are:
 
 
 def run_sort(gfa, gaf, outgaf=None, outind=None):
-    writer = FileWriter(outgaf)
     index_file = None
     if outgaf:
         if outind:
@@ -40,8 +39,7 @@ def run_sort(gfa, gaf, outgaf=None, outind=None):
     index_dict = defaultdict(lambda: [None, None])
     with timers("read_gfa"):
         gfa_file = GFA(graph_file=gfa, low_memory=True)
-    sort(gaf, gfa_file.nodes, writer, index_dict, index_file)
-    writer.close()
+    sort(gaf, gfa_file.nodes, outgaf, index_dict, index_file)
 
     logger.info("\n== SUMMARY ==")
     total_time = timers.total()
@@ -56,7 +54,7 @@ def run_sort(gfa, gaf, outgaf=None, outind=None):
     # fmt: on
 
 
-def sort(gaf, nodes, writer, index_dict, index_file):
+def sort(gaf, nodes, outgaf, index_dict, index_file):
     logger.info("Parsing GAF file and sorting it")
     if is_file_gzipped(gaf):
         reader = libcbgzf.BGZFile(gaf, "rb")
@@ -77,6 +75,11 @@ def sort(gaf, nodes, writer, index_dict, index_file):
                 line = line.rstrip().split("\t")
             except TypeError:
                 line = line.decode("utf8").rstrip().split("\t")
+            # checking for stable coordinates
+            if not ((">" in line[5]) or ("<" in line[5])):
+                raise CommandLineError(
+                    "Detected stable coordinates in GAF. Sorting requires unstable coordinates. Please convert the GAF with gaftools view."
+                )
             bo, no, start, inv, sn = process_alignment(line, nodes, offset)
             if inv == 1:
                 count_inverse += 1
@@ -91,6 +94,7 @@ def sort(gaf, nodes, writer, index_dict, index_file):
         gaf_alignments.sort(key=functools.cmp_to_key(compare_gaf))
 
     # Writing the sorted file
+    writer = FileWriter(outgaf)
     start_offset = writer.tell()
     with timers("write_gaf"):
         logger.debug("Writing Output File...")
@@ -113,6 +117,7 @@ def sort(gaf, nodes, writer, index_dict, index_file):
                     index_dict[alignment.sn][1] = out_off
                 else:
                     index_dict[alignment.sn][1] = out_off
+    writer.close()
     if index_file is not None:
         if "unknown" in index_dict:
             index_dict.pop("unknown")

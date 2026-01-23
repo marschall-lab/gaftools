@@ -48,7 +48,7 @@ def run(gaf_path, gfa_path, output=None):
     nodes = gfa_file.nodes
     if stable:
         for contig in contigs:
-            path = gfa_file.get_path(contig)
+            path = gfa_file.get_path(contig, throw_warning=False)
             for node in path:
                 reference[contig].append(gfa_file[node])
         nodes = gfa_file.nodes
