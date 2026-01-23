@@ -153,8 +153,8 @@ def get_sample_order(seqfile):
     order = []
     with open(seqfile, "r") as reader:
         for line in reader:
-            sample, _ = line.strip().split("\t")
-            order.append(sample)
+            line = line.strip().split("\t")
+            order.append(line[0])
     return order
 
 
