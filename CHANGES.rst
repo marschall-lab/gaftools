@@ -1,6 +1,12 @@
 Changes
 =======
 
+v1.3.1 (27/01/2026)
+-------------------
+
+* Fixed issue with inclusion of terminal bubbles on components for proper tagging in :code:`order_gfa`.
+* Added more checks for GAF file formats in subcommands :code:`realign` and :code:`sort`.
+
 v1.3.0 (06/11/2025)
 -------------------
 
