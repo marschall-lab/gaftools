@@ -115,7 +115,7 @@ For creating the rGFA tags for all the reference nodes, the minimum requirements
 For further tagging the non-reference nodes coming from assemblies added to the reference assembly, the :code:`seqfile` can be provided and corresponding W lines should be available in the GFA (refer to 'Format of seqfile').
 If the :code:`seqfile` is not provided, then the order in which walks are given in the GFA will be used to tag the non-reference nodes. Users can provide their own order of assemblies in the seqfile, and the coordinates will be generated accordingly.
 
-**Note**: If the proper :code:`seqfile` is not provided, the tagging will not be show the coordinates intended by the graph creator since the order of assemblies might be different.
+**Note**: If the proper :code:`seqfile` is not provided, the tagging will not show the coordinates intended by the graph creator since the order of assemblies might be different.
 
 Any node not found in the W lines will be tagged with the :code:`SN` tag as `unknown`, the :code:`SO` tag as `0`, and the :code:`SN` tag as `-1`.
 
@@ -350,12 +350,12 @@ by the system due to high memory consumption, the realignment run will be aborte
 .. code-block::
   :caption: realign arguments
 
-  usage: gaftools realign [-h] [-o OUTPUT] [-c CORES] GAF rGFA FASTA
+  usage: gaftools realign [-h] [-o OUTPUT] [-c CORES] GAF rGFA READS
 
   positional arguments:
     GAF                   Input GAF file (can be bgzip-compressed)
     rGFA                  reference rGFA file
-    FASTA                 Input FASTA file of the read
+    READS                 Input reads file in FASTA or FASTQ format (optionally gzipped)
 
   options:
     -h, --help            show this help message and exit

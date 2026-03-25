@@ -4,15 +4,17 @@ Realign a GAF file using wavefront alignment algorithm (WFA).
 
 import logging
 import sys
-import pysam
 import queue
+import gzip
+import tempfile
 import multiprocessing as mp
 from dataclasses import dataclass, field
 from gaftools.cli import log_memory_usage, CommandLineError
 from gaftools.timer import StageTimer
 from gaftools.gaf import GAF
 from gaftools.gfa import GFA
-from gaftools.utils import FileWriter
+from gaftools.utils import FileWriter, is_file_gzipped
+import pyfastx
 from pywfa.align import WavefrontAligner
 
 logger = logging.getLogger(__name__)
@@ -28,6 +30,57 @@ class PriorityAlignment:
     priority: int
     seq: str
     field(compare=False)
+
+
+@dataclass
+class ReadAccessor:
+    """
+    Random-access wrapper for FASTA/FASTQ reads using pyfastx instead of pysam.
+    """
+
+    reader: object
+    tempdir: tempfile.TemporaryDirectory | None = None
+
+    def fetch(self, query_name, query_start, query_end):
+        # to replace the pysam fetch without changing much of the code below
+        if query_name not in self.reader:
+            raise CommandLineError(f"Read '{query_name}' not found in input reads file.")
+        record = self.reader[query_name]
+        seq = record.seq if hasattr(record, "seq") else str(record)
+        return seq[query_start:query_end]
+
+    def close(self):
+        # instead of the pysam FastaFile close
+        if self.tempdir is not None:
+            self.tempdir.cleanup()
+
+
+def detect_reads_format(reads_path):
+    # Peek at the first non-empty record line to decide which pyfastx reader to use.
+    opener = gzip.open if is_file_gzipped(reads_path) else open
+    with opener(reads_path, "rt") as reads_file:
+        for line in reads_file:
+            line = line.strip()
+            if not line:
+                continue
+            if line.startswith(">"):
+                return "fasta"
+            if line.startswith("@"):
+                return "fastq"
+            break
+    raise CommandLineError(
+        f"Could not determine read format for '{reads_path}'. Expected FASTA or FASTQ."
+    )
+
+
+def open_reads(reads_path):
+    reads_format = detect_reads_format(reads_path)
+    # Keep pyfastx index files in a temp directory instead of next to the input reads.
+    tempdir = tempfile.TemporaryDirectory(prefix="gaftools-realign-pyfastx-")
+    index_path = f"{tempdir.name}/reads.fxi"
+    if reads_format == "fasta":
+        return ReadAccessor(pyfastx.Fasta(reads_path, index_file=index_path), tempdir=tempdir)
+    return ReadAccessor(pyfastx.Fastq(reads_path, index_file=index_path), tempdir=tempdir)
 
 
 def peak(prior_queue):
@@ -157,40 +210,93 @@ def realign_gaf(gaf, graph, fasta, writer, cores=1):
     # tracemalloc.start()
 
     logger.debug(f"Using {cores} cores for realignment")
-    logger.debug(f"Reading Fasta: {fasta}")
-    fastafile = pysam.FastaFile(fasta)
-    logger.info("Complete initializing FASTA file.")
-    logger.debug(f"Reading GFA: {graph}")
-    with timers("read_gfa"):
-        graph_obj = GFA(graph)
-    logger.info("Complete initializing GFA file.")
-    processes = []
-    align_queue = mp.Queue()
+    logger.debug(f"Reading reads file: {fasta}")
+    reads = open_reads(fasta)  # this used to be pysam.FastaFile
+    logger.info("Complete initializing reads file.")
+    try:
+        logger.debug(f"Reading GFA: {graph}")
+        with timers("read_gfa"):
+            graph_obj = GFA(graph)
+        logger.info("Complete initializing GFA file.")
+        processes = []
+        align_queue = mp.Queue()
 
-    seq_batch = []
-    batch_size = 1000
-    logger.debug(f"Reading GAF: {gaf}")
-    gaf_file = GAF(gaf)
-    logger.info("Complete initializing GAF file.")
-    priority_counter = 0
-    logger.info("Reading GAF file and preparing batches for alignment.")
-    with timers("realign"):
-        logger.debug("Starting realignment of GAF file.")
-        for line in gaf_file.read_file():
-            if line.detect_path_format():
-                raise CommandLineError(
-                    "Detected stable coordinates in GAF. Sorting requires unstable coordinates. Please convert the GAF with gaftools view."
-                )
-            path_sequence = graph_obj.extract_path(line.path)
-            ref = path_sequence[line.path_start : line.path_end]
-            query = fastafile.fetch(line.query_name, line.query_start, line.query_end)
+        seq_batch = []
+        batch_size = 1000
+        logger.debug(f"Reading GAF: {gaf}")
+        gaf_file = GAF(gaf)
+        logger.info("Complete initializing GAF file.")
+        priority_counter = 0
+        logger.info("Reading GAF file and preparing batches for alignment.")
+        with timers("realign"):
+            logger.debug("Starting realignment of GAF file.")
+            for line in gaf_file.read_file():
+                if line.detect_path_format():
+                    raise CommandLineError(
+                        "Detected stable coordinates in GAF. Sorting requires unstable coordinates. Please convert the GAF with gaftools view."
+                    )
+                path_sequence = graph_obj.extract_path(line.path)
+                ref = path_sequence[line.path_start : line.path_end]
+                # realign keeps GAF coordinates, so slice only the mapped query interval.
+                query = reads.fetch(
+                    line.query_name, line.query_start, line.query_end
+                )  # was also fetch but from pysam library
 
-            seq_batch.append((line, ref, query, priority_counter))
-            priority_counter += 1
-            if len(seq_batch) != batch_size:
-                continue
-            else:
-                # logger.info(f"{time.time()} finished preparing one batch and adding a process for it")
+                seq_batch.append((line, ref, query, priority_counter))
+                priority_counter += 1
+                if len(seq_batch) != batch_size:
+                    continue
+                else:
+                    # logger.info(f"{time.time()} finished preparing one batch and adding a process for it")
+                    processes.append(
+                        mp.Process(
+                            target=wfa_alignment,
+                            args=(
+                                seq_batch,
+                                align_queue,
+                            ),
+                        )
+                    )
+                    seq_batch = []
+
+                if len(processes) == cores:
+                    p_queue = queue.PriorityQueue()
+                    # logger.info(f"{time.time()} Running the prepared batches of processes")
+                    for p in processes:
+                        p.start()
+                    n_sentinels = 0
+                    while n_sentinels != len(processes):  # exits when all processes finished
+                        try:
+                            out_string_obj = align_queue.get(timeout=0.5)
+                        except queue.Empty:  # queue throws Empty exception after timeout
+                            # check if all threads are still alive
+                            if one_is_alive(processes):
+                                continue
+                            else:
+                                # all_exited returns false if one exited with non-zero code
+                                if not all_exited(processes):
+                                    logger.error(
+                                        "One of the processes had a none-zero exit code. One reason could be that one of the processes consumed too much memory and was killed"
+                                    )
+                                    sys.exit(1)
+                        if out_string_obj is None:  # sentinel counter to count finished processes
+                            n_sentinels += 1
+                        else:  # priority queue to keep the output order same as input order
+                            p_queue.put(out_string_obj)
+                            # output.write(out_string_obj)
+
+                    for p in processes:
+                        p.join()
+                    queue_len = len(p_queue.queue)
+                    for _ in range(queue_len):
+                        writer.write(p_queue.get().seq)
+                    processes = []
+                    align_queue = mp.Queue()
+                    p_queue = queue.PriorityQueue()
+            gaf_file.close()
+            logger.debug("Completed realignment of GAF file.")
+            logger.debug("Re-aligning leftover alignments.")
+            if len(seq_batch) > 0:  # leftover alignments to re-align
                 processes.append(
                     mp.Process(
                         target=wfa_alignment,
@@ -200,87 +306,38 @@ def realign_gaf(gaf, graph, fasta, writer, cores=1):
                         ),
                     )
                 )
-                seq_batch = []
-
-            if len(processes) == cores:
+            # leftover batches
+            if len(processes) != 0:
                 p_queue = queue.PriorityQueue()
-                # logger.info(f"{time.time()} Running the prepared batches of processes")
                 for p in processes:
                     p.start()
                 n_sentinels = 0
                 while n_sentinels != len(processes):  # exits when all processes finished
                     try:
-                        out_string_obj = align_queue.get(timeout=0.5)
-                    except queue.Empty:  # queue throws Empty exception after timeout
+                        out_string_obj = align_queue.get(timeout=0.1)
+                    except queue.Empty:
                         # check if all threads are still alive
                         if one_is_alive(processes):
                             continue
                         else:
                             # all_exited returns false if one exited with non-zero code
                             if not all_exited(processes):
-                                logger.error(
-                                    "One of the processes had a none-zero exit code. One reason could be that one of the processes consumed too much memory and was killed"
-                                )
+                                logger.error("One of the processes had a none-zero exit code")
                                 sys.exit(1)
-                    if out_string_obj is None:  # sentinel counter to count finished processes
+                    if out_string_obj is None:
                         n_sentinels += 1
-                    else:  # priority queue to keep the output order same as input order
+                    else:
                         p_queue.put(out_string_obj)
                         # output.write(out_string_obj)
-
                 for p in processes:
                     p.join()
                 queue_len = len(p_queue.queue)
                 for _ in range(queue_len):
                     writer.write(p_queue.get().seq)
-                processes = []
-                align_queue = mp.Queue()
-                p_queue = queue.PriorityQueue()
-        gaf_file.close()
-        logger.debug("Completed realignment of GAF file.")
-        logger.debug("Re-aligning leftover alignments.")
-        if len(seq_batch) > 0:  # leftover alignments to re-align
-            processes.append(
-                mp.Process(
-                    target=wfa_alignment,
-                    args=(
-                        seq_batch,
-                        align_queue,
-                    ),
-                )
-            )
-        # leftover batches
-        if len(processes) != 0:
-            p_queue = queue.PriorityQueue()
-            for p in processes:
-                p.start()
-            n_sentinels = 0
-            while n_sentinels != len(processes):  # exits when all processes finished
-                try:
-                    out_string_obj = align_queue.get(timeout=0.1)
-                except queue.Empty:
-                    # check if all threads are still alive
-                    if one_is_alive(processes):
-                        continue
-                    else:
-                        # all_exited returns false if one exited with non-zero code
-                        if not all_exited(processes):
-                            logger.error("One of the processes had a none-zero exit code")
-                            sys.exit(1)
-                if out_string_obj is None:
-                    n_sentinels += 1
-                else:
-                    p_queue.put(out_string_obj)
-                    # output.write(out_string_obj)
-            for p in processes:
-                p.join()
-            queue_len = len(p_queue.queue)
-            for _ in range(queue_len):
-                writer.write(p_queue.get().seq)
-        logger.debug("Finished all re-alignments along with the leftover alignments.")
-    logger.info("Realignment complete.")
-
-    fastafile.close()
+            logger.debug("Finished all re-alignments along with the leftover alignments.")
+        logger.info("Realignment complete.")
+    finally:
+        reads.close()
 
 
 # fmt: off
@@ -291,8 +348,8 @@ def add_arguments(parser):
         help='GAF file (can be bgzip-compressed)')
     arg('graph', metavar='GFA',
         help='GFA file (can be bgzip-compressed)')
-    arg('fasta', metavar='FASTA',
-        help='FASTA file of the read')
+    arg('fasta', metavar='READS',
+        help='Reads file in FASTA or FASTQ format (optionally gzipped)')
     arg('-o', '--output', default=None,
         help='Output GAF file (bgzipped if the file ends with .gz). If omitted, use standard output.')
     arg("-c", "--cores", metavar="CORES", default=1, type=int,

@@ -469,9 +469,7 @@ class GFA:
             if os.path.exists(output_file):
                 f = open(output_file, "a")
             else:
-                logging.warning(
-                    "Trying to append to a non-existent file\n" "creating an output file"
-                )
+                logging.warning("Trying to append to a non-existent file\ncreating an output file")
                 f = open(output_file, "w+")
 
         # going through nodes twice to have the final output as all S line then all L lines

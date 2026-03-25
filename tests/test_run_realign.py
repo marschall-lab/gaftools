@@ -2,18 +2,66 @@
 Tests for 'gaftools realign'
 """
 
+import gzip
+import pytest
+
 from gaftools.gaf import GAF
 from gaftools.cli.realign import run_realign
 
 
-def test_order_gfa(tmp_path):
+def write_fastq_from_fasta(fasta_path, fastq_path):
+    # Making a fake FASTQ from the test FASTA to test that gaftools is reading both
+    # The quality here doesn't matter, so it's just a placeholder
+    with open(fasta_path, "r") as fasta_file, open(fastq_path, "w") as fastq_file:
+        name = None
+        sequence_parts = []
+        for line in fasta_file:
+            line = line.strip()
+            if not line:
+                continue
+            if line.startswith(">"):
+                if name is not None:
+                    sequence = "".join(sequence_parts)
+                    fastq_file.write(f"@{name}\n{sequence}\n+\n{'I' * len(sequence)}\n")
+                name = line[1:]
+                sequence_parts = []
+            else:
+                sequence_parts.append(line)
+        if name is not None:
+            sequence = "".join(sequence_parts)
+            fastq_file.write(f"@{name}\n{sequence}\n+\n{'I' * len(sequence)}\n")
+
+
+# Helper to validate the same test data through gzipped input paths.
+def write_gzip_file(src, dest):
+    with open(src, "rb") as src_file, gzip.open(dest, "wb") as dest_file:
+        dest_file.write(src_file.read())
+
+
+# this tells pytest to run the test for all these file formats basically
+@pytest.mark.parametrize("reads_format", ["fasta", "fastq", "fasta.gz", "fastq.gz"])
+def test_order_gfa(tmp_path, reads_format):
     # gaftools realign alignments.gaf smallgraph.gfa reads.fa
     input_gaf = "tests/data/alignments-graphaligner.gaf"
     output_gaf = str(tmp_path) + "/output.gaf"
+    reads_path = "tests/data/reads.fa"
+    # testing different formats
+    if reads_format == "fastq":
+        reads_path = str(tmp_path / "reads.fastq")
+        write_fastq_from_fasta("tests/data/reads.fa", reads_path)
+    elif reads_format == "fasta.gz":
+        reads_path = str(tmp_path / "reads.fa.gz")
+        write_gzip_file("tests/data/reads.fa", reads_path)
+    elif reads_format == "fastq.gz":
+        reads_fastq = str(tmp_path / "reads.fastq")
+        write_fastq_from_fasta("tests/data/reads.fa", reads_fastq)
+        reads_path = str(tmp_path / "reads.fastq.gz")
+        write_gzip_file(reads_fastq, reads_path)
+
     run_realign(
         gaf=input_gaf,
         graph="tests/data/smallgraph.gfa",
-        fasta="tests/data/reads.fa",
+        fasta=reads_path,
         output=output_gaf,
         cores=1,
     )

@@ -46,11 +46,11 @@ To generate an html report on the test coverage::
 
 To format using :code:`ruff`, run::
 
-    ruff format gaftools/ test/ setup.py
+    ruff format gaftools/ tests/ setup.py
 
 To check for syntax and style errors using :code:`ruff`, run::
 
-    ruff check gaftools/ test/ setup.py
+    ruff check gaftools/ tests/ setup.py
 
 To check for proper documentation build, proper syntax and styling, and pytest on multiple python versions (installed locally), run::
 

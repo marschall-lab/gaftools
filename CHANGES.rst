@@ -1,6 +1,12 @@
 Changes
 =======
 
+v1.3.2 (25/03/2026)
+-------------------
+
+* Updated :code:`realign` to support reads in FASTA/FASTQ, including gzipped inputs by adding the `pyfastx` dependency to the project.
+
+
 v1.3.1 (27/01/2026)
 -------------------
 
