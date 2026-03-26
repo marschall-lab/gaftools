@@ -8,6 +8,7 @@ import queue
 import gzip
 import tempfile
 import multiprocessing as mp
+from typing import Optional
 from dataclasses import dataclass, field
 from gaftools.cli import log_memory_usage, CommandLineError
 from gaftools.timer import StageTimer
@@ -39,7 +40,7 @@ class ReadAccessor:
     """
 
     reader: object
-    tempdir: tempfile.TemporaryDirectory | None = None
+    tempdir: Optional[tempfile.TemporaryDirectory] = None
 
     def fetch(self, query_name, query_start, query_end):
         # Avoid relying on `query_name in reader` semantics, which can vary by pyfastx build.
