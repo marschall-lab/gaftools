@@ -42,10 +42,11 @@ class ReadAccessor:
     tempdir: tempfile.TemporaryDirectory | None = None
 
     def fetch(self, query_name, query_start, query_end):
-        # to replace the pysam fetch without changing much of the code below
-        if query_name not in self.reader:
+        # Avoid relying on `query_name in reader` semantics, which can vary by pyfastx build.
+        try:
+            record = self.reader[query_name]
+        except (KeyError, IndexError, RuntimeError):
             raise CommandLineError(f"Read '{query_name}' not found in input reads file.")
-        record = self.reader[query_name]
         seq = record.seq if hasattr(record, "seq") else str(record)
         return seq[query_start:query_end]
 
