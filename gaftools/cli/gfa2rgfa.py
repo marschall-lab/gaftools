@@ -40,7 +40,6 @@ class OutputNode:
 def run(
     gfa=None,
     reference_name=None,
-    reference_tagged=False,
     override_reference=False,
     seqfile=None,
     output=None,
@@ -71,7 +70,7 @@ def run(
         tmp_walk_file = FileWriter(tmp_walk_fname)
         with timers("tag_reference"):
             logger.info("Tagging reference nodes and writing reference walks to temp file.")
-            create_ref_tags(node_dict, walks, reference_name, gfa, tmp_walk_file, reference_tagged)
+            create_ref_tags(node_dict, walks, reference_name, gfa, tmp_walk_file)
         # if reference node info is already tagged (as is the case with the minigraph-cactus gfa), then just need to fill the rest of the information.
         if seqfile:
             logger.info(
@@ -117,14 +116,9 @@ def run(
     for key, value in stats_counter.items():
         logger.info(f"Number of {key}: {value}")
     if stats_counter["rank-0 nodes"] == 0:
-        if reference_tagged:
-            logger.warning(
-                "No rank-0 nodes found in the GFA file. Either --reference-tagged was given but no reference nodes were tagged or no. Output rGFA will not have any rank-0 nodes."
-            )
-        else:
-            logger.warning(
-                "No rank-0 nodes found in the GFA file. Please check the W-lines for the reference genome. Output rGFA will not have any rank-0 nodes."
-            )
+        logger.warning(
+            "No rank-0 nodes found in the GFA file. Please check the W-lines for the reference genome. Output rGFA will not have any rank-0 nodes."
+        )
     logger.info("\n== SUMMARY ==")
     total_time = timers.total()
     log_memory_usage()
@@ -268,7 +262,7 @@ def revcomp(seq):
 
 # creating the rGFA relevant tags for the nodes coming from the reference genome.
 # the walk corresponding to reference genome should be (by design) in the 5' to 3' orientation and without cycles.
-def create_ref_tags(nodes, walks, reference_name, file, tmp_walk_file, reference_tagged):
+def create_ref_tags(nodes, walks, reference_name, file, tmp_walk_file):
     gzipped = False
     if file.endswith(".gz"):
         opened_file = libcbgzf.BGZFile(file, "rb")
@@ -296,8 +290,6 @@ def create_ref_tags(nodes, walks, reference_name, file, tmp_walk_file, reference
         tmp_walk_file.write(
             f"W\t{ref}\t{hap}\t{assm_name}\t{walk_start}\t{walk_end}\t{walk_path}\n"
         )
-        if reference_tagged:
-            continue
         sn = f"{ref}#{hap}#{assm_name}"
         # check how slow this part is.
         walk = list(filter(None, re.split("(>)|(<)", walk_path)))
@@ -308,10 +300,15 @@ def create_ref_tags(nodes, walks, reference_name, file, tmp_walk_file, reference
                 continue
             id = walk[i]
             if not isinstance(nodes[id], Node):
-                raise CommandLineError(
-                    f"Node {id} is a reference node and is already tagged. Please give the --reference-tagged flag if you want to keep the reference info from the GFA. Please provide --override-reference flag to ignore this information."
-                )
-            nodes[id] = OutputNode(ln=nodes[id].ln, so=so, sn=sn, sr=0)
+                assert isinstance(nodes[id], OutputNode)
+                nodes[id].sn = sn
+                assert nodes[id].sr == 0, f"A non-reference node {id} is already tagged. Exiting."
+                if nodes[id].so != so:
+                    logger.warning(
+                        f"The SO tag for {id} in {ref}#{hap} does not match based on the W-line of {assm_name} in the GFA."
+                    )
+            else:
+                nodes[id] = OutputNode(ln=nodes[id].ln, so=so, sn=sn, sr=0)
             so = so + nodes[id].ln
     opened_file.close()
 
@@ -421,7 +418,7 @@ def write_rGFA(gfa, nodes, writer):
             else:
                 writer.write(f"L\t{n1}\t{o1}\t{n2}\t{o2}\t{overlap}\n")
         else:
-            writer.write(line + "\n")
+            writer.write(line.strip() + "\n")
     reader.close()
     return stats_counter
 
@@ -434,9 +431,7 @@ def add_arguments(parser):
         help='GFA file (can be bgzip-compressed). This GFA should have a W-line corresponding to the reference genome or the reference nodes have to be tagged already.')
     arg("--reference-name", metavar='REFERENCE NAME', default=None,
         help="The name of the reference genome given in the W-line. " \
-        "If --reference-tagged is provided and --reference-name is not specified, it looks for reference name in H lines.")
-    arg("--reference-tagged", default=False, action="store_true",
-        help="Flag to denote reference nodes are already tagged in the GFA.")
+        "If --reference-name is not specified, it looks for reference name in H lines.")
     arg("--override-reference", default=False, action="store_true",
         help="Flag to override any nodes tagged in the GFA as reference nodes.")
     arg("--seqfile", metavar='SEQFILE',
@@ -453,20 +448,9 @@ def validate(args, parser):
         parser.error(f"GFA file {args.gfa} does not exist.")
     if args.seqfile and not os.path.exists(args.seqfile):
         parser.error(f"Seqfile {args.seqfile} does not exist.")
-    if not args.reference_name and not args.reference_tagged:
-        parser.error(
-            "Either provide the reference name with --reference-name or flag that reference nodes are already tagged with --reference-tagged."
-        )
     if not args.reference_name and args.override_reference:
         parser.error(
             "Provided --override-reference without --reference-name. Please provide which reference to use."
-        )
-    if args.reference_tagged and args.override_reference:
-        parser.error(
-            "Both --reference-tagged and --override-reference flags given. "
-            "If you want to keep the reference tags from GFA, provide --reference-tagged. "
-            "If you want to override them for another set of reference tags, provide --override-reference. "
-            "Both cannot be given at the same time."
         )
 
 
