@@ -2,12 +2,12 @@
 Converting a GFA file to rGFA format using the W-lines and the acyclic reference path. (e.g., minigraph-based graphs)
 """
 
-# TODO: Need to handle deletion of temporary files in case of errors.
-
 import os
 import sys
 import logging
 import re
+import tempfile
+import pathlib
 from pysam import libcbgzf
 from gaftools.utils import FileWriter
 from gaftools.timer import StageTimer
@@ -20,8 +20,8 @@ orient_switch = {"+": "-", "-": "+", ">": "<", "<": ">"}
 
 
 class Node:
-    def __init__(self, line):
-        self.ln: int = len(line[2])
+    def __init__(self, length):
+        self.ln: int = length
 
 
 class OutputNode:
@@ -37,62 +37,82 @@ class OutputNode:
         return f"\tLN:i:{self.ln}\tSO:i:{self.so}\tSN:Z:{self.sn}\tSR:i:{self.sr}"
 
 
-def run(gfa=None, reference_name="CHM13", reference_tagged=False, seqfile=None, output=None):
+def run(
+    gfa=None,
+    reference_name=None,
+    reference_tagged=False,
+    override_reference=False,
+    seqfile=None,
+    output=None,
+):
     # if reference node info is missing, then need to tag the reference nodes based on the W-line given by user.
+    ref_name = process_gfa_header(gfa)
+    if ref_name is None and reference_name is None:
+        raise CommandLineError(
+            "No --reference-name provided and the GFA has no header specifying that. Please provide --reference-name."
+        )
+    if reference_name and ref_name and (ref_name != reference_name) and (not override_reference):
+        raise CommandLineError(
+            f"Found reference {ref_name} specified in GFA header. Found reference {reference_name} as user input. Provide the --override-reference flag to use reference {reference_name}."
+        )
+
+    if reference_name is None and ref_name:
+        reference_name = ref_name
+    if "#" not in reference_name:
+        reference_name = f"{reference_name}#0"
+
     with timers("read_gfa"):
         logger.info("Reading GFA file.")
-        node_dict, walks = process_gfa(gfa)
-    if output is None:
-        tmp_walk_fname = "tmp_walks.gz"
-    else:
-        tmp_walk_fname = output + "-walks.tmp.gz"
-    tmp_walk_file = FileWriter(tmp_walk_fname)
-    with timers("tag_reference"):
-        logger.info("Tagging reference nodes and writing reference walks to temp file.")
-        create_ref_tags(node_dict, walks, reference_name, gfa, tmp_walk_file, reference_tagged)
-    # if reference node info is already tagged (as is the case with the minigraph-cactus gfa), then just need to fill the rest of the information.
-    if seqfile:
-        logger.info(
-            "Seqfile was provided. Using the order of assemblies in the seqfile to tag assembly nodes."
-        )
-        sample_order = get_sample_order(seqfile)
-        for index, sample in enumerate(sample_order):
-            if sample == reference_name:
-                continue
-            logger.info(
-                f"Tagging assembly nodes for haplotype assembly {sample} and writing corrected walks to temp file."
-            )
-            with timers("tag_assembly"):
-                create_assembly_tags(node_dict, walks, sample, index, gfa, tmp_walk_file)
-    else:
-        logger.info(
-            "No seqfile was provided. Defaulting to the order of assemblies provided in the GFA."
-        )
-        sample_order = [
-            f"{sample}.{hap}" for sample, hap in walks.keys() if sample != reference_name
-        ]
-        for index, sample in enumerate(sample_order):
-            if sample == reference_name:
-                continue
-            logger.info(
-                f"Tagging assembly nodes for haplotype assembly {sample} and writing corrected walks to temp file."
-            )
-            with timers("tag_assembly"):
-                create_assembly_tags(node_dict, walks, sample, index + 1, gfa, tmp_walk_file)
+        node_dict, walks = process_gfa(gfa, override_reference, reference_name)
 
-    tmp_walk_file.close()
-    # reading the temporary file to write the rGFA file.
-    writer = FileWriter(output)
-    logger.info("Writing S and L lines to temp file.")
-    with timers("write_gfa"):
-        stats_counter = write_rGFA(gfa, node_dict, writer)
-        logger.info("Writing the corrected W lines to the rGFA file.")
-        with libcbgzf.BGZFile(output + "-walks.tmp.gz", "rb") as reader:
-            for line in reader:
-                writer.write(line.decode("utf-8"))
-                writer.write("\n")
-    logger.info("Cleaning up temporary files.")
-    os.remove(tmp_walk_fname)
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_walk_path = pathlib.Path(tmp_dir)
+        tmp_walk_fname = str(tmp_walk_path) + "/walks.gz"
+        tmp_walk_file = FileWriter(tmp_walk_fname)
+        with timers("tag_reference"):
+            logger.info("Tagging reference nodes and writing reference walks to temp file.")
+            create_ref_tags(node_dict, walks, reference_name, gfa, tmp_walk_file, reference_tagged)
+        # if reference node info is already tagged (as is the case with the minigraph-cactus gfa), then just need to fill the rest of the information.
+        if seqfile:
+            logger.info(
+                "Seqfile was provided. Using the order of assemblies in the seqfile to tag assembly nodes."
+            )
+            sample_order = get_sample_order(seqfile)
+            for index, sample in enumerate(sample_order):
+                if sample == reference_name:
+                    continue
+                logger.info(
+                    f"Tagging assembly nodes for haplotype assembly {sample} and writing corrected walks to temp file."
+                )
+                with timers("tag_assembly"):
+                    create_assembly_tags(node_dict, walks, sample, index, gfa, tmp_walk_file)
+        else:
+            logger.info(
+                "No seqfile was provided. Defaulting to the order of assemblies provided in the GFA."
+            )
+            sample_order = [
+                f"{sample}#{hap}"
+                for sample, hap in walks.keys()
+                if (f"{sample}#{hap}" != reference_name)
+            ]
+            for index, sample in enumerate(sample_order):
+                logger.info(
+                    f"Tagging assembly nodes for haplotype assembly {sample} and writing corrected walks to temp file."
+                )
+                with timers("tag_assembly"):
+                    create_assembly_tags(node_dict, walks, sample, index + 1, gfa, tmp_walk_file)
+
+        tmp_walk_file.close()
+        # reading the temporary file to write the rGFA file.
+        writer = FileWriter(output)
+        logger.info("Writing S and L lines to temp file.")
+        with timers("write_gfa"):
+            stats_counter = write_rGFA(gfa, node_dict, writer)
+            logger.info("Writing the corrected W lines to the rGFA file.")
+            with libcbgzf.BGZFile(tmp_walk_fname, "rb") as reader:
+                for line in reader:
+                    writer.write(line.decode("utf-8"))
+                    writer.write("\n")
     logger.info("\n== NODE STATS ==")
     for key, value in stats_counter.items():
         logger.info(f"Number of {key}: {value}")
@@ -118,43 +138,19 @@ def run(gfa=None, reference_name="CHM13", reference_tagged=False, seqfile=None, 
     # fmt: on
 
 
-# fmt: off
-def add_arguments(parser):
-    arg = parser.add_argument
-    # Positional arguments
-    arg('gfa', metavar='GFA',
-        help='GFA file (can be bgzip-compressed). This GFA should have a W-line corresponding to the reference genome or the reference nodes have to be tagged already.')
-    arg("--reference-name", metavar='REFERENCE NAME', default='CHM13',
-        help="The name of the reference genome given in the W-line. Default: CHM13")
-    arg("--reference-tagged", default=False, action="store_true",
-        help="Flag to denote reference nodes are already tagged in the GFA.")
-    arg("--seqfile", metavar='SEQFILE',
-        help='File containing the sequence in which assemblies were given. Provide the seqfile given as part of running minigraph-cactus (only the first column is required). It has the format: <assembly_name><tab><assembly_path>.'
-        ' If not provided, the order of assemblies will be taken from the GFA file. User-defined order of assemblies can also be given. '
-        'There should be W lines for each assembly in the GFA.')
-    arg("--output", metavar='rGFA',
-        help='Output rGFA (bgzipped if the file ends with .gz). If omitted, use standard output.')
-# fmt: on
-
-
-def validate(args, parser):
-    if not os.path.exists(args.gfa):
-        parser.error(f"GFA file {args.gfa} does not exist.")
-    if args.seqfile and not os.path.exists(args.seqfile):
-        parser.error(f"Seqfile {args.seqfile} does not exist.")
-    if not args.reference_name and not args.reference_tagged:
-        parser.error(
-            "Either provide the reference name with --reference-name or flag that reference nodes are already tagged with --reference-tagged."
-        )
-
-
 # getting the order of the samples from the seqfile.
 def get_sample_order(seqfile):
     order = []
     with open(seqfile, "r") as reader:
         for line in reader:
             line = line.strip().split("\t")
-            order.append(line[0])
+            if "." in line[0]:
+                parts = line[0].split(".")
+                assert len(parts) == 2
+                name = f"{parts[0]}#{parts[1]}"
+            else:
+                name = f"{line[0]}#0"
+            order.append(name)
     return order
 
 
@@ -169,8 +165,48 @@ def readS(line):
     return node_id, seq, tags
 
 
+def readH(line):
+    line = line.strip().split("\t")
+    tags = {}
+    for field in line[1:]:
+        tag, type, value = field.split(":")
+        tags[tag] = (type, value)
+    return tags
+
+
+def process_gfa_header(gfa):
+    ref_name = None
+    gzipped = False
+    opened_file = None
+    if gfa.endswith(".gz"):
+        opened_file = libcbgzf.BGZFile(gfa, "rb")
+        gzipped = True
+    else:
+        opened_file = open(gfa, "r")
+    while True:
+        line = opened_file.readline().decode("utf-8") if gzipped else opened_file.readline()
+        if not line:
+            break
+        if line.startswith("H"):
+            tags = readH(line)
+            if "RS" in tags:
+                ref_name = tags["RS"][1]
+                if " " in ref_name:
+                    refs = ref_name.split(" ")
+                    logger.info(
+                        f"Found the following reference names in GFA header: {ref_name}. Selected {refs[0]} as reference."
+                    )
+                    ref_name = refs[0]
+        else:
+            # if any other line type is detected, the loop terminates
+            break
+    opened_file.close()
+
+    return ref_name
+
+
 # This function processes the GFA file and returns the node dictionary and the walk dictionary.
-def process_gfa(gfa):
+def process_gfa(gfa, override_reference, reference_name):
     nodes = {}
     walks = {}
     gzipped = False
@@ -187,19 +223,23 @@ def process_gfa(gfa):
             break
         if line.startswith("S"):
             node_id, seq, tags = readS(line)
-            if "SN" in tags and "SO" in tags and "SR" in tags:
+            if "SN" in tags and "SO" in tags and "SR" in tags and not override_reference:
                 if "LN" in tags:
                     ln = int(tags["LN"][1])
                 else:
                     ln = len(seq)
                 sn = tags["SN"][1]
+                sn_base = sn.split("#")[0]
+                ref_base = reference_name.split("#")[0]
+                assert (
+                    ref_base == sn_base
+                ), f"Detected reference name {sn} in GFA does not match given reference name {reference_name}."
                 so = int(tags["SO"][1])
                 sr = int(tags["SR"][1])
                 nodes[node_id] = OutputNode(ln=ln, so=so, sn=sn, sr=sr)
                 continue
             else:
-                line = line.strip().split("\t")
-                nodes[node_id] = Node(line)
+                nodes[node_id] = Node(len(seq))
         elif line.startswith("W"):
             _, name, hap, _, _, _, _ = line.strip().split(
                 "\t",
@@ -235,19 +275,30 @@ def create_ref_tags(nodes, walks, reference_name, file, tmp_walk_file, reference
         gzipped = True
     else:
         opened_file = open(file, "r")
+    ref = None
+    hap = None
     try:
-        walks_list = yield_walks(opened_file, walks[(reference_name, "0")], gzipped)
+        if "#" in reference_name:
+            parts = reference_name.split("#")
+            assert (
+                len(parts) == 2
+            ), "Reference name is not of form <ref name>#<hap number> or <ref name>. More than one # found."
+            ref = parts[0]
+            hap = parts[1]
+        else:
+            ref = reference_name
+            hap = "0"
+        walks_list = yield_walks(opened_file, walks[(ref, hap)], gzipped)
     except KeyError:
-        os.remove(tmp_walk_file.name)
         logger.error(f"No walks found for reference genome {reference_name}.")
         sys.exit(1)
     for assm_name, walk_start, walk_end, walk_path in walks_list:
         tmp_walk_file.write(
-            f"W\t{reference_name}\t0\t{assm_name}\t{walk_start}\t{walk_end}\t{walk_path}\n"
+            f"W\t{ref}\t{hap}\t{assm_name}\t{walk_start}\t{walk_end}\t{walk_path}\n"
         )
         if reference_tagged:
             continue
-        sn = f"{reference_name}#{assm_name}"
+        sn = f"{ref}#{hap}#{assm_name}"
         # check how slow this part is.
         walk = list(filter(None, re.split("(>)|(<)", walk_path)))
         so = walk_start  # initializing SO tag
@@ -258,7 +309,7 @@ def create_ref_tags(nodes, walks, reference_name, file, tmp_walk_file, reference
             id = walk[i]
             if not isinstance(nodes[id], Node):
                 raise CommandLineError(
-                    f"Node {id} seems to be a reference node and is already tagged. Please give the --reference-tagged flag."
+                    f"Node {id} is a reference node and is already tagged. Please give the --reference-tagged flag if you want to keep the reference info from the GFA. Please provide --override-reference flag to ignore this information."
                 )
             nodes[id] = OutputNode(ln=nodes[id].ln, so=so, sn=sn, sr=0)
             so = so + nodes[id].ln
@@ -271,8 +322,8 @@ def create_ref_tags(nodes, walks, reference_name, file, tmp_walk_file, reference
 # in hprc-v1.0-minigraph-chm13.gfa.gz, the HG00438#1#JAHBCB010000006.1 contig in the file HG00438.paternal.f1_assembly_v2_genbank.fa is in the reverse orientation.
 # you can see how the nodes of that contig (s483177, s483178, s483179) are oriented in the bubble >s13080>s13086
 def create_assembly_tags(nodes, walks, sample, index, file, tmp_walk_file):
-    if "." in sample:
-        sample_name, hap = sample.split(".")
+    if "#" in sample:
+        sample_name, hap = sample.split("#")
     else:
         sample_name, hap = sample, "0"
     gzipped = False
@@ -370,9 +421,53 @@ def write_rGFA(gfa, nodes, writer):
             else:
                 writer.write(f"L\t{n1}\t{o1}\t{n2}\t{o2}\t{overlap}\n")
         else:
-            writer.write(line)
+            writer.write(line + "\n")
     reader.close()
     return stats_counter
+
+
+# fmt: off
+def add_arguments(parser):
+    arg = parser.add_argument
+    # Positional arguments
+    arg('gfa', metavar='GFA',
+        help='GFA file (can be bgzip-compressed). This GFA should have a W-line corresponding to the reference genome or the reference nodes have to be tagged already.')
+    arg("--reference-name", metavar='REFERENCE NAME', default=None,
+        help="The name of the reference genome given in the W-line. " \
+        "If --reference-tagged is provided and --reference-name is not specified, it looks for reference name in H lines.")
+    arg("--reference-tagged", default=False, action="store_true",
+        help="Flag to denote reference nodes are already tagged in the GFA.")
+    arg("--override-reference", default=False, action="store_true",
+        help="Flag to override any nodes tagged in the GFA as reference nodes.")
+    arg("--seqfile", metavar='SEQFILE',
+        help='File containing the sequence in which assemblies were given. Provide the seqfile given as part of running minigraph-cactus (only the first column is required). It has the format: <assembly_name><tab><assembly_path>.'
+        ' If not provided, the order of assemblies will be taken from the GFA file. User-defined order of assemblies can also be given. '
+        'There should be W lines for each assembly in the GFA.')
+    arg("--output", metavar='rGFA',
+        help='Output rGFA (bgzipped if the file ends with .gz). If omitted, use standard output.')
+# fmt: on
+
+
+def validate(args, parser):
+    if not os.path.exists(args.gfa):
+        parser.error(f"GFA file {args.gfa} does not exist.")
+    if args.seqfile and not os.path.exists(args.seqfile):
+        parser.error(f"Seqfile {args.seqfile} does not exist.")
+    if not args.reference_name and not args.reference_tagged:
+        parser.error(
+            "Either provide the reference name with --reference-name or flag that reference nodes are already tagged with --reference-tagged."
+        )
+    if not args.reference_name and args.override_reference:
+        parser.error(
+            "Provided --override-reference without --reference-name. Please provide which reference to use."
+        )
+    if args.reference_tagged and args.override_reference:
+        parser.error(
+            "Both --reference-tagged and --override-reference flags given. "
+            "If you want to keep the reference tags from GFA, provide --reference-tagged. "
+            "If you want to override them for another set of reference tags, provide --override-reference. "
+            "Both cannot be given at the same time."
+        )
 
 
 def main(args):
