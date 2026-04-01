@@ -5,6 +5,7 @@ Test the GFA to rGFA conversion script.
 import pysam.libcbgzf
 from gaftools.cli.gfa2rgfa import run
 import pysam
+import pytest
 
 ### Parsing functions
 
@@ -104,13 +105,41 @@ def parse_coordinates(rgfa, seqfile, gzipped=False):
 ### Test functions
 
 
-# testing the conversion of GFA to rGFA with untagged input graph. Output is compressed.
-def test_untagged_input_compressedout(tmp_path):
-    input_gfa = "tests/data/graph-conversioncheck-gfa.gfa"
-    seqfile = "tests/data/graph-conversioncheck-samples.seqfile"
-    truth_rgfa = "tests/data/graph-conversioncheck-rgfa.gfa"
-    output = str(tmp_path) + "/output-rgfa.gfa.gz"
-    run(gfa=input_gfa, reference_name="REF", reference_tagged=False, seqfile=seqfile, output=output)
+# testing GFA conversion to rGFA.
+# output is uncompressed.
+@pytest.mark.parametrize(
+    "gfa_file",
+    [
+        "graph.gfa",
+        "graph.gfa.gz",
+        "graph-invertednodes.gfa",
+        "graph-partial-tagged.gfa",
+        "graph-partial-tagged-alternateSN.gfa",
+    ],
+)
+def test_standard_conversion_uncompressed(tmp_path, gfa_file):
+    input_gfa = f"tests/data/gfa2rgfa/{gfa_file}"
+    truth_rgfa = "tests/data/gfa2rgfa/reference-graph.gfa"
+    seqfile = "tests/data/gfa2rgfa/samples.seqfile"  # for parsing coordinates
+    output = str(tmp_path) + "/output-rgfa.gfa"
+
+    # providing REF as reference name explicitly
+    run(gfa=input_gfa, reference_name="REF", output=output)
+    output_lines = parse_gfa(output, gzipped=True)
+    truth_lines = parse_gfa(truth_rgfa)
+    # checking for tag exactness
+    for n in range(len(output_lines)):
+        assert output_lines[n] == truth_lines[n]
+    output_lines = parse_output(output, gzipped=True)
+    truth_lines = parse_output(truth_rgfa)
+    # checking for exactness
+    for n in range(len(output_lines)):
+        assert output_lines[n] == truth_lines[n]
+    # checking for coordinates
+    parse_coordinates(output, seqfile, gzipped=True)
+
+    # not providing REF as reference name explicitly. has to be detected from header.
+    run(gfa=input_gfa, output=output)
     output_lines = parse_gfa(output, gzipped=True)
     truth_lines = parse_gfa(truth_rgfa)
     # checking for tag exactness
@@ -125,13 +154,41 @@ def test_untagged_input_compressedout(tmp_path):
     parse_coordinates(output, seqfile, gzipped=True)
 
 
-# testing the conversion of GFA to rGFA with ref node-tagged input graph.  Output is compressed.
-def test_partial_tagged_input_compressedout(tmp_path):
-    input_gfa = "tests/data/graph-conversioncheck-gfa-partial-tagged.gfa"
-    seqfile = "tests/data/graph-conversioncheck-samples.seqfile"
-    truth_rgfa = "tests/data/graph-conversioncheck-rgfa.gfa"
+# testing GFA conversion to rGFA.
+# output is compressed.
+@pytest.mark.parametrize(
+    "gfa_file",
+    [
+        "graph.gfa",
+        "graph.gfa.gz",
+        "graph-invertednodes.gfa",
+        "graph-partial-tagged.gfa",
+        "graph-partial-tagged-alternateSN.gfa",
+    ],
+)
+def test_standard_conversion_compressed(tmp_path, gfa_file):
+    input_gfa = f"tests/data/gfa2rgfa/{gfa_file}"
+    truth_rgfa = "tests/data/gfa2rgfa/reference-graph.gfa"
+    seqfile = "tests/data/gfa2rgfa/samples.seqfile"  # for parsing coordinates
     output = str(tmp_path) + "/output-rgfa.gfa.gz"
-    run(gfa=input_gfa, reference_name="REF", reference_tagged=True, seqfile=seqfile, output=output)
+
+    # providing REF as reference name explicitly
+    run(gfa=input_gfa, reference_name="REF", output=output)
+    output_lines = parse_gfa(output, gzipped=True)
+    truth_lines = parse_gfa(truth_rgfa)
+    # checking for tag exactness
+    for n in range(len(output_lines)):
+        assert output_lines[n] == truth_lines[n]
+    output_lines = parse_output(output, gzipped=True)
+    truth_lines = parse_output(truth_rgfa)
+    # checking for exactness
+    for n in range(len(output_lines)):
+        assert output_lines[n] == truth_lines[n]
+    # checking for coordinates
+    parse_coordinates(output, seqfile, gzipped=True)
+
+    # not providing REF as reference name explicitly. has to be detected from header.
+    run(gfa=input_gfa, output=output)
     output_lines = parse_gfa(output, gzipped=True)
     truth_lines = parse_gfa(truth_rgfa)
     # checking for tag exactness
@@ -146,110 +203,56 @@ def test_partial_tagged_input_compressedout(tmp_path):
     parse_coordinates(output, seqfile, gzipped=True)
 
 
-# testing the conversion of GFA to rGFA with untagged input graph. Output is uncompressed.
-def test_untagged_input(tmp_path):
-    input_gfa = "tests/data/graph-conversioncheck-gfa.gfa"
-    seqfile = "tests/data/graph-conversioncheck-samples.seqfile"
-    truth_rgfa = "tests/data/graph-conversioncheck-rgfa.gfa"
+# testing GFA conversion to rGFA using full seqfile
+@pytest.mark.parametrize(
+    "gfa_file", ["graph.gfa", "graph-partial-tagged.gfa", "graph-wrong-Wline-order.gfa"]
+)
+def test_full_seqfile_conversion(tmp_path, gfa_file):
+    input_gfa = f"tests/data/gfa2rgfa/{gfa_file}"
+    truth_rgfa = "tests/data/gfa2rgfa/reference-graph-seqfile.gfa"
+    seqfile = "tests/data/gfa2rgfa/samples.seqfile"
     output = str(tmp_path) + "/output-rgfa.gfa"
 
-    # running with seqfile
-    run(gfa=input_gfa, reference_name="REF", reference_tagged=False, seqfile=seqfile, output=output)
-    output_lines = parse_gfa(output)
+    run(gfa=input_gfa, seqfile=seqfile, output=output)
+    output_lines = parse_gfa(output, gzipped=True)
     truth_lines = parse_gfa(truth_rgfa)
     # checking for tag exactness
     for n in range(len(output_lines)):
         assert output_lines[n] == truth_lines[n]
-    output_lines = parse_output(output)
+    output_lines = parse_output(output, gzipped=True)
     truth_lines = parse_output(truth_rgfa)
     # checking for exactness
     for n in range(len(output_lines)):
         assert output_lines[n] == truth_lines[n]
     # checking for coordinates
-    parse_coordinates(output, seqfile)
-
-    # running without seqfile
-    run(gfa=input_gfa, reference_name="REF", reference_tagged=False, output=output)
-    output_lines = parse_gfa(output)
-    truth_lines = parse_gfa(truth_rgfa)
-    # checking for tag exactness
-    for n in range(len(output_lines)):
-        assert output_lines[n] == truth_lines[n]
-    output_lines = parse_output(output)
-    truth_lines = parse_output(truth_rgfa)
-    # checking for exactness
-    for n in range(len(output_lines)):
-        assert output_lines[n] == truth_lines[n]
-    # checking for coordinates
-    parse_coordinates(output, seqfile)
+    parse_coordinates(output, seqfile, gzipped=True)
 
 
-# testing the conversion of GFA to rGFA with ref node-tagged input graph.  Output is uncompressed.
-def test_partial_tagged_input(tmp_path):
-    input_gfa = "tests/data/graph-conversioncheck-gfa-partial-tagged.gfa"
-    seqfile = "tests/data/graph-conversioncheck-samples.seqfile"
-    truth_rgfa = "tests/data/graph-conversioncheck-rgfa.gfa"
+# testing GFA conversion to rGFA using partial seqfile
+# Note: cannot use graph-invertednodes.gfa since s24 is not in partial set of assemblies. So it is never flipped back
+@pytest.mark.parametrize(
+    "gfa_file", ["graph.gfa", "graph-partial-tagged.gfa", "graph-wrong-Wline-order.gfa"]
+)
+def test_partial_seqfile_conversion(tmp_path, gfa_file):
+    input_gfa = f"tests/data/gfa2rgfa/{gfa_file}"
+    truth_rgfa = "tests/data/gfa2rgfa/reference-graph-partial-seqfile.gfa"
+    partial_seqfile = "tests/data/gfa2rgfa/samples-partial.seqfile"
+    seqfile = "tests/data/gfa2rgfa/samples.seqfile"
     output = str(tmp_path) + "/output-rgfa.gfa"
 
-    # running with seqfile
-    run(gfa=input_gfa, reference_name="REF", reference_tagged=True, seqfile=seqfile, output=output)
-    output_lines = parse_gfa(output)
+    run(gfa=input_gfa, seqfile=partial_seqfile, output=output)
+    output_lines = parse_gfa(output, gzipped=True)
     truth_lines = parse_gfa(truth_rgfa)
     # checking for tag exactness
     for n in range(len(output_lines)):
         assert output_lines[n] == truth_lines[n]
-    output_lines = parse_output(output)
+    output_lines = parse_output(output, gzipped=True)
     truth_lines = parse_output(truth_rgfa)
     # checking for exactness
     for n in range(len(output_lines)):
         assert output_lines[n] == truth_lines[n]
     # checking for coordinates
-    parse_coordinates(output, seqfile)
-
-    # running without seqfile
-    run(gfa=input_gfa, reference_name="REF", reference_tagged=True, output=output)
-    output_lines = parse_gfa(output)
-    truth_lines = parse_gfa(truth_rgfa)
-    # checking for tag exactness
-    for n in range(len(output_lines)):
-        assert output_lines[n] == truth_lines[n]
-    output_lines = parse_output(output)
-    truth_lines = parse_output(truth_rgfa)
-    # checking for exactness
-    for n in range(len(output_lines)):
-        assert output_lines[n] == truth_lines[n]
-    # checking for coordinates
-    parse_coordinates(output, seqfile)
+    parse_coordinates(output, seqfile, gzipped=True)
 
 
-# testing the conversion when some nodes have revcomp seq when compared to the position in assembly
-def test_untagged_input_invertednodes(tmp_path):
-    input_gfa = "tests/data/graph-conversioncheck-gfa-invertednodes.gfa"
-    seqfile = "tests/data/graph-conversioncheck-samples.seqfile"
-    truth_rgfa = "tests/data/graph-conversioncheck-rgfa.gfa"
-    output = str(tmp_path) + "/output-rgfa.gfa"
-    run(gfa=input_gfa, reference_name="REF", reference_tagged=False, seqfile=seqfile, output=output)
-    output_lines = parse_gfa(output)
-    truth_lines = parse_gfa(truth_rgfa)
-    # checking for tag exactness
-    for n in range(len(output_lines)):
-        assert output_lines[n] == truth_lines[n]
-    output_lines = parse_output(output)
-    truth_lines = parse_output(truth_rgfa)
-    # checking for exactness
-    for n in range(len(output_lines)):
-        assert output_lines[n] == truth_lines[n]
-    # checking for coordinates
-    parse_coordinates(output, seqfile)
-
-
-# testing the conversion when the wrong order of W lines is given in the input GFA
-# the test is to check if the tag coordinates are still correct in terms of the coordinates still show the correct sequence in the assembly.
-def test_untagged_input_wrongorder(tmp_path):
-    input_gfa = "tests/data/graph-conversioncheck-gfa-wrong-Wline-order.gfa"
-    seqfile = "tests/data/graph-conversioncheck-samples.seqfile"
-    output = str(tmp_path) + "/output-rgfa.gfa"
-    run(gfa=input_gfa, reference_name="REF", reference_tagged=False, output=output)
-    # No point in checking for exactness of tags, as the W lines are not in the correct order.
-    # checking for coordinates
-    parse_coordinates(output, seqfile)
+# TODO: Add test case where the reference is overriden with FOO#1

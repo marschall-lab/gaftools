@@ -1,0 +1,7 @@
+REF	tests/data/gfa2rgfa/assembly-REF.fa
+FOO.2	tests/data/gfa2rgfa/assembly-FOO.2.fa
+FOO.1	tests/data/gfa2rgfa/assembly-FOO.1.fa
+BAZ.1	tests/data/gfa2rgfa/assembly-BAZ.1.fa
+BAZ.2	tests/data/gfa2rgfa/assembly-BAZ.2.fa
+BAR.2	tests/data/gfa2rgfa/assembly-BAR.2.fa
+BAR.1	tests/data/gfa2rgfa/assembly-BAR.1.fa
