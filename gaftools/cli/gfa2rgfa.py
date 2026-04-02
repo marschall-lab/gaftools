@@ -45,7 +45,20 @@ def run(
     output=None,
 ):
     # if reference node info is missing, then need to tag the reference nodes based on the W-line given by user.
-    ref_name = process_gfa_header(gfa)
+    header_tags = process_gfa_header(gfa)
+    ref_name = None
+    if "RS" in header_tags:
+        ref_name = header_tags["RS"][1]
+        if " " in ref_name:
+            # HPRC Minigraph-Cactus has them separated by a space.
+            # This is not part of the official documentation.
+            refs = ref_name.split(" ")
+            logger.info(
+                f"Found the following reference names in GFA header: {ref_name}. Selected {refs[0]} as reference."
+            )
+            ref_name = refs[0]
+        else:
+            logger.info(f"Found reference name {ref_name} in GFA header.")
     if ref_name is None and reference_name is None:
         raise CommandLineError(
             "No --reference-name provided and the GFA has no header specifying that. Please provide --reference-name."
@@ -54,11 +67,24 @@ def run(
         raise CommandLineError(
             f"Found reference {ref_name} specified in GFA header. Found reference {reference_name} as user input. Provide the --override-reference flag to use reference {reference_name}."
         )
-
+    if reference_name and ref_name and (ref_name != reference_name) and override_reference:
+        logger.info(
+            f"Found reference {ref_name} specified in GFA header. Found reference {reference_name} as user input. Overriding the reference with {reference_name}."
+        )
+    if reference_name and ref_name and (ref_name == reference_name) and override_reference:
+        logger.info(
+            f"Header reference {ref_name}  and user input reference {reference_name} are same. There is no need for overriding but gfa2rgfa will build the tags fresh."
+        )
     if reference_name is None and ref_name:
         reference_name = ref_name
     if "#" not in reference_name:
         reference_name = f"{reference_name}#0"
+        logger.info(
+            f"No haplotype number found in reference name. Appending #0 to make the reference {reference_name}."
+        )
+
+    if override_reference:
+        header_tags["RS"] = ("Z", reference_name)
 
     with timers("read_gfa"):
         logger.info("Reading GFA file.")
@@ -106,7 +132,7 @@ def run(
         writer = FileWriter(output)
         logger.info("Writing S and L lines to temp file.")
         with timers("write_gfa"):
-            stats_counter = write_rGFA(gfa, node_dict, writer)
+            stats_counter = write_rGFA(gfa, header_tags, node_dict, writer)
             logger.info("Writing the corrected W lines to the rGFA file.")
             with libcbgzf.BGZFile(tmp_walk_fname, "rb") as reader:
                 for line in reader:
@@ -168,10 +194,11 @@ def readH(line):
     return tags
 
 
+# No proper official documentation on how this is encoded.
 def process_gfa_header(gfa):
-    ref_name = None
     gzipped = False
     opened_file = None
+    header_tags = {}
     if gfa.endswith(".gz"):
         opened_file = libcbgzf.BGZFile(gfa, "rb")
         gzipped = True
@@ -183,20 +210,16 @@ def process_gfa_header(gfa):
             break
         if line.startswith("H"):
             tags = readH(line)
-            if "RS" in tags:
-                ref_name = tags["RS"][1]
-                if " " in ref_name:
-                    refs = ref_name.split(" ")
-                    logger.info(
-                        f"Found the following reference names in GFA header: {ref_name}. Selected {refs[0]} as reference."
-                    )
-                    ref_name = refs[0]
+            for key, value in tags.items():
+                if key in header_tags:
+                    raise CommandLineError(f"Multiple {key} in header.")
+                header_tags[key] = value
         else:
             # if any other line type is detected, the loop terminates
             break
     opened_file.close()
 
-    return ref_name
+    return header_tags
 
 
 # This function processes the GFA file and returns the node dictionary and the walk dictionary.
@@ -366,7 +389,7 @@ def create_assembly_tags(nodes, walks, sample, index, file, tmp_walk_file):
 
 
 # writing the rGFA file.
-def write_rGFA(gfa, nodes, writer):
+def write_rGFA(gfa, header_tags, nodes, writer):
     stats_counter = {
         "rank-0 nodes": 0,
         "non rank-0 nodes": 0,
@@ -417,6 +440,12 @@ def write_rGFA(gfa, nodes, writer):
                 writer.write(f"L\t{n2}\t+\t{n1}\t+\t{overlap}\n")
             else:
                 writer.write(f"L\t{n1}\t{o1}\t{n2}\t{o2}\t{overlap}\n")
+        elif line.startswith("H"):
+            header_tag_string = ""
+            for tag in header_tags:
+                type, value = header_tags[tag]
+                header_tag_string += f"\t{tag}:{type}:{value}"
+            writer.write(f"H{header_tag_string}\n")
         else:
             writer.write(line.strip() + "\n")
     reader.close()
