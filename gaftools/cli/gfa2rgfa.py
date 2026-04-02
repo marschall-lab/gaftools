@@ -324,7 +324,9 @@ def create_ref_tags(nodes, walks, reference_name, file, tmp_walk_file):
             id = walk[i]
             if not isinstance(nodes[id], Node):
                 assert isinstance(nodes[id], OutputNode)
-                nodes[id].sn = sn
+                # this will correct the SN tags
+                if len(nodes[id].sn.split("#")) != 3:
+                    nodes[id].sn = sn
                 assert nodes[id].sr == 0, f"A non-reference node {id} is already tagged. Exiting."
                 if nodes[id].so != so:
                     logger.warning(
