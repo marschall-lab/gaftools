@@ -255,4 +255,34 @@ def test_partial_seqfile_conversion(tmp_path, gfa_file):
     parse_coordinates(output, seqfile, gzipped=True)
 
 
-# TODO: Add test case where the reference is overriden with FOO#1
+# testing GFA conversion to rGFA with reference override to FOO#2
+@pytest.mark.parametrize(
+    "gfa_file",
+    [
+        "graph.gfa",
+        "graph.gfa.gz",
+        "graph-invertednodes.gfa",
+        "graph-partial-tagged.gfa",
+        "graph-partial-tagged-alternateSN.gfa",
+    ],
+)
+def test_conversion_reference_override(tmp_path, gfa_file):
+    input_gfa = f"tests/data/gfa2rgfa/{gfa_file}"
+    truth_rgfa = "tests/data/gfa2rgfa/reference-graph-FOO#2.gfa"
+    seqfile = "tests/data/gfa2rgfa/samples.seqfile"  # for parsing coordinates
+    output = str(tmp_path) + "/output-rgfa.gfa"
+
+    # providing REF as reference name explicitly
+    run(gfa=input_gfa, reference_name="FOO#2", override_reference=True, output=output)
+    output_lines = parse_gfa(output, gzipped=True)
+    truth_lines = parse_gfa(truth_rgfa)
+    # checking for tag exactness
+    for n in range(len(output_lines)):
+        assert output_lines[n] == truth_lines[n]
+    output_lines = parse_output(output, gzipped=True)
+    truth_lines = parse_output(truth_rgfa)
+    # checking for exactness
+    for n in range(len(output_lines)):
+        assert output_lines[n] == truth_lines[n]
+    # checking for coordinates
+    parse_coordinates(output, seqfile, gzipped=True)
