@@ -4,6 +4,7 @@ Test for gaftools index.
 
 import pickle
 from gaftools.cli.index import run
+import pytest
 
 
 # parsing the index file which is a pickled dictionary
@@ -14,52 +15,32 @@ def parse_output(filename):
     return data
 
 
-# Tests
-
-
-# testing index of gaf with stable coordinates
-def test_index_stable(tmp_path):
-    input_gaf = "tests/data/alignments-minigraph-stable-conversioncheck.gaf"
-    input_gfa = "tests/data/smallgraph.gfa"
+@pytest.mark.parametrize(
+    "gaf_file",
+    [
+        "graphaligner.gaf",
+        "graphaligner.gaf.gz",
+        "graphaligner-stable.gaf",
+        "graphaligner-stable.gaf.gz",
+    ],
+)
+def test_index(tmp_path, gaf_file):
+    input_gaf = f"tests/data/index_and_view/{gaf_file}"
+    input_gfa = "tests/data/gfa2rgfa/reference-graph.gfa"
     output = str(tmp_path) + "/output.gvi"
-    truth = "tests/data/alignments-minigraph-stable-conversioncheck.gaf.gvi"
+    truth = (
+        "tests/data/index_and_view/view-index-stable.gvi"
+        if "stable" in gaf_file
+        else "tests/data/index_and_view/view-index-unstable.gvi"
+    )
     run(gaf_path=input_gaf, gfa_path=input_gfa, output=output)
     output_dict = parse_output(output)
     truth_dict = parse_output(truth)
-    assert output_dict == truth_dict
-
-
-# testing index of gaf with stable coordinates
-def test_index_unstable(tmp_path):
-    input_gaf = "tests/data/alignments-minigraph-unstable-conversioncheck.gaf"
-    input_gfa = "tests/data/smallgraph.gfa"
-    output = str(tmp_path) + "/output.gvi"
-    truth = "tests/data/alignments-minigraph-unstable-conversioncheck.gaf.gvi"
-    run(gaf_path=input_gaf, gfa_path=input_gfa, output=output)
-    output_dict = parse_output(output)
-    truth_dict = parse_output(truth)
-    assert output_dict == truth_dict
-
-
-# testing index of gzipped gaf with stable coordinates
-def test_index_stable_gzipped(tmp_path):
-    input_gaf = "tests/data/alignments-minigraph-stable-conversioncheck.gaf.gz"
-    input_gfa = "tests/data/smallgraph.gfa"
-    output = str(tmp_path) + "/output.gvi"
-    truth = "tests/data/alignments-minigraph-stable-conversioncheck.gaf.gz.gvi"
-    run(gaf_path=input_gaf, gfa_path=input_gfa, output=output)
-    output_dict = parse_output(output)
-    truth_dict = parse_output(truth)
-    assert output_dict == truth_dict
-
-
-# testing index of gzipped gaf with stable coordinates
-def test_index_unstable_gzipped(tmp_path):
-    input_gaf = "tests/data/alignments-minigraph-unstable-conversioncheck.gaf.gz"
-    input_gfa = "tests/data/smallgraph.gfa"
-    output = str(tmp_path) + "/output.gvi"
-    truth = "tests/data/alignments-minigraph-unstable-conversioncheck.gaf.gz.gvi"
-    run(gaf_path=input_gaf, gfa_path=input_gfa, output=output)
-    output_dict = parse_output(output)
-    truth_dict = parse_output(truth)
-    assert output_dict == truth_dict
+    assert len(output_dict.keys()) == len(truth_dict.keys())
+    for id in output_dict.keys():
+        assert id in truth_dict.keys()
+        output_offsets = sorted(output_dict[id])
+        truth_offsets = sorted(truth_dict[id])
+        assert len(output_offsets) == len(truth_offsets)
+        for i in range(len(output_offsets)):
+            assert truth_offsets[i] == output_offsets[i]
