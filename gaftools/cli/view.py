@@ -25,7 +25,7 @@ from gaftools.conversion import (
 logger = logging.getLogger(__name__)
 
 
-def run(gaf_path, gfa=None, output=None, index=None, nodes=[], regions=[], format=None):
+def run(gaf_path, gfa=None, output=None, index=None, nodes=[], regions=[], format=None, mode="U"):
     timers = StageTimer()
 
     writer = FileWriter(output)
@@ -52,14 +52,18 @@ def run(gaf_path, gfa=None, output=None, index=None, nodes=[], regions=[], forma
                     "Input GAF already has stable coordinates. Please remove the --format stable option"
                 )
             gfa_file = GFA(graph_file=gfa, low_memory=True)
-            gfa_nodes = {
-                id: StableNode(
-                    contig_id=gfa_file[id].tags["SN"][1],
-                    start=int(gfa_file[id].tags["SO"][1]),
-                    end=int(gfa_file[id].tags["SO"][1]) + int(gfa_file[id].tags["LN"][1]),
-                )
-                for id in gfa_file.nodes
-            }
+            gfa_nodes = {}
+            for id in gfa_file.nodes:
+                try:
+                    gfa_nodes[id] = StableNode(
+                        contig_id=gfa_file[id].tags["SN"][1],
+                        start=int(gfa_file[id].tags["SO"][1]),
+                        end=int(gfa_file[id].tags["SO"][1]) + int(gfa_file[id].tags["LN"][1]),
+                    )
+                except KeyError:
+                    raise CommandLineError(
+                        f"Node {id} does not have rGFA tags (SN, SO or LN). Check if the graph is a proper rGFA."
+                    )
             ref_contig = [contig for contig in gfa_file.contigs if gfa_file.contigs[contig] == 0]
             for contig in ref_contig:
                 contig_len[contig] = gfa_file.get_contig_length(contig, throw_warning=False)
@@ -105,13 +109,26 @@ def run(gaf_path, gfa=None, output=None, index=None, nodes=[], regions=[], forma
         if regions:
             assert nodes == []
             nodes = get_unstable(regions, ind)
-        offsets = ind[ind_dict[nodes[0]]]
+        assert (
+            nodes[0] in ind_dict
+        ), f"User provided region/node with {nodes[0]}. This node was not present in any GAF alignment."
+        offsets = set(ind[ind_dict[nodes[0]]])
         for nd in nodes[1:]:
             # extracting all the lines that touches at least one of the nodes
-            offsets = list(set(offsets) | set(ind[ind_dict[nd]]))
+            assert (
+                nd in ind_dict
+            ), f"User provided region/node with {nd}. This node was not present in any GAF alignment."
+            if mode == "U":
+                # taking union of alignments
+                offsets = offsets | set(ind[ind_dict[nd]])
+            else:
+                # taking intersection of alignments
+                assert mode == "I"
+                offsets = offsets & set(ind[ind_dict[nd]])
+        offsets = list(offsets)
         offsets.sort()
         if len(offsets) == 0:
-            raise CommandLineError("No alignments found for the given nodes/regions")
+            logger.info("No alignments found for the given nodes/regions")
         gaf = GAF(gaf_path)
         # if format specified, have to make the changes.
         if format:
@@ -128,7 +145,7 @@ def run(gaf_path, gfa=None, output=None, index=None, nodes=[], regions=[], forma
         else:
             for ofs in offsets:
                 line = gaf.read_line(ofs)
-                writer.write(line + "\n")
+                writer.write(line.__str__() + "\n")
         gaf.close()
     else:
         # No nodes or regions indicates the entire file will be viewed
@@ -249,7 +266,10 @@ def add_arguments(parser):
         help='Regions to search. '
         'Multiple can be provided (Eg. gaftools view .... -r chr1:10-20 -r chr1:50-60 .....).')
     arg('-f', '--format', dest='format', metavar='FORMAT',
-        help='format of output path (unstable | stable)')
+        help='Format of output path (unstable | stable)')
+    arg('-m', '--mode', dest='mode', metavar='MODE', choices =['I', 'U'], default='U',
+        help='Mode of selecting alignment with multiple regions/nodes provided ("I" | "U"). ' \
+        'Choose "I" for finding alignments with all provided regions/nodes (intersection) and "U" for finding alignments with at least one of the provided regions/nodes (union). (default: U)')
 
 # fmt: on
 
