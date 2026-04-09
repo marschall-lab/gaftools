@@ -395,6 +395,8 @@ class GFA:
                     self.add_node(line[1], line[2], line[3:])
                 if "SN" in self[line[1]].tags:
                     self.contig_to_nodes[self[line[1]].tags["SN"][1]].append(line[1])
+                if "LN" not in self[line[1]].tags:
+                    self[line[1]].tags["LN"] = len(line[2])
 
             elif line.startswith("L"):
                 edges.append(line)
