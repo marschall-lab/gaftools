@@ -37,6 +37,58 @@ class OutputNode:
         return f"\tLN:i:{self.ln}\tSO:i:{self.so}\tSN:Z:{self.sn}\tSR:i:{self.sr}"
 
 
+def determine_reference(header_tags, reference_name, override_reference):
+    ref_name = None
+    if "RS" in header_tags:
+        ref_name = header_tags["RS"][1]
+        if " " in ref_name:
+            ref_name = ref_name.split(" ")
+            # HPRC Minigraph-Cactus has them separated by a space.
+            # This is not part of the official documentation.
+            if not reference_name:
+                raise CommandLineError(
+                    f"Found the following reference names in GFA header: {', '.join(ref_name)}. Please provide the correct reference using --reference-name."
+                )
+            else:
+                logger.info(
+                    f"Found multiple reference names in header: {', '.join(ref_name)}. Using the user-specified reference: {reference_name}."
+                )
+        else:
+            logger.info(f"Found reference name {ref_name} in GFA header.")
+            ref_name = [ref_name]
+
+    if ref_name is None and reference_name is None:
+        raise CommandLineError(
+            "No --reference-name provided and the GFA has no header specifying that. Please provide --reference-name."
+        )
+    if (
+        reference_name
+        and ref_name
+        and (reference_name not in ref_name)
+        and (not override_reference)
+    ):
+        raise CommandLineError(
+            f"Found reference(s) {', '.join(ref_name)} specified in GFA header. Found reference {reference_name} as user input. Provide the --override-reference flag to use reference {reference_name}."
+        )
+    if reference_name and ref_name and (reference_name not in ref_name) and override_reference:
+        logger.info(
+            f"Found reference(s) {', '.join(ref_name)} specified in GFA header. Found reference {reference_name} as user input. Overriding the reference with {reference_name}."
+        )
+    if reference_name and ref_name and (reference_name in ref_name) and override_reference:
+        logger.info(
+            f"Header reference(s) {', '.join(ref_name)}  and user input reference {reference_name} have a match. gfa2rgfa will build the tags fresh."
+        )
+    if reference_name is None and ref_name:
+        reference_name = ref_name
+    if "#" not in reference_name:
+        reference_name = f"{reference_name}#0"
+        logger.info(
+            f"No haplotype number found in reference name. Appending #0 to make the reference {reference_name}."
+        )
+
+    return reference_name
+
+
 def run(
     gfa=None,
     reference_name=None,
@@ -46,42 +98,7 @@ def run(
 ):
     # if reference node info is missing, then need to tag the reference nodes based on the W-line given by user.
     header_tags = process_gfa_header(gfa)
-    ref_name = None
-    if "RS" in header_tags:
-        ref_name = header_tags["RS"][1]
-        if " " in ref_name:
-            # HPRC Minigraph-Cactus has them separated by a space.
-            # This is not part of the official documentation.
-            refs = ref_name.split(" ")
-            logger.info(
-                f"Found the following reference names in GFA header: {ref_name}. Selected {refs[0]} as reference."
-            )
-            ref_name = refs[0]
-        else:
-            logger.info(f"Found reference name {ref_name} in GFA header.")
-    if ref_name is None and reference_name is None:
-        raise CommandLineError(
-            "No --reference-name provided and the GFA has no header specifying that. Please provide --reference-name."
-        )
-    if reference_name and ref_name and (ref_name != reference_name) and (not override_reference):
-        raise CommandLineError(
-            f"Found reference {ref_name} specified in GFA header. Found reference {reference_name} as user input. Provide the --override-reference flag to use reference {reference_name}."
-        )
-    if reference_name and ref_name and (ref_name != reference_name) and override_reference:
-        logger.info(
-            f"Found reference {ref_name} specified in GFA header. Found reference {reference_name} as user input. Overriding the reference with {reference_name}."
-        )
-    if reference_name and ref_name and (ref_name == reference_name) and override_reference:
-        logger.info(
-            f"Header reference {ref_name}  and user input reference {reference_name} are same. There is no need for overriding but gfa2rgfa will build the tags fresh."
-        )
-    if reference_name is None and ref_name:
-        reference_name = ref_name
-    if "#" not in reference_name:
-        reference_name = f"{reference_name}#0"
-        logger.info(
-            f"No haplotype number found in reference name. Appending #0 to make the reference {reference_name}."
-        )
+    reference_name = determine_reference(header_tags, reference_name, override_reference)
 
     if override_reference:
         header_tags["RS"] = ("Z", reference_name)
@@ -228,6 +245,7 @@ def process_gfa(gfa, override_reference, reference_name):
     walks = {}
     gzipped = False
     opened_file = None
+    ref_base = reference_name.split("#")[0]
     if gfa.endswith(".gz"):
         opened_file = libcbgzf.BGZFile(gfa, "rb")
         gzipped = True
@@ -247,10 +265,9 @@ def process_gfa(gfa, override_reference, reference_name):
                     ln = len(seq)
                 sn = tags["SN"][1]
                 sn_base = sn.split("#")[0]
-                ref_base = reference_name.split("#")[0]
                 assert (
                     ref_base == sn_base
-                ), f"Detected reference name {sn} in GFA does not match given reference name {reference_name}."
+                ), f"Detected reference name {sn} in GFA does not match given reference name {reference_name}. Use --override-reference to use {reference_name}."
                 so = int(tags["SO"][1])
                 sr = int(tags["SR"][1])
                 nodes[node_id] = OutputNode(ln=ln, so=so, sn=sn, sr=sr)
@@ -322,6 +339,12 @@ def create_ref_tags(nodes, walks, reference_name, file, tmp_walk_file):
                 assert walk[i] == ">", "Reference walk should be in the 5' to 3' orientation."
                 continue
             id = walk[i]
+            try:
+                _ = nodes[id]
+            except KeyError:
+                raise CommandLineError(
+                    f"Node ID {id} found in the walk for {sn} but is not present in the GFA."
+                )
             if not isinstance(nodes[id], Node):
                 assert isinstance(nodes[id], OutputNode)
                 # this will correct the SN tags
@@ -371,6 +394,12 @@ def create_assembly_tags(nodes, walks, sample, index, file, tmp_walk_file):
                 orient = walk[i]
                 continue
             id = walk[i]
+            try:
+                _ = nodes[id]
+            except KeyError:
+                raise CommandLineError(
+                    f"Node ID {id} found in the walk for {sn} but is not present in the GFA."
+                )
             # writing the temporary walk file and doing this conversion increased runtime significantly.
             # is this from the IO operation or the switching operations?
             if isinstance(nodes[id], Node):
