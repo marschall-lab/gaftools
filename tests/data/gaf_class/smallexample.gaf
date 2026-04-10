@@ -1,0 +1,3 @@
+read1	0	1	2	+	>1	3	4	5	6	7	8	NM:i:9	AS:f:10	dv:f:0.5	tp:A:P	id:f:0.1	cg:Z:11=	cm:i:127
+read2	0	1	2	+	>s1	3	4	5	6	7	8	NM:i:9	AS:f:10	dv:f:0.5	tp:A:S	id:f:0.1	cg:Z:11=	ds:Z::22*ga:2*ca:18*at:30*ta+[tc]tctttgtttcac[ccca]:13*ct:8*gt*ga:10*ga:14*ag:1*ag:3*ct:1*ct:13*ag*ct:11*at:5*ga:4*at:9*tg:20*ga:1*cg:2*ct:17
+3	0	1	2	+	>s1	3	4	5	6	7	8	NM:i:9	AS:f:10	dv:f:0.5	tp:A:I	id:f:0.1	cg:Z:boo=
