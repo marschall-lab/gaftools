@@ -58,7 +58,7 @@ def run(gaf_path, gfa=None, output=None, index=None, nodes=[], regions=[], forma
                     gfa_nodes[id] = StableNode(
                         contig_id=gfa_file[id].tags["SN"][1],
                         start=int(gfa_file[id].tags["SO"][1]),
-                        end=int(gfa_file[id].tags["SO"][1]) + int(gfa_file[id].tags["LN"][1]),
+                        end=int(gfa_file[id].tags["SO"][1]) + int(gfa_file[id].seq_len),
                     )
                 except KeyError:
                     raise CommandLineError(

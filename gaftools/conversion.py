@@ -100,7 +100,7 @@ def to_unstable(gaf_line, reference):
         nodes_tmp = []
         for i in reference[query_contig_name][start : end + 1]:
             s = int(i.tags["SO"][1])
-            e = int(i.tags["SO"][1]) + int(i.tags["LN"][1])
+            e = int(i.tags["SO"][1]) + int(i.seq_len)
             cases = -1
             if s <= int(query_start) < e:
                 cases = 1

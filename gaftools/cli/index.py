@@ -83,7 +83,7 @@ def run(gaf_path, gfa_path, output=None):
                         nodes[a].id,
                         nodes[a].tags["SN"][1],
                         int(nodes[a].tags["SO"][1]),
-                        int(nodes[a].tags["SO"][1]) + int(nodes[a].tags["LN"][1]),
+                        int(nodes[a].tags["SO"][1]) + int(nodes[a].tags.seq_len),
                     )
                 ].append(offset)
             except KeyError:
@@ -92,7 +92,7 @@ def run(gaf_path, gfa_path, output=None):
                         nodes[a].id,
                         nodes[a].tags["SN"][1],
                         int(nodes[a].tags["SO"][1]),
-                        int(nodes[a].tags["SO"][1]) + int(nodes[a].tags["LN"][1]),
+                        int(nodes[a].tags["SO"][1]) + int(nodes[a].seq_len),
                     )
                 ] = [offset]
     out_dict["ref_contig"] = ref_contig
@@ -141,19 +141,19 @@ def convert_coord(line, ref):
             if (
                 int(node.tags["SO"][1])
                 <= int(query_start)
-                < int(node.tags["SO"][1]) + int(node.tags["LN"][1])
+                < int(node.tags["SO"][1]) + int(node.seq_len)
             ):
                 cases = 1
             elif (
                 int(node.tags["SO"][1])
                 < int(query_end)
-                <= int(node.tags["SO"][1]) + int(node.tags["LN"][1])
+                <= int(node.tags["SO"][1]) + int(node.seq_len)
             ):
                 cases = 2
             elif (
                 int(query_start)
                 < int(node.tags["SO"][1])
-                < int(node.tags["SO"][1]) + int(node.tags["LN"][1])
+                < int(node.tags["SO"][1]) + int(node.seq_len)
                 < int(query_end)
             ):
                 cases = 3

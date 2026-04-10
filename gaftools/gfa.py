@@ -148,6 +148,8 @@ class Node:
         tags = []
         for tag_id, tag in self.tags.items():
             tags.append(f"{tag_id}:{tag[0]}:{tag[1]}")
+        if "LN" not in self.tags and self.seq_len > 0:
+            tags.append(f"LN:i:{self.seq_len}")
         return "\t".join(["S", self.id, seq] + tags)
 
 
@@ -272,7 +274,7 @@ class GFA:
         else:
             self.nodes[n2].remove_from_end(n1, side1, overlap)
 
-    def add_node(self, node_id, seq="", tags=None):
+    def add_node(self, node_id, seq: str | int = "", tags=None):
         """
         adds a node to the graph, you need to give at least a node_id
         """
@@ -281,8 +283,12 @@ class GFA:
         node_id = str(node_id)
         if node_id not in self:
             node = Node(node_id)
-            node.seq = seq
-            node.seq_len = len(seq)
+            if isinstance(seq, str):
+                node.seq = seq
+                node.seq_len = len(seq)
+            elif isinstance(seq, int):
+                node.seq = ""
+                node.seq_len = seq
             self[node_id] = node
             # adding the extra tags if any to the node object
             for tag in tags:
@@ -294,6 +300,9 @@ class GFA:
                 # I am adding the tags as key:value, key is tag_name:type and value is the value at the end
                 # e.g. SN:i:10 will be {"SN": ('i', '10')}
                 self[node_id].tags[tag[0]] = (tag[1], tag[2])  # (type, value)
+            if node.seq == "" and node.seq_len == 0:
+                if "LN" in self[node_id].tags:
+                    node.seq_len = int(self[node_id].tags["LN"][1])
             if "SN" in self[node_id].tags and "SR" in self[node_id].tags:
                 contig_name = self[node_id].tags["SN"][1]
                 contig_rank = int(self[node_id].tags["SR"][1])
@@ -341,7 +350,6 @@ class GFA:
         """
         if not output_file.endswith(".gfa"):
             output_file += ".gfa"
-        # print("I am here")
         self.write_gfa(
             self,
             set_of_nodes=set_of_nodes,
@@ -389,14 +397,14 @@ class GFA:
             if line.startswith("S"):
                 line = line.strip().split("\t")
                 assert len(line) >= 3  # must be at least 3 columns for "S id seq"
+                if line[2] == "*":
+                    line[2] = ""
                 if low_memory:
-                    self.add_node(line[1], "", line[3:])
+                    self.add_node(line[1], len(line[2]), line[3:])
                 else:
                     self.add_node(line[1], line[2], line[3:])
                 if "SN" in self[line[1]].tags:
                     self.contig_to_nodes[self[line[1]].tags["SN"][1]].append(line[1])
-                if "LN" not in self[line[1]].tags:
-                    self[line[1]].tags["LN"] = len(line[2])
 
             elif line.startswith("L"):
                 edges.append(line)
@@ -747,7 +755,7 @@ class GFA:
             )
             sys.exit(1)
         else:
-            return sum([int(self.nodes[x].tags["LN"][1]) for x in sorted_nodes])
+            return sum([int(self.nodes[x].seq_len) for x in sorted_nodes])
 
     def extract_path(self, path):
         """

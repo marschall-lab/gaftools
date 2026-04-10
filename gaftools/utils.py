@@ -74,7 +74,7 @@ def search_intervals(intervals, query_start, query_end, start, end):
         mid = start + (end - start) // 2
         if query_end <= int(intervals[mid].tags["SO"][1]):
             return search_intervals(intervals, query_start, query_end, start, mid - 1)
-        elif query_start >= int(intervals[mid].tags["SO"][1]) + int(intervals[mid].tags["LN"][1]):
+        elif query_start >= int(intervals[mid].tags["SO"][1]) + int(intervals[mid].seq_len):
             return search_intervals(intervals, query_start, query_end, mid + 1, end)
         else:
             return start, end
