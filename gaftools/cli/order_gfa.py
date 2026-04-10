@@ -18,16 +18,14 @@ logger = logging.getLogger(__name__)
 
 def run_order_gfa(
     gfa_filename,
-    outdir,
-    by_chrom,
-    chromosome_order=None,
+    outdir="./out",
+    by_chrom=False,
+    chromosome_order="",
     without_sequence=False,
     ignore_branching=False,
     output_scaffold=None,
 ):
-    if chromosome_order is not None:
-        chromosome_order = chromosome_order.split(sep=",")
-
+    chromosome_order = chromosome_order.split(sep=",")
     if not os.path.isdir(outdir):
         logging.warning(f"The directory {outdir} does not exist, creating one")
         try:
