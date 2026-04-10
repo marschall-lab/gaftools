@@ -170,9 +170,14 @@ class GAF:
                     val = re.findall(r"[A-Za-z][A-Za-z0-9]:[AifZHB]:([A-Za-z0-9.]+)", k)[0]
                     if pattern not in tags:
                         tags[pattern] = val
-
-                    if pattern == "tp:A" and (val != "P" or val != "p"):
+                    if pattern == "tp:A:" and not (val == "P" or val == "p"):
                         is_primary = False
+            if re.match("[A-Za-z][A-Za-z0-9]:[AifZHB]::.+", k):
+                # this is a new type of tag that minigraph alignments output.
+                # Eg. ds:Z::22*ga:2*ca:18*at:30*ta+[tc]tctttgtttcac[ccca]:13*ct:8*gt*ga:10*ga:14*ag:1*ag:3*ct:1*ct:13*ag*ct:11*at:5*ga:4*at:9*tg:20*ga:1*cg:2*ct:17
+                pattern = re.findall(r"([A-Za-z][A-Za-z0-9]:[AifZHB]::).+", k)[0]
+                val = re.findall(r"[A-Za-z][A-Za-z0-9]:[AifZHB]::(.+)", k)[0]
+                tags[pattern] = val
 
         return Alignment(
             query_name,
