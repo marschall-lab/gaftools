@@ -79,7 +79,8 @@ def determine_reference(header_tags, reference_name, override_reference):
             f"Header reference(s) {', '.join(ref_name)}  and user input reference {reference_name} have a match. gfa2rgfa will build the tags fresh."
         )
     if reference_name is None and ref_name:
-        reference_name = ref_name
+        assert len(ref_name) == 1
+        reference_name = ref_name[0]
     if "#" not in reference_name:
         reference_name = f"{reference_name}#0"
         logger.info(
@@ -99,7 +100,6 @@ def run(
     # if reference node info is missing, then need to tag the reference nodes based on the W-line given by user.
     header_tags = process_gfa_header(gfa)
     reference_name = determine_reference(header_tags, reference_name, override_reference)
-
     if override_reference:
         header_tags["RS"] = ("Z", reference_name)
 
