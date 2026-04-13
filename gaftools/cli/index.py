@@ -83,7 +83,7 @@ def run(gaf_path, gfa_path, output=None):
                         nodes[a].id,
                         nodes[a].tags["SN"][1],
                         int(nodes[a].tags["SO"][1]),
-                        int(nodes[a].tags["SO"][1]) + int(nodes[a].tags.seq_len),
+                        int(nodes[a].tags["SO"][1]) + int(nodes[a].seq_len),
                     )
                 ].append(offset)
             except KeyError:
