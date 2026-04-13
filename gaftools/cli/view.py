@@ -109,26 +109,35 @@ def run(gaf_path, gfa=None, output=None, index=None, nodes=[], regions=[], forma
         if regions:
             assert nodes == []
             nodes = get_unstable(regions, ind)
-        assert (
-            nodes[0] in ind_dict
-        ), f"User provided region/node with {nodes[0]}. This node was not present in any GAF alignment."
-        offsets = set(ind[ind_dict[nodes[0]]])
+        for nd in nodes:
+            if nd not in ind_dict:
+                logger.warning(
+                    f"User provided region/node with {nd}. This node is not present in any GAF alignment."
+                )
+                if mode == "I":
+                    logger.warning(
+                        f"View mode is intersection. Since node {nd} is present, output is empty."
+                    )
+        if nodes[0] not in ind_dict:
+            offsets = set([])
+        else:
+            offsets = set(ind[ind_dict[nodes[0]]])
         for nd in nodes[1:]:
             # extracting all the lines that touches at least one of the nodes
-            assert (
-                nd in ind_dict
-            ), f"User provided region/node with {nd}. This node was not present in any GAF alignment."
+            new_offsets = set([])
+            if nd in ind_dict:
+                new_offsets = set(ind[ind_dict[nd]])
             if mode == "U":
                 # taking union of alignments
-                offsets = offsets | set(ind[ind_dict[nd]])
+                offsets = offsets | new_offsets
             else:
                 # taking intersection of alignments
                 assert mode == "I"
-                offsets = offsets & set(ind[ind_dict[nd]])
+                offsets = offsets & new_offsets
         offsets = list(offsets)
         offsets.sort()
         if len(offsets) == 0:
-            logger.info("No alignments found for the given nodes/regions")
+            logger.info("No alignments found for the given nodes/regions.")
         gaf = GAF(gaf_path)
         # if format specified, have to make the changes.
         if format:

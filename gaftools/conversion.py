@@ -5,6 +5,7 @@ Core scripts for converting coordinates.
 import logging
 import re
 
+from gaftools.cli import CommandLineError
 import gaftools.utils as utils
 from gaftools.gaf import GAF
 
@@ -90,6 +91,10 @@ def to_unstable(gaf_line, reference):
                 orient = "<"
 
         """Find the matching nodes from the reference genome here"""
+        if reference[query_contig_name] == []:
+            raise CommandLineError(
+                f"Contig name {query_contig_name} in the GAF file was not found in the GFA. Check if the GFA appropriate tags like SN, SR and SO."
+            )
         start, end = utils.search_intervals(
             reference[query_contig_name],
             int(query_start),
