@@ -3,501 +3,611 @@ Test for gaftools view.
 """
 
 from gaftools.cli.view import run
+from gaftools.cli import CommandLineError
+from pysam import libcbgzf
+import pytest
+
+
+def parse_line(line):
+    return tuple(s.strip() for s in line.split("\t"))
 
 
 def parse_output(filename):
-    def parse_line(line):
-        return tuple(s.strip() for s in line.split("\t"))
-
     return [parse_line(l) for l in open(filename)]
 
 
-######################
-# Stable to Unstable #
-######################
+def parse_string_block(text):
+    return [parse_line(l) for l in text.strip().split("\n")]
 
 
-# testing whole file conversion from stable to unstable
-def test_stable_to_unstable(tmp_path):
-    input_gaf = "tests/data/alignments-minigraph-stable-conversioncheck.gaf"
-    input_gfa = "tests/data/smallgraph.gfa"
+def parse_bgzip_output(filename):
+    with libcbgzf.BGZFile(filename, "rb") as f:
+        return [parse_line(line.decode("utf-8").strip()) for line in f]
+
+
+def subset_output_lines(lines, indices):
+    out = []
+    for i in indices:
+        out.append(lines[i])
+    return out
+
+
+# No conversion. Full file viewing.
+@pytest.mark.parametrize(
+    "gaf_file",
+    [
+        "graphaligner.gaf",
+        "graphaligner.gaf.gz",
+        "graphaligner-stable.gaf",
+        "graphaligner-stable.gaf.gz",
+    ],
+)
+def test_full_file_view(tmp_path, gaf_file):
+    gaf = f"tests/data/index_and_view/{gaf_file}"
     output = str(tmp_path) + "/output.gaf"
-    truth = "tests/data/alignments-minigraph-unstable-conversioncheck.gaf"
-    run(gaf_path=input_gaf, gfa=input_gfa, output=output, format="unstable")
+    run(gaf_path=gaf, output=output)
     output_lines = parse_output(output)
-    truth_lines = parse_output(truth)
+    if gaf.endswith(".gz"):
+        truth_lines = parse_bgzip_output(gaf)
+    else:
+        truth_lines = parse_output(gaf)
+    assert len(output_lines) == len(truth_lines)
     for n in range(len(output_lines)):
         assert output_lines[n] == truth_lines[n]
 
 
-# testing file conversion from stable to unstable with nodes specified
-def test_stable_to_unstable_nodes(tmp_path):
-    input_gaf = "tests/data/alignments-minigraph-stable-conversioncheck.gaf"
-    input_gfa = "tests/data/smallgraph.gfa"
-    output = str(tmp_path) + "/output.gaf"
-    truth = "tests/data/alignments-minigraph-unstable-conversioncheck-only-s2.gaf"
-    run(gaf_path=input_gaf, gfa=input_gfa, output=output, format="unstable", nodes=["s2"])
-    output_lines = parse_output(output)
-    truth_lines = parse_output(truth)
+# No conversion. Full file viewing in bgzip
+@pytest.mark.parametrize(
+    "gaf_file",
+    [
+        "graphaligner.gaf",
+        "graphaligner.gaf.gz",
+        "graphaligner-stable.gaf",
+        "graphaligner-stable.gaf.gz",
+    ],
+)
+def test_full_file_view_bgzip(tmp_path, gaf_file):
+    gaf = f"tests/data/index_and_view/{gaf_file}"
+    output = str(tmp_path) + "/output.gaf.gz"
+    run(gaf_path=gaf, output=output)
+    output_lines = parse_bgzip_output(output)
+    if gaf.endswith(".gz"):
+        truth_lines = parse_bgzip_output(gaf)
+    else:
+        truth_lines = parse_output(gaf)
+    assert len(output_lines) == len(truth_lines)
     for n in range(len(output_lines)):
         assert output_lines[n] == truth_lines[n]
 
 
-# testing file conversion from stable to unstable with regions specified
-def test_stable_to_unstable_regions(tmp_path):
-    input_gaf = "tests/data/alignments-minigraph-stable-conversioncheck.gaf"
-    input_gfa = "tests/data/smallgraph.gfa"
+@pytest.mark.parametrize(
+    "gaf_file",
+    [
+        "graphaligner.gaf",
+        "graphaligner.gaf.gz",
+        # "graphaligner-stable.gaf",
+        # "graphaligner-stable.gaf.gz",
+    ],
+)
+@pytest.mark.parametrize("gfa_file", ["graph.gfa", "graph.gfa.gz", "reference-graph.gfa"])
+def test_conversion_to_stable(tmp_path, gaf_file, gfa_file):
+    gaf = f"tests/data/index_and_view/{gaf_file}"
+    gfa = f"tests/data/gfa2rgfa/{gfa_file}"
+    truth = "tests/data/index_and_view/graphaligner-stable.gaf"
+    # non-bgzip output
     output = str(tmp_path) + "/output.gaf"
-    truth = "tests/data/alignments-minigraph-unstable-conversioncheck-only-s2.gaf"
-    run(
-        gaf_path=input_gaf,
-        gfa=input_gfa,
-        output=output,
-        format="unstable",
-        regions=["chr1:3300-3400"],
+    if "reference" in gfa:
+        run(gaf_path=gaf, format="stable", gfa=gfa, output=output)
+        output_lines = parse_output(output)
+        truth_lines = parse_output(truth)
+        assert len(output_lines) == len(truth_lines)
+        for n in range(len(output_lines)):
+            assert output_lines[n] == truth_lines[n]
+    else:
+        try:
+            run(gaf_path=gaf, format="stable", gfa=gfa, output=output)
+        except CommandLineError:
+            # expected
+            pass
+
+    # bgzip output
+    output = str(tmp_path) + "/output.gaf.gz"
+    if "reference" in gfa:
+        run(gaf_path=gaf, format="stable", gfa=gfa, output=output)
+        output_lines = parse_bgzip_output(output)
+        truth_lines = parse_output(truth)
+        assert len(output_lines) == len(truth_lines)
+        for n in range(len(output_lines)):
+            assert output_lines[n] == truth_lines[n]
+    else:
+        try:
+            run(gaf_path=gaf, format="stable", gfa=gfa, output=output)
+        except CommandLineError:
+            # expected
+            pass
+
+
+@pytest.mark.parametrize(
+    "gaf_file",
+    [
+        # "graphaligner.gaf",
+        # "graphaligner.gaf.gz",
+        "graphaligner-stable.gaf",
+        "graphaligner-stable.gaf.gz",
+    ],
+)
+@pytest.mark.parametrize("gfa_file", ["graph.gfa", "graph.gfa.gz", "reference-graph.gfa"])
+def test_conversion_to_unstable(tmp_path, gaf_file, gfa_file):
+    gaf = f"tests/data/index_and_view/{gaf_file}"
+    gfa = f"tests/data/gfa2rgfa/{gfa_file}"
+    truth = "tests/data/index_and_view/graphaligner.gaf"
+    # non-bgzip output
+    output = str(tmp_path) + "/output.gaf"
+    if "reference" in gfa:
+        run(gaf_path=gaf, format="unstable", gfa=gfa, output=output)
+        output_lines = parse_output(output)
+        truth_lines = parse_output(truth)
+        assert len(output_lines) == len(truth_lines)
+        for n in range(len(output_lines)):
+            assert output_lines[n] == truth_lines[n]
+    else:
+        try:
+            run(gaf_path=gaf, format="unstable", gfa=gfa, output=output)
+        except CommandLineError:
+            # expected
+            pass
+
+    # bgzip output
+    output = str(tmp_path) + "/output.gaf.gz"
+    if "reference" in gfa:
+        run(gaf_path=gaf, format="unstable", gfa=gfa, output=output)
+        output_lines = parse_bgzip_output(output)
+        truth_lines = parse_output(truth)
+        assert len(output_lines) == len(truth_lines)
+        for n in range(len(output_lines)):
+            assert output_lines[n] == truth_lines[n]
+    else:
+        try:
+            run(gaf_path=gaf, format="unstable", gfa=gfa, output=output)
+        except CommandLineError:
+            # expected
+            pass
+
+
+# Here we only subset. No conversion
+@pytest.mark.parametrize(
+    "gaf_file",
+    [
+        "graphaligner.gaf",
+        "graphaligner.gaf.gz",
+        "graphaligner-stable.gaf",
+        "graphaligner-stable.gaf.gz",
+    ],
+)
+@pytest.mark.parametrize("gfa_file", ["graph.gfa", "graph.gfa.gz", "reference-graph.gfa"])
+def test_node_selection(tmp_path, gaf_file, gfa_file):
+    view_index_file = (
+        "tests/data/index_and_view/view-index-stable.gvi"
+        if "stable" in gaf_file
+        else "tests/data/index_and_view/view-index-unstable.gvi"
     )
-    output_lines = parse_output(output)
-    truth_lines = parse_output(truth)
-    for n in range(len(output_lines)):
-        assert output_lines[n] == truth_lines[n]
-
-
-# testing file conversion from stable to unstable with non-reference nodes specified
-def test_stable_to_unstable_non_reference_nodes(tmp_path):
-    input_gaf = "tests/data/alignments-minigraph-stable-conversioncheck.gaf"
-    input_gfa = "tests/data/smallgraph.gfa"
-    output = str(tmp_path) + "/output.gaf"
-    truth = "tests/data/alignments-minigraph-unstable-conversioncheck-only-s464827.gaf"
-    run(gaf_path=input_gaf, gfa=input_gfa, output=output, format="unstable", nodes=["s464827"])
-    output_lines = parse_output(output)
-    truth_lines = parse_output(truth)
-    for n in range(len(output_lines)):
-        assert output_lines[n] == truth_lines[n]
-
-
-# testing file conversion from stable to unstable with non-reference regions specified
-def test_stable_to_unstable_non_reference_regions(tmp_path):
-    input_gaf = "tests/data/alignments-minigraph-stable-conversioncheck.gaf"
-    input_gfa = "tests/data/smallgraph.gfa"
-    output = str(tmp_path) + "/output.gaf"
-    truth = "tests/data/alignments-minigraph-unstable-conversioncheck-only-s464827.gaf"
-    run(
-        gaf_path=input_gaf,
-        gfa=input_gfa,
-        output=output,
-        format="unstable",
-        regions=["NA20129#1#JAHEPE010000248.1:4927-5000"],
+    gaf = f"tests/data/index_and_view/{gaf_file}"
+    gfa = f"tests/data/gfa2rgfa/{gfa_file}"
+    truth = (
+        "tests/data/index_and_view/graphaligner-stable.gaf"
+        if "stable" in gaf_file
+        else "tests/data/index_and_view/graphaligner.gaf"
     )
-    output_lines = parse_output(output)
-    truth_lines = parse_output(truth)
-    for n in range(len(output_lines)):
-        assert output_lines[n] == truth_lines[n]
-
-
-# testing file conversion from stable to unstable with multiple nodes specified
-def test_stable_to_unstable_multiple_nodes(tmp_path):
-    input_gaf = "tests/data/alignments-minigraph-stable-conversioncheck.gaf"
-    input_gfa = "tests/data/smallgraph.gfa"
     output = str(tmp_path) + "/output.gaf"
-    truth = "tests/data/alignments-minigraph-unstable-conversioncheck-only-s2.gaf"
-    run(
-        gaf_path=input_gaf, gfa=input_gfa, output=output, format="unstable", nodes=["s464827", "s2"]
+
+    ### Intersection Mode
+    mode = "I"
+    if True:
+        # node not present in GAF
+        selected_nodes = ["s5"]
+        run(
+            gaf_path=gaf,
+            gfa=gfa,  # since we do not convert coordinates, the gfa does not matter.
+            index=view_index_file,
+            nodes=selected_nodes,
+            mode=mode,
+            output=output,
+        )
+        output_lines = parse_output(output)
+        assert len(output_lines) == 0
+
+        selected_nodes = ["s1"]
+        run(
+            gaf_path=gaf,
+            gfa=gfa,  # since we do not convert coordinates, the gfa does not matter.
+            index=view_index_file,
+            nodes=selected_nodes,
+            mode=mode,
+            output=output,
+        )
+        truth_line_indices = [0, 1, 13, 15]
+        truth_lines = subset_output_lines(parse_output(truth), truth_line_indices)
+        output_lines = parse_output(output)
+        assert len(output_lines) == len(truth_lines)
+        for n in range(len(output_lines)):
+            assert output_lines[n] == truth_lines[n]
+
+        selected_nodes = ["s1", "s3"]
+        run(
+            gaf_path=gaf,
+            gfa=gfa,  # since we do not convert coordinates, the gfa does not matter.
+            index=view_index_file,
+            nodes=selected_nodes,
+            mode=mode,
+            output=output,
+        )
+        truth_line_indices = [0, 13, 15]
+        truth_lines = subset_output_lines(parse_output(truth), truth_line_indices)
+        output_lines = parse_output(output)
+        assert len(output_lines) == len(truth_lines)
+        for n in range(len(output_lines)):
+            assert output_lines[n] == truth_lines[n]
+
+        selected_nodes = ["s1", "s14", "s3", "s4"]
+        run(
+            gaf_path=gaf,
+            gfa=gfa,  # since we do not convert coordinates, the gfa does not matter.
+            index=view_index_file,
+            nodes=selected_nodes,
+            mode=mode,
+            output=output,
+        )
+        truth_line_indices = []
+        truth_lines = subset_output_lines(parse_output(truth), truth_line_indices)
+        output_lines = parse_output(output)
+        assert len(output_lines) == len(truth_lines)
+        for n in range(len(output_lines)):
+            assert output_lines[n] == truth_lines[n]
+
+    ### Union Mode
+    mode = "U"
+    if True:
+        # node not present in GAF
+        selected_nodes = ["s5"]
+        run(
+            gaf_path=gaf,
+            gfa=gfa,  # since we do not convert coordinates, the gfa does not matter.
+            index=view_index_file,
+            nodes=selected_nodes,
+            mode=mode,
+            output=output,
+        )
+        output_lines = parse_output(output)
+        assert len(output_lines) == 0
+
+        selected_nodes = ["s1"]
+        run(
+            gaf_path=gaf,
+            gfa=gfa,  # since we do not convert coordinates, the gfa does not matter.
+            index=view_index_file,
+            nodes=selected_nodes,
+            mode=mode,
+            output=output,
+        )
+        truth_line_indices = [0, 1, 13, 15]
+        truth_lines = subset_output_lines(parse_output(truth), truth_line_indices)
+        output_lines = parse_output(output)
+        assert len(output_lines) == len(truth_lines)
+        for n in range(len(output_lines)):
+            assert output_lines[n] == truth_lines[n]
+
+        selected_nodes = ["s1", "s3"]
+        run(
+            gaf_path=gaf,
+            gfa=gfa,  # since we do not convert coordinates, the gfa does not matter.
+            index=view_index_file,
+            nodes=selected_nodes,
+            mode=mode,
+            output=output,
+        )
+        truth_line_indices = [0, 1, 2, 13, 15]
+        truth_lines = subset_output_lines(parse_output(truth), truth_line_indices)
+        output_lines = parse_output(output)
+        assert len(output_lines) == len(truth_lines)
+        for n in range(len(output_lines)):
+            assert output_lines[n] == truth_lines[n]
+
+        selected_nodes = ["s1", "s14", "s3", "s4"]
+        run(
+            gaf_path=gaf,
+            gfa=gfa,  # since we do not convert coordinates, the gfa does not matter.
+            index=view_index_file,
+            nodes=selected_nodes,
+            mode=mode,
+            output=output,
+        )
+        truth_line_indices = [0, 1, 2, 13, 15]
+        truth_lines = subset_output_lines(parse_output(truth), truth_line_indices)
+        output_lines = parse_output(output)
+        assert len(output_lines) == len(truth_lines)
+        for n in range(len(output_lines)):
+            assert output_lines[n] == truth_lines[n]
+
+
+# Here we only subset and convert
+@pytest.mark.parametrize(
+    "gaf_file",
+    [
+        "graphaligner.gaf",
+        "graphaligner.gaf.gz",
+        "graphaligner-stable.gaf",
+        "graphaligner-stable.gaf.gz",
+    ],
+)
+@pytest.mark.parametrize("gfa_file", ["graph.gfa", "graph.gfa.gz", "reference-graph.gfa"])
+def test_node_selection_withconversion(tmp_path, gaf_file, gfa_file):
+    view_index_file = (
+        "tests/data/index_and_view/view-index-stable.gvi"
+        if "stable" in gaf_file
+        else "tests/data/index_and_view/view-index-unstable.gvi"
     )
-    output_lines = parse_output(output)
-    truth_lines = parse_output(truth)
-    for n in range(len(output_lines)):
-        assert output_lines[n] == truth_lines[n]
-
-
-# testing file conversion from stable to unstable with multiple regions specified
-def test_stable_to_unstable_multiple_regions(tmp_path):
-    input_gaf = "tests/data/alignments-minigraph-stable-conversioncheck.gaf"
-    input_gfa = "tests/data/smallgraph.gfa"
-    output = str(tmp_path) + "/output.gaf"
-    truth = "tests/data/alignments-minigraph-unstable-conversioncheck-only-s2.gaf"
-    run(
-        gaf_path=input_gaf,
-        gfa=input_gfa,
-        output=output,
-        format="unstable",
-        regions=["NA20129#1#JAHEPE010000248.1:4927-5000", "chr1:0-3400"],
+    gaf = f"tests/data/index_and_view/{gaf_file}"
+    gfa = f"tests/data/gfa2rgfa/{gfa_file}"
+    truth = (
+        "tests/data/index_and_view/graphaligner.gaf"
+        if "stable" in gaf_file
+        else "tests/data/index_and_view/graphaligner-stable.gaf"
     )
-    output_lines = parse_output(output)
-    truth_lines = parse_output(truth)
-    for n in range(len(output_lines)):
-        assert output_lines[n] == truth_lines[n]
-
-
-# testing whole gzipped file conversion from stable to unstable
-def test_gzipped_stable_to_unstable(tmp_path):
-    input_gaf = "tests/data/alignments-minigraph-stable-conversioncheck.gaf.gz"
-    input_gfa = "tests/data/smallgraph.gfa"
+    format = "unstable" if "stable" in gaf else "stable"
     output = str(tmp_path) + "/output.gaf"
-    truth = "tests/data/alignments-minigraph-unstable-conversioncheck.gaf"
-    run(gaf_path=input_gaf, gfa=input_gfa, output=output, format="unstable")
-    output_lines = parse_output(output)
-    truth_lines = parse_output(truth)
-    for n in range(len(output_lines)):
-        assert output_lines[n] == truth_lines[n]
 
+    ### Intersection Mode
+    mode = "I"
+    if True:
+        # node not present in GAF
+        selected_nodes = ["s5"]
+        if "reference" in gfa:
+            run(
+                gaf_path=gaf,
+                gfa=gfa,
+                index=view_index_file,
+                nodes=selected_nodes,
+                mode=mode,
+                format=format,
+                output=output,
+            )
+            output_lines = parse_output(output)
+            assert len(output_lines) == 0
+        else:
+            try:
+                run(
+                    gaf_path=gaf,
+                    gfa=gfa,
+                    index=view_index_file,
+                    nodes=selected_nodes,
+                    mode=mode,
+                    format=format,
+                    output=output,
+                )
+            except CommandLineError:
+                # expected
+                pass
 
-# testing gzipped file conversion from stable to unstable with nodes specified
-def test_gzipped_stable_to_unstable_nodes(tmp_path):
-    input_gaf = "tests/data/alignments-minigraph-stable-conversioncheck.gaf.gz"
-    input_gfa = "tests/data/smallgraph.gfa"
-    output = str(tmp_path) + "/output.gaf"
-    truth = "tests/data/alignments-minigraph-unstable-conversioncheck-only-s2.gaf"
-    run(gaf_path=input_gaf, gfa=input_gfa, output=output, format="unstable", nodes=["s2"])
-    output_lines = parse_output(output)
-    truth_lines = parse_output(truth)
-    for n in range(len(output_lines)):
-        assert output_lines[n] == truth_lines[n]
+        selected_nodes = ["s1"]
+        if "reference" in gfa:
+            run(
+                gaf_path=gaf,
+                gfa=gfa,
+                index=view_index_file,
+                nodes=selected_nodes,
+                mode=mode,
+                format=format,
+                output=output,
+            )
+            truth_line_indices = [0, 1, 13, 15]
+            truth_lines = subset_output_lines(parse_output(truth), truth_line_indices)
+            output_lines = parse_output(output)
+            assert len(output_lines) == len(truth_lines)
+            for n in range(len(output_lines)):
+                assert output_lines[n] == truth_lines[n]
+        else:
+            try:
+                run(
+                    gaf_path=gaf,
+                    gfa=gfa,
+                    index=view_index_file,
+                    nodes=selected_nodes,
+                    mode=mode,
+                    format=format,
+                    output=output,
+                )
+            except CommandLineError:
+                # expected
+                pass
 
+        selected_nodes = ["s1", "s3"]
+        if "reference" in gfa:
+            run(
+                gaf_path=gaf,
+                gfa=gfa,
+                index=view_index_file,
+                nodes=selected_nodes,
+                mode=mode,
+                format=format,
+                output=output,
+            )
+            truth_line_indices = [0, 13, 15]
+            truth_lines = subset_output_lines(parse_output(truth), truth_line_indices)
+            output_lines = parse_output(output)
+            assert len(output_lines) == len(truth_lines)
+            for n in range(len(output_lines)):
+                assert output_lines[n] == truth_lines[n]
+        else:
+            try:
+                run(
+                    gaf_path=gaf,
+                    gfa=gfa,
+                    index=view_index_file,
+                    nodes=selected_nodes,
+                    mode=mode,
+                    format=format,
+                    output=output,
+                )
+            except CommandLineError:
+                # expected
+                pass
 
-# testing gzipped file conversion from stable to unstable with regions specified
-def test_gzipped_stable_to_unstable_regions(tmp_path):
-    input_gaf = "tests/data/alignments-minigraph-stable-conversioncheck.gaf.gz"
-    input_gfa = "tests/data/smallgraph.gfa"
-    output = str(tmp_path) + "/output.gaf"
-    truth = "tests/data/alignments-minigraph-unstable-conversioncheck-only-s2.gaf"
-    run(
-        gaf_path=input_gaf,
-        gfa=input_gfa,
-        output=output,
-        format="unstable",
-        regions=["chr1:3300-3400"],
-    )
-    output_lines = parse_output(output)
-    truth_lines = parse_output(truth)
-    for n in range(len(output_lines)):
-        assert output_lines[n] == truth_lines[n]
+        selected_nodes = ["s1", "s14", "s3", "s4"]
+        if "reference" in gfa:
+            run(
+                gaf_path=gaf,
+                gfa=gfa,
+                index=view_index_file,
+                nodes=selected_nodes,
+                mode=mode,
+                format=format,
+                output=output,
+            )
+            truth_line_indices = []
+            truth_lines = subset_output_lines(parse_output(truth), truth_line_indices)
+            output_lines = parse_output(output)
+            assert len(output_lines) == len(truth_lines)
+            for n in range(len(output_lines)):
+                assert output_lines[n] == truth_lines[n]
+        else:
+            try:
+                run(
+                    gaf_path=gaf,
+                    gfa=gfa,
+                    index=view_index_file,
+                    nodes=selected_nodes,
+                    mode=mode,
+                    format=format,
+                    output=output,
+                )
+            except CommandLineError:
+                # expected
+                pass
 
+    ### Union Mode
+    mode = "U"
+    if True:
+        # node not present in GAF
+        selected_nodes = ["s5"]
+        if "reference" in gfa:
+            run(
+                gaf_path=gaf,
+                gfa=gfa,
+                index=view_index_file,
+                nodes=selected_nodes,
+                mode=mode,
+                format=format,
+                output=output,
+            )
+            output_lines = parse_output(output)
+            assert len(output_lines) == 0
+        else:
+            try:
+                run(
+                    gaf_path=gaf,
+                    gfa=gfa,
+                    index=view_index_file,
+                    nodes=selected_nodes,
+                    mode=mode,
+                    format=format,
+                    output=output,
+                )
+            except CommandLineError:
+                # expected
+                pass
 
-# testing gzipped file conversion from stable to unstable with non-reference nodes specified
-def test_gzipped_stable_to_unstable_non_reference_nodes(tmp_path):
-    input_gaf = "tests/data/alignments-minigraph-stable-conversioncheck.gaf.gz"
-    input_gfa = "tests/data/smallgraph.gfa"
-    output = str(tmp_path) + "/output.gaf"
-    truth = "tests/data/alignments-minigraph-unstable-conversioncheck-only-s464827.gaf"
-    run(gaf_path=input_gaf, gfa=input_gfa, output=output, format="unstable", nodes=["s464827"])
-    output_lines = parse_output(output)
-    truth_lines = parse_output(truth)
-    for n in range(len(output_lines)):
-        assert output_lines[n] == truth_lines[n]
+        selected_nodes = ["s1"]
+        if "reference" in gfa:
+            run(
+                gaf_path=gaf,
+                gfa=gfa,
+                index=view_index_file,
+                nodes=selected_nodes,
+                mode=mode,
+                format=format,
+                output=output,
+            )
+            truth_line_indices = [0, 1, 13, 15]
+            truth_lines = subset_output_lines(parse_output(truth), truth_line_indices)
+            output_lines = parse_output(output)
+            assert len(output_lines) == len(truth_lines)
+            for n in range(len(output_lines)):
+                assert output_lines[n] == truth_lines[n]
+        else:
+            try:
+                run(
+                    gaf_path=gaf,
+                    gfa=gfa,
+                    index=view_index_file,
+                    nodes=selected_nodes,
+                    mode=mode,
+                    format=format,
+                    output=output,
+                )
+            except CommandLineError:
+                # expected
+                pass
 
+        selected_nodes = ["s1", "s3"]
+        if "reference" in gfa:
+            run(
+                gaf_path=gaf,
+                gfa=gfa,
+                index=view_index_file,
+                nodes=selected_nodes,
+                mode=mode,
+                format=format,
+                output=output,
+            )
+            truth_line_indices = [0, 1, 2, 13, 15]
+            truth_lines = subset_output_lines(parse_output(truth), truth_line_indices)
+            output_lines = parse_output(output)
+            assert len(output_lines) == len(truth_lines)
+            for n in range(len(output_lines)):
+                assert output_lines[n] == truth_lines[n]
+        else:
+            try:
+                run(
+                    gaf_path=gaf,
+                    gfa=gfa,
+                    index=view_index_file,
+                    nodes=selected_nodes,
+                    mode=mode,
+                    format=format,
+                    output=output,
+                )
+            except CommandLineError:
+                # expected
+                pass
 
-# testing gzipped file conversion from stable to unstable with non-reference regions specified
-def test_gzipped_stable_to_unstable_non_reference_regions(tmp_path):
-    input_gaf = "tests/data/alignments-minigraph-stable-conversioncheck.gaf.gz"
-    input_gfa = "tests/data/smallgraph.gfa"
-    output = str(tmp_path) + "/output.gaf"
-    truth = "tests/data/alignments-minigraph-unstable-conversioncheck-only-s464827.gaf"
-    run(
-        gaf_path=input_gaf,
-        gfa=input_gfa,
-        output=output,
-        format="unstable",
-        regions=["NA20129#1#JAHEPE010000248.1:4927-5000"],
-    )
-    output_lines = parse_output(output)
-    truth_lines = parse_output(truth)
-    for n in range(len(output_lines)):
-        assert output_lines[n] == truth_lines[n]
-
-
-# testing gzipped file conversion from stable to unstable with multiple nodes specified
-def test_gzipped_stable_to_unstable_multiple_nodes(tmp_path):
-    input_gaf = "tests/data/alignments-minigraph-stable-conversioncheck.gaf.gz"
-    input_gfa = "tests/data/smallgraph.gfa"
-    output = str(tmp_path) + "/output.gaf"
-    truth = "tests/data/alignments-minigraph-unstable-conversioncheck-only-s2.gaf"
-    run(
-        gaf_path=input_gaf, gfa=input_gfa, output=output, format="unstable", nodes=["s464827", "s2"]
-    )
-    output_lines = parse_output(output)
-    truth_lines = parse_output(truth)
-    for n in range(len(output_lines)):
-        assert output_lines[n] == truth_lines[n]
-
-
-# testing gzipped file conversion from stable to unstable with multiple regions specified
-def test_gzipped_stable_to_unstable_multiple_regions(tmp_path):
-    input_gaf = "tests/data/alignments-minigraph-stable-conversioncheck.gaf.gz"
-    input_gfa = "tests/data/smallgraph.gfa"
-    output = str(tmp_path) + "/output.gaf"
-    truth = "tests/data/alignments-minigraph-unstable-conversioncheck-only-s2.gaf"
-    run(
-        gaf_path=input_gaf,
-        gfa=input_gfa,
-        output=output,
-        format="unstable",
-        regions=["NA20129#1#JAHEPE010000248.1:4927-5000", "chr1:3300-3400"],
-    )
-    output_lines = parse_output(output)
-    truth_lines = parse_output(truth)
-    for n in range(len(output_lines)):
-        assert output_lines[n] == truth_lines[n]
-
-
-######################
-# Unstable to Stable #
-######################
-
-
-# testing whole file conversion from unstable to stable
-def test_unstable_to_stable(tmp_path):
-    input_gaf = "tests/data/alignments-minigraph-unstable-conversioncheck.gaf"
-    input_gfa = "tests/data/smallgraph.gfa"
-    output = str(tmp_path) + "/output.gaf"
-    truth = "tests/data/alignments-minigraph-stable-conversioncheck.gaf"
-    run(gaf_path=input_gaf, gfa=input_gfa, output=output, format="stable")
-    output_lines = parse_output(output)
-    truth_lines = parse_output(truth)
-    for n in range(len(output_lines)):
-        assert output_lines[n] == truth_lines[n]
-
-
-# testing file conversion from unstable to stable with nodes specified
-def test_unstable_to_stable_nodes(tmp_path):
-    input_gaf = "tests/data/alignments-minigraph-unstable-conversioncheck.gaf"
-    input_gfa = "tests/data/smallgraph.gfa"
-    output = str(tmp_path) + "/output.gaf"
-    truth = "tests/data/alignments-minigraph-stable-conversioncheck-only-s2.gaf"
-    run(gaf_path=input_gaf, gfa=input_gfa, output=output, format="stable", nodes=["s2"])
-    output_lines = parse_output(output)
-    truth_lines = parse_output(truth)
-    for n in range(len(output_lines)):
-        assert output_lines[n] == truth_lines[n]
-
-
-# testing file conversion from unstable to stable with regions specified
-def test_unstable_to_stable_regions(tmp_path):
-    input_gaf = "tests/data/alignments-minigraph-unstable-conversioncheck.gaf"
-    input_gfa = "tests/data/smallgraph.gfa"
-    output = str(tmp_path) + "/output.gaf"
-    truth = "tests/data/alignments-minigraph-stable-conversioncheck-only-s2.gaf"
-    run(
-        gaf_path=input_gaf,
-        gfa=input_gfa,
-        output=output,
-        format="stable",
-        regions=["chr1:3300-3400"],
-    )
-    output_lines = parse_output(output)
-    truth_lines = parse_output(truth)
-    for n in range(len(output_lines)):
-        assert output_lines[n] == truth_lines[n]
-
-
-# testing file conversion from unstable to stable with non-reference nodes specified
-def test_unstable_to_stable_non_reference_nodes(tmp_path):
-    input_gaf = "tests/data/alignments-minigraph-unstable-conversioncheck.gaf"
-    input_gfa = "tests/data/smallgraph.gfa"
-    output = str(tmp_path) + "/output.gaf"
-    truth = "tests/data/alignments-minigraph-stable-conversioncheck-only-s464827.gaf"
-    run(gaf_path=input_gaf, gfa=input_gfa, output=output, format="stable", nodes=["s464827"])
-    output_lines = parse_output(output)
-    truth_lines = parse_output(truth)
-    for n in range(len(output_lines)):
-        assert output_lines[n] == truth_lines[n]
-
-
-# testing file conversion from unstable to stable with non-reference regions specified
-def test_unstable_to_stable_non_reference_regions(tmp_path):
-    input_gaf = "tests/data/alignments-minigraph-unstable-conversioncheck.gaf"
-    input_gfa = "tests/data/smallgraph.gfa"
-    output = str(tmp_path) + "/output.gaf"
-    truth = "tests/data/alignments-minigraph-stable-conversioncheck-only-s464827.gaf"
-    run(
-        gaf_path=input_gaf,
-        gfa=input_gfa,
-        output=output,
-        format="stable",
-        regions=["NA20129#1#JAHEPE010000248.1:4927-5000"],
-    )
-    output_lines = parse_output(output)
-    truth_lines = parse_output(truth)
-    for n in range(len(output_lines)):
-        assert output_lines[n] == truth_lines[n]
-
-
-# testing file conversion from unstable to stable with multiple nodes specified
-def test_unstable_to_stable_multiple_nodes(tmp_path):
-    input_gaf = "tests/data/alignments-minigraph-unstable-conversioncheck.gaf"
-    input_gfa = "tests/data/smallgraph.gfa"
-    output = str(tmp_path) + "/output.gaf"
-    truth = "tests/data/alignments-minigraph-stable-conversioncheck-only-s2.gaf"
-    run(gaf_path=input_gaf, gfa=input_gfa, output=output, format="stable", nodes=["s464827", "s2"])
-    output_lines = parse_output(output)
-    truth_lines = parse_output(truth)
-    for n in range(len(output_lines)):
-        assert output_lines[n] == truth_lines[n]
-
-
-# testing file conversion from unstable to stable with multiple regions specified
-def test_unstable_to_stable_multiple_regions(tmp_path):
-    input_gaf = "tests/data/alignments-minigraph-unstable-conversioncheck.gaf"
-    input_gfa = "tests/data/smallgraph.gfa"
-    output = str(tmp_path) + "/output.gaf"
-    truth = "tests/data/alignments-minigraph-stable-conversioncheck-only-s2.gaf"
-    run(
-        gaf_path=input_gaf,
-        gfa=input_gfa,
-        output=output,
-        format="stable",
-        regions=["NA20129#1#JAHEPE010000248.1:4927-5000", "chr1:3300-3400"],
-    )
-    output_lines = parse_output(output)
-    truth_lines = parse_output(truth)
-    for n in range(len(output_lines)):
-        assert output_lines[n] == truth_lines[n]
-
-
-# testing whole gzipped file conversion from unstable to stable
-def test_gzipped_unstable_to_stable(tmp_path):
-    input_gaf = "tests/data/alignments-minigraph-unstable-conversioncheck.gaf.gz"
-    input_gfa = "tests/data/smallgraph.gfa"
-    output = str(tmp_path) + "/output.gaf"
-    truth = "tests/data/alignments-minigraph-stable-conversioncheck.gaf"
-    run(gaf_path=input_gaf, gfa=input_gfa, output=output, format="stable")
-    output_lines = parse_output(output)
-    truth_lines = parse_output(truth)
-    for n in range(len(output_lines)):
-        assert output_lines[n] == truth_lines[n]
-
-
-# testing gzipped file conversion from unstable to stable with nodes specified
-def test_gzipped_unstable_to_stable_nodes(tmp_path):
-    input_gaf = "tests/data/alignments-minigraph-unstable-conversioncheck.gaf.gz"
-    input_gfa = "tests/data/smallgraph.gfa"
-    output = str(tmp_path) + "/output.gaf"
-    truth = "tests/data/alignments-minigraph-stable-conversioncheck-only-s2.gaf"
-    run(gaf_path=input_gaf, gfa=input_gfa, output=output, format="stable", nodes=["s2"])
-    output_lines = parse_output(output)
-    truth_lines = parse_output(truth)
-    for n in range(len(output_lines)):
-        assert output_lines[n] == truth_lines[n]
-
-
-# testing gzipped file conversion from unstable to stable with regions specified
-def test_gzipped_unstable_to_stable_regions(tmp_path):
-    input_gaf = "tests/data/alignments-minigraph-unstable-conversioncheck.gaf.gz"
-    input_gfa = "tests/data/smallgraph.gfa"
-    output = str(tmp_path) + "/output.gaf"
-    truth = "tests/data/alignments-minigraph-stable-conversioncheck-only-s2.gaf"
-    run(
-        gaf_path=input_gaf,
-        gfa=input_gfa,
-        output=output,
-        format="stable",
-        regions=["chr1:3300-3400"],
-    )
-    output_lines = parse_output(output)
-    truth_lines = parse_output(truth)
-    for n in range(len(output_lines)):
-        assert output_lines[n] == truth_lines[n]
-
-
-# testing gzipped file conversion from unstable to stable with non-reference nodes specified
-def test_gzipped_unstable_to_stable_non_reference_nodes(tmp_path):
-    input_gaf = "tests/data/alignments-minigraph-unstable-conversioncheck.gaf.gz"
-    input_gfa = "tests/data/smallgraph.gfa"
-    output = str(tmp_path) + "/output.gaf"
-    truth = "tests/data/alignments-minigraph-stable-conversioncheck-only-s464827.gaf"
-    run(gaf_path=input_gaf, gfa=input_gfa, output=output, format="stable", nodes=["s464827"])
-    output_lines = parse_output(output)
-    truth_lines = parse_output(truth)
-    for n in range(len(output_lines)):
-        assert output_lines[n] == truth_lines[n]
-
-
-# testing gzipped file conversion from unstable to stable with non-reference regions specified
-def test_gzipped_unstable_to_stable_non_reference_regions(tmp_path):
-    input_gaf = "tests/data/alignments-minigraph-unstable-conversioncheck.gaf.gz"
-    input_gfa = "tests/data/smallgraph.gfa"
-    output = str(tmp_path) + "/output.gaf"
-    truth = "tests/data/alignments-minigraph-stable-conversioncheck-only-s464827.gaf"
-    run(
-        gaf_path=input_gaf,
-        gfa=input_gfa,
-        output=output,
-        format="stable",
-        regions=["NA20129#1#JAHEPE010000248.1:4927-5000"],
-    )
-    output_lines = parse_output(output)
-    truth_lines = parse_output(truth)
-    for n in range(len(output_lines)):
-        assert output_lines[n] == truth_lines[n]
-
-
-# testing gzipped file conversion from unstable to stable with multiple nodes specified
-def test_gzipped_unstable_to_stable_multiple_nodes(tmp_path):
-    input_gaf = "tests/data/alignments-minigraph-unstable-conversioncheck.gaf.gz"
-    input_gfa = "tests/data/smallgraph.gfa"
-    output = str(tmp_path) + "/output.gaf"
-    truth = "tests/data/alignments-minigraph-stable-conversioncheck-only-s2.gaf"
-    run(gaf_path=input_gaf, gfa=input_gfa, output=output, format="stable", nodes=["s464827", "s2"])
-    output_lines = parse_output(output)
-    truth_lines = parse_output(truth)
-    for n in range(len(output_lines)):
-        assert output_lines[n] == truth_lines[n]
-
-
-# testing gzipped file conversion from unstable to stable with multiple regions specified
-def test_gzipped_unstable_to_stable_multiple_regions(tmp_path):
-    input_gaf = "tests/data/alignments-minigraph-unstable-conversioncheck.gaf.gz"
-    input_gfa = "tests/data/smallgraph.gfa"
-    output = str(tmp_path) + "/output.gaf"
-    truth = "tests/data/alignments-minigraph-stable-conversioncheck-only-s2.gaf"
-    run(
-        gaf_path=input_gaf,
-        gfa=input_gfa,
-        output=output,
-        format="stable",
-        regions=["NA20129#1#JAHEPE010000248.1:4927-5000", "chr1:3300-3400"],
-    )
-    output_lines = parse_output(output)
-    truth_lines = parse_output(truth)
-    for n in range(len(output_lines)):
-        assert output_lines[n] == truth_lines[n]
-
-
-###################################################
-# Adding tests for reverse orientation alignments #
-###################################################
-
-
-# testing convert to stable when reversed alignments are present
-def test_reversed_alignments_to_stable(tmp_path):
-    input_gaf = "tests/data/alignments-minigraph-reversed-reads-unstable.gaf"
-    input_gfa = "tests/data/smallgraph.gfa"
-    output = str(tmp_path) + "/output.gaf"
-    truth = "tests/data/alignments-minigraph-reversed-reads-stable.gaf"
-    run(
-        gaf_path=input_gaf,
-        gfa=input_gfa,
-        output=output,
-        format="stable",
-    )
-    output_lines = parse_output(output)
-    truth_lines = parse_output(truth)
-    for n in range(len(output_lines)):
-        assert output_lines[n] == truth_lines[n]
-
-
-# testing convert to unstable when reversed alignments are present
-def test_reversed_alignments_to_unstable(tmp_path):
-    input_gaf = "tests/data/alignments-minigraph-reversed-reads-stable.gaf"
-    input_gfa = "tests/data/smallgraph.gfa"
-    output = str(tmp_path) + "/output.gaf"
-    truth = "tests/data/alignments-minigraph-reversed-reads-unstable.gaf"
-    run(
-        gaf_path=input_gaf,
-        gfa=input_gfa,
-        output=output,
-        format="unstable",
-    )
-    output_lines = parse_output(output)
-    truth_lines = parse_output(truth)
-    for n in range(len(output_lines)):
-        assert output_lines[n] == truth_lines[n]
+        selected_nodes = ["s1", "s14", "s3", "s4"]
+        if "reference" in gfa:
+            run(
+                gaf_path=gaf,
+                gfa=gfa,
+                index=view_index_file,
+                nodes=selected_nodes,
+                mode=mode,
+                format=format,
+                output=output,
+            )
+            truth_line_indices = [0, 1, 2, 13, 15]
+            truth_lines = subset_output_lines(parse_output(truth), truth_line_indices)
+            output_lines = parse_output(output)
+            assert len(output_lines) == len(truth_lines)
+            for n in range(len(output_lines)):
+                assert output_lines[n] == truth_lines[n]
+        else:
+            try:
+                run(
+                    gaf_path=gaf,
+                    gfa=gfa,
+                    index=view_index_file,
+                    nodes=selected_nodes,
+                    mode=mode,
+                    format=format,
+                    output=output,
+                )
+            except CommandLineError:
+                # expected
+                pass
