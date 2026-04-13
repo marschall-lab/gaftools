@@ -1,4 +1,5 @@
 from gaftools.gfa import GFA
+import pytest
 
 """
 The example graph I am using looks like this
@@ -14,7 +15,7 @@ node 4 connect to beginning of node 3
 
 
 def test_load_gfa():
-    graph = GFA("tests/data/test_GFA_class.gfa")
+    graph = GFA("tests/data/gfa_class/test_GFA_class.gfa")
     assert len(graph) == 4
     # check if the node sequences were loaded correctly
     assert graph["1"].seq == "AGGTCG"
@@ -47,25 +48,25 @@ def test_load_gfa():
 
     # test file not found
     try:
-        graph = GFA("test/data/nonexistant_graph.gfa")
+        graph = GFA("test/data/gfa/nonexistant_graph.gfa")
     except FileNotFoundError:
         pass
 
     try:
-        graph = GFA("tests/data/test_GFA_class_wrong_graph.gfa")
+        graph = GFA("tests/data/gfa_class/test_GFA_class_wrong_graph.gfa")
     except ValueError:
         pass
 
 
 def test_node_tags():
-    graph = GFA("tests/data/test_GFA_class.gfa")
+    graph = GFA("tests/data/gfa_class/test_GFA_class.gfa")
     assert "SG" in graph["1"].tags
     assert graph["1"].tags["SG"] == ("Z", "testing_tags")
     assert len(graph["2"].tags) == 2
 
 
 def test_delete_node():
-    graph = GFA("tests/data/test_GFA_class.gfa")
+    graph = GFA("tests/data/gfa_class/test_GFA_class.gfa")
     del graph["1"]
     assert "1" not in graph.nodes
     # checking that the edges were also removed properly
@@ -74,7 +75,7 @@ def test_delete_node():
 
 
 def test_add_node():
-    graph = GFA("tests/data/test_GFA_class.gfa")
+    graph = GFA("tests/data/gfa_class/test_GFA_class.gfa")
     node_line = "S\t5\tCCCC".split()
     graph.add_node(node_line[1], node_line[2])
     assert "5" in graph
@@ -87,8 +88,37 @@ def test_add_node():
     assert graph["5"].in_direction("4", 0)
 
 
-def test_path_extraction():
-    graph = GFA("tests/data/test_GFA_class.gfa")
+@pytest.mark.parametrize("gfa_file", ["graph.gfa", "graph.gfa.gz", "reference-graph.gfa"])
+def test_path_extraction_big_example(gfa_file):
+    graph = GFA(f"tests/data/gfa2rgfa/{gfa_file}")
+    for i in range(32):
+        assert graph.path_exists([f">s{i}"])
+        assert graph.path_exists([f"<s{i}"])
+    assert graph.path_exists([">s_unk"])
+    assert graph.path_exists(["<s_unk"])
+
+    assert not graph.path_exists([">s1", ">s_unk"])
+    assert not graph.path_exists([">s1", "<s2"])
+    assert graph.path_exists([">s1", ">s2"])
+    assert not graph.path_exists(["<s1", "<s2"])
+    assert graph.path_exists(["<s2", "<s1"])
+
+    assert graph.extract_path(">s1>s2") == "ACTTATCCCCTGCGGGAGAGGTTCTCGATC"
+    assert graph.extract_path("<s2<s1") == "GATCGAGAACCTCTCCCGCAGGGGATAAGT"
+
+    assert not graph.path_exists([">s25", ">s21"])
+    assert graph.path_exists([">s25", "<s21"])
+    assert graph.path_exists([">s21", "<s25"])
+
+    assert graph.extract_path(">s25<s21") == "GGCTCGCACGTTAGAAAGTG"
+    assert graph.extract_path(">s21<s25") == "CACTTTCTAACGTGCGAGCC"
+
+    graph["s1"].seq = graph["s1"].seq + "NNNNGCGCG"
+    assert graph.extract_path("<s1") == "CGCGCNNNNGGGGATAAGT"
+
+
+def test_path_extraction_small_example():
+    graph = GFA("tests/data/gfa_class/test_GFA_class.gfa")
     assert graph.path_exists([">1", ">2", ">4"])
     assert graph.extract_path(">1>2>4") == "AGGTCGTTGGC"
     assert graph.extract_path("<1") == "CGACCT"
@@ -99,7 +129,7 @@ def test_path_extraction():
 
 
 def test_components():
-    graph = GFA("tests/data/test_GFA_class.gfa")
+    graph = GFA("tests/data/gfa_class/test_GFA_class.gfa")
     components = graph.all_components()
     assert len(components) == 1
     assert components[0] == set(graph.nodes.keys())
@@ -117,8 +147,19 @@ def test_components():
         assert comp1 == {"5", "6"}
 
 
-def test_bicc():
-    graph = GFA("tests/data/smallgraph-noseq.gfa")
+@pytest.mark.parametrize("gfa_file", ["graph.gfa", "graph.gfa.gz", "reference-graph.gfa"])
+def test_bicc_customgraph(gfa_file):
+    graph = GFA(f"tests/data/gfa2rgfa/{gfa_file}")
+    _ = graph.nodes.pop(
+        "s_unk"
+    )  # have to remove this node this graph.biccs can only process one component
+    biccs, artic_points = graph.biccs()
+    assert set(artic_points) == {"s4", "s6", "s8"}
+    assert len(biccs) == 4
+
+
+def test_bicc_smallgraph():
+    graph = GFA("tests/data/smallgraph.gfa")
     biccs, artic_points = graph.biccs()
     assert set(artic_points) == {"s8", "s6", "s4", "s2"}
     assert len(biccs) == 5
@@ -130,6 +171,6 @@ def test_contig_length():
 
 
 def test_dfs():
-    graph = GFA("tests/data/test_GFA_class.gfa")
+    graph = GFA("tests/data/gfa_class/test_GFA_class.gfa")
     ordered_dfs = graph.dfs("1")
     assert ordered_dfs == ["1", "3", "4", "2"]
