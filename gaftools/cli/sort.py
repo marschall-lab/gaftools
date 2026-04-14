@@ -95,7 +95,9 @@ def sort(gaf, nodes, outgaf, index_dict, index_file):
 
     # Writing the sorted file
     writer = FileWriter(outgaf)
-    start_offset = writer.tell()
+    start_offset = None
+    if index_file is not None:
+        start_offset = writer.tell()
     with timers("write_gaf"):
         logger.debug("Writing Output File...")
         for index, alignment in enumerate(gaf_alignments):
