@@ -89,10 +89,12 @@ def test_full_file_view_bgzip(tmp_path, gaf_file):
         # "graphaligner-stable.gaf.gz",
     ],
 )
-@pytest.mark.parametrize("gfa_file", ["graph.gfa", "graph.gfa.gz", "reference-graph.gfa"])
+@pytest.mark.parametrize(
+    "gfa_file", ["customgraph.gfa", "customgraph.gfa.gz", "gfa2rgfa/reference-graph.gfa"]
+)
 def test_conversion_to_stable(tmp_path, gaf_file, gfa_file):
     gaf = f"tests/data/index_and_view/{gaf_file}"
-    gfa = f"tests/data/gfa2rgfa/{gfa_file}"
+    gfa = f"tests/data/{gfa_file}"
     truth = "tests/data/index_and_view/graphaligner-stable.gaf"
     # non-bgzip output
     output = str(tmp_path) + "/output.gaf"
@@ -136,10 +138,12 @@ def test_conversion_to_stable(tmp_path, gaf_file, gfa_file):
         "graphaligner-stable.gaf.gz",
     ],
 )
-@pytest.mark.parametrize("gfa_file", ["graph.gfa", "graph.gfa.gz", "reference-graph.gfa"])
+@pytest.mark.parametrize(
+    "gfa_file", ["customgraph.gfa", "customgraph.gfa.gz", "gfa2rgfa/reference-graph.gfa"]
+)
 def test_conversion_to_unstable(tmp_path, gaf_file, gfa_file):
     gaf = f"tests/data/index_and_view/{gaf_file}"
-    gfa = f"tests/data/gfa2rgfa/{gfa_file}"
+    gfa = f"tests/data/{gfa_file}"
     truth = "tests/data/index_and_view/graphaligner.gaf"
     # non-bgzip output
     output = str(tmp_path) + "/output.gaf"
@@ -184,7 +188,9 @@ def test_conversion_to_unstable(tmp_path, gaf_file, gfa_file):
         "graphaligner-stable.gaf.gz",
     ],
 )
-@pytest.mark.parametrize("gfa_file", ["graph.gfa", "graph.gfa.gz", "reference-graph.gfa"])
+@pytest.mark.parametrize(
+    "gfa_file", ["customgraph.gfa", "customgraph.gfa.gz", "gfa2rgfa/reference-graph.gfa"]
+)
 def test_node_selection(tmp_path, gaf_file, gfa_file):
     view_index_file = (
         "tests/data/index_and_view/view-index-stable.gvi"
@@ -192,7 +198,7 @@ def test_node_selection(tmp_path, gaf_file, gfa_file):
         else "tests/data/index_and_view/view-index-unstable.gvi"
     )
     gaf = f"tests/data/index_and_view/{gaf_file}"
-    gfa = f"tests/data/gfa2rgfa/{gfa_file}"
+    gfa = f"tests/data/{gfa_file}"
     truth = (
         "tests/data/index_and_view/graphaligner-stable.gaf"
         if "stable" in gaf_file
@@ -339,7 +345,9 @@ def test_node_selection(tmp_path, gaf_file, gfa_file):
         "graphaligner-stable.gaf.gz",
     ],
 )
-@pytest.mark.parametrize("gfa_file", ["graph.gfa", "graph.gfa.gz", "reference-graph.gfa"])
+@pytest.mark.parametrize(
+    "gfa_file", ["customgraph.gfa", "customgraph.gfa.gz", "gfa2rgfa/reference-graph.gfa"]
+)
 def test_node_selection_withconversion(tmp_path, gaf_file, gfa_file):
     view_index_file = (
         "tests/data/index_and_view/view-index-stable.gvi"
@@ -347,7 +355,7 @@ def test_node_selection_withconversion(tmp_path, gaf_file, gfa_file):
         else "tests/data/index_and_view/view-index-unstable.gvi"
     )
     gaf = f"tests/data/index_and_view/{gaf_file}"
-    gfa = f"tests/data/gfa2rgfa/{gfa_file}"
+    gfa = f"tests/data/{gfa_file}"
     truth = (
         "tests/data/index_and_view/graphaligner.gaf"
         if "stable" in gaf_file

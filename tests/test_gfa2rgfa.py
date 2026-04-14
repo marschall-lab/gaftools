@@ -110,15 +110,15 @@ def parse_coordinates(rgfa, seqfile, gzipped=False):
 @pytest.mark.parametrize(
     "gfa_file",
     [
-        "graph.gfa",
-        "graph.gfa.gz",
-        "graph-invertednodes.gfa",
-        "graph-partial-tagged.gfa",
-        "graph-partial-tagged-alternateSN.gfa",
+        "customgraph.gfa",
+        "customgraph.gfa.gz",
+        "gfa2rgfa/graph-invertednodes.gfa",
+        "gfa2rgfa/graph-partial-tagged.gfa",
+        "gfa2rgfa/graph-partial-tagged-alternateSN.gfa",
     ],
 )
 def test_standard_conversion_uncompressed(tmp_path, gfa_file):
-    input_gfa = f"tests/data/gfa2rgfa/{gfa_file}"
+    input_gfa = f"tests/data/{gfa_file}"
     truth_rgfa = "tests/data/gfa2rgfa/reference-graph.gfa"
     seqfile = "tests/data/gfa2rgfa/samples.seqfile"  # for parsing coordinates
     output = str(tmp_path) + "/output-rgfa.gfa"
@@ -159,15 +159,15 @@ def test_standard_conversion_uncompressed(tmp_path, gfa_file):
 @pytest.mark.parametrize(
     "gfa_file",
     [
-        "graph.gfa",
-        "graph.gfa.gz",
-        "graph-invertednodes.gfa",
-        "graph-partial-tagged.gfa",
-        "graph-partial-tagged-alternateSN.gfa",
+        "customgraph.gfa",
+        "customgraph.gfa.gz",
+        "gfa2rgfa/graph-invertednodes.gfa",
+        "gfa2rgfa/graph-partial-tagged.gfa",
+        "gfa2rgfa/graph-partial-tagged-alternateSN.gfa",
     ],
 )
 def test_standard_conversion_compressed(tmp_path, gfa_file):
-    input_gfa = f"tests/data/gfa2rgfa/{gfa_file}"
+    input_gfa = f"tests/data/{gfa_file}"
     truth_rgfa = "tests/data/gfa2rgfa/reference-graph.gfa"
     seqfile = "tests/data/gfa2rgfa/samples.seqfile"  # for parsing coordinates
     output = str(tmp_path) + "/output-rgfa.gfa.gz"
@@ -205,10 +205,15 @@ def test_standard_conversion_compressed(tmp_path, gfa_file):
 
 # testing GFA conversion to rGFA using full seqfile
 @pytest.mark.parametrize(
-    "gfa_file", ["graph.gfa", "graph-partial-tagged.gfa", "graph-wrong-Wline-order.gfa"]
+    "gfa_file",
+    [
+        "customgraph.gfa",
+        "gfa2rgfa/graph-partial-tagged.gfa",
+        "gfa2rgfa/graph-wrong-Wline-order.gfa",
+    ],
 )
 def test_full_seqfile_conversion(tmp_path, gfa_file):
-    input_gfa = f"tests/data/gfa2rgfa/{gfa_file}"
+    input_gfa = f"tests/data/{gfa_file}"
     truth_rgfa = "tests/data/gfa2rgfa/reference-graph-seqfile.gfa"
     seqfile = "tests/data/gfa2rgfa/samples.seqfile"
     output = str(tmp_path) + "/output-rgfa.gfa"
@@ -231,10 +236,15 @@ def test_full_seqfile_conversion(tmp_path, gfa_file):
 # testing GFA conversion to rGFA using partial seqfile
 # Note: cannot use graph-invertednodes.gfa since s24 is not in partial set of assemblies. So it is never flipped back
 @pytest.mark.parametrize(
-    "gfa_file", ["graph.gfa", "graph-partial-tagged.gfa", "graph-wrong-Wline-order.gfa"]
+    "gfa_file",
+    [
+        "customgraph.gfa",
+        "gfa2rgfa/graph-partial-tagged.gfa",
+        "gfa2rgfa/graph-wrong-Wline-order.gfa",
+    ],
 )
 def test_partial_seqfile_conversion(tmp_path, gfa_file):
-    input_gfa = f"tests/data/gfa2rgfa/{gfa_file}"
+    input_gfa = f"tests/data/{gfa_file}"
     truth_rgfa = "tests/data/gfa2rgfa/reference-graph-partial-seqfile.gfa"
     partial_seqfile = "tests/data/gfa2rgfa/samples-partial.seqfile"
     seqfile = "tests/data/gfa2rgfa/samples.seqfile"
@@ -259,15 +269,15 @@ def test_partial_seqfile_conversion(tmp_path, gfa_file):
 @pytest.mark.parametrize(
     "gfa_file",
     [
-        "graph.gfa",
-        "graph.gfa.gz",
-        "graph-invertednodes.gfa",
-        "graph-partial-tagged.gfa",
-        "graph-partial-tagged-alternateSN.gfa",
+        "customgraph.gfa",
+        "customgraph.gfa.gz",
+        "gfa2rgfa/graph-invertednodes.gfa",
+        "gfa2rgfa/graph-partial-tagged.gfa",
+        "gfa2rgfa/graph-partial-tagged-alternateSN.gfa",
     ],
 )
 def test_conversion_reference_override(tmp_path, gfa_file):
-    input_gfa = f"tests/data/gfa2rgfa/{gfa_file}"
+    input_gfa = f"tests/data/{gfa_file}"
     truth_rgfa = "tests/data/gfa2rgfa/reference-graph-FOO#2.gfa"
     seqfile = "tests/data/gfa2rgfa/samples.seqfile"  # for parsing coordinates
     output = str(tmp_path) + "/output-rgfa.gfa"

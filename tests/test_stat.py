@@ -3,6 +3,7 @@ Tests for 'gaftools stat'
 """
 
 from gaftools.cli.stat import run_stat
+import pytest
 
 
 def parse_output(filename):
@@ -12,8 +13,9 @@ def parse_output(filename):
     return [parse_line(l) for l in open(filename)]
 
 
-def test_stat_graphaligner(tmp_path):
-    input_gaf = "tests/data/alignments-graphaligner.gaf"
+@pytest.mark.parametrize("gaf_file", ["graphaligner.gaf", "graphaligner.gaf.gz"])
+def test_stat_graphaligner(tmp_path, gaf_file):
+    input_gaf = f"tests/data/stat/{gaf_file}"
     output = str(tmp_path) + "/output.log"
     run_stat(
         gaf_path=input_gaf,
@@ -29,8 +31,9 @@ def test_stat_graphaligner(tmp_path):
     assert output_lines[5] == ("Average mapping quality", "60.0")
 
 
-def test_stat_minigraph_stable(tmp_path):
-    input_gaf = "tests/data/alignments-minigraph-stable.gaf"
+@pytest.mark.parametrize("gaf_file", ["minigraph-stable.gaf", "minigraph-stable.gaf.gz"])
+def test_stat_minigraph_stable(tmp_path, gaf_file):
+    input_gaf = f"tests/data/stat/{gaf_file}"
     output = str(tmp_path) + "/output.log"
     run_stat(
         gaf_path=input_gaf,
@@ -46,8 +49,9 @@ def test_stat_minigraph_stable(tmp_path):
     assert output_lines[5] == ("Average mapping quality", "60.0")
 
 
-def test_stat_minigraph_unstable(tmp_path):
-    input_gaf = "tests/data/alignments-minigraph-unstable.gaf"
+@pytest.mark.parametrize("gaf_file", ["minigraph-unstable.gaf", "minigraph-unstable.gaf.gz"])
+def test_stat_minigraph_unstable(tmp_path, gaf_file):
+    input_gaf = f"tests/data/stat/{gaf_file}"
     output = str(tmp_path) + "/output.log"
     run_stat(
         gaf_path=input_gaf,

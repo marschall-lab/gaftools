@@ -88,9 +88,11 @@ def test_add_node():
     assert graph["5"].in_direction("4", 0)
 
 
-@pytest.mark.parametrize("gfa_file", ["graph.gfa", "graph.gfa.gz", "reference-graph.gfa"])
+@pytest.mark.parametrize(
+    "gfa_file", ["customgraph.gfa", "customgraph.gfa.gz", "gfa2rgfa/reference-graph.gfa"]
+)
 def test_path_extraction_big_example(gfa_file):
-    graph = GFA(f"tests/data/gfa2rgfa/{gfa_file}")
+    graph = GFA(f"tests/data/{gfa_file}")
     for i in range(32):
         assert graph.path_exists([f">s{i}"])
         assert graph.path_exists([f"<s{i}"])
@@ -147,9 +149,11 @@ def test_components():
         assert comp1 == {"5", "6"}
 
 
-@pytest.mark.parametrize("gfa_file", ["graph.gfa", "graph.gfa.gz", "reference-graph.gfa"])
+@pytest.mark.parametrize(
+    "gfa_file", ["customgraph.gfa", "customgraph.gfa.gz", "gfa2rgfa/reference-graph.gfa"]
+)
 def test_bicc_customgraph(gfa_file):
-    graph = GFA(f"tests/data/gfa2rgfa/{gfa_file}")
+    graph = GFA(f"tests/data/{gfa_file}")
     _ = graph.nodes.pop(
         "s_unk"
     )  # have to remove this node this graph.biccs can only process one component

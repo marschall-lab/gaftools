@@ -31,13 +31,13 @@ def test_smallgraph(tmp_path):
 @pytest.mark.parametrize(
     "gfa_file",
     [
-        "graph.gfa",
-        "graph.gfa.gz",
-        "reference-graph.gfa",
+        "customgraph.gfa",
+        "customgraph.gfa.gz",
+        "gfa2rgfa/reference-graph.gfa",
     ],
 )
 def test_customgraph(tmp_path, gfa_file):
-    input_gfa = f"tests/data/gfa2rgfa/{gfa_file}"
+    input_gfa = f"tests/data/{gfa_file}"
     input_path_list = "tests/data/find_path/customgraph-input.txt"
     output = str(tmp_path) + "/output.fasta"
     truth = "tests/data/find_path/customgraph-output.fasta"

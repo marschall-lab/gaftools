@@ -48,21 +48,21 @@ def test_order_gfa_smallgraph(tmp_path):
 @pytest.mark.parametrize(
     "gfa_file",
     [
-        "reference-graph.gfa",
-        "reference-graph-seqfile.gfa",
-        "reference-graph-partial-seqfile.gfa",
+        "gfa2rgfa/reference-graph.gfa",
+        "gfa2rgfa/reference-graph-seqfile.gfa",
+        "gfa2rgfa/reference-graph-partial-seqfile.gfa",
         #'reference-graph-FOO#2.gfa'   <-- this is not working since the rank 0 nodes come from 2 different assemblies and hence have two SN tags
     ],
 )
 def test_order_gfa_customgraph(tmp_path, gfa_file):
-    input_gfa = f"tests/data/gfa2rgfa/{gfa_file}"
+    input_gfa = f"tests/data/{gfa_file}"
     run_order_gfa(
         gfa_filename=input_gfa,
         outdir=str(tmp_path),
         by_chrom=False,
         without_sequence=True,
     )
-    outname = gfa_file.split(".")[0] + "-complete.gfa"
+    outname = gfa_file.split("/")[-1].split(".")[0] + "-complete.gfa"
     output_gfa = f"{str(tmp_path)}/{outname}"
     graph1 = GFA("tests/data/order_gfa/customgraph-ordered.gfa", low_memory=True)
     graph2 = GFA(output_gfa, low_memory=True)
