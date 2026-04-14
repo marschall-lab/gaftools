@@ -160,14 +160,14 @@ class GAF:
         # Check if there are additional tags
         tags = {}
         for k in fields:
-            if re.match("[A-Za-z][A-Za-z0-9]:[AifZHB]:[A-Za-z0-9]+", k):
-                pattern = re.findall(r"([A-Za-z][A-Za-z0-9]:[AifZHB]:)[A-Za-z0-9]+", k)[0]
+            if re.match("[A-Za-z][A-Za-z0-9]:[AifZHB]:[A-Za-z0-9.#=]+", k):
+                pattern = re.findall(r"([A-Za-z][A-Za-z0-9]:[AifZHB]:)[A-Za-z0-9.#=]+", k)[0]
                 if pattern == "cg:Z:":
                     val = re.findall(r"[A-Za-z][A-Za-z0-9]:[AifZHB]:([A-Za-z0-9=]+)", k)[0]
                     cigar = val
                     tags[pattern] = val
                 else:
-                    val = re.findall(r"[A-Za-z][A-Za-z0-9]:[AifZHB]:([A-Za-z0-9.]+)", k)[0]
+                    val = re.findall(r"[A-Za-z][A-Za-z0-9]:[AifZHB]:([A-Za-z0-9.#]+)", k)[0]
                     if pattern not in tags:
                         tags[pattern] = val
                     if pattern == "tp:A:" and not (val == "P" or val == "p"):
