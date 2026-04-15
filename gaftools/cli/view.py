@@ -86,6 +86,10 @@ def run(gaf_path, gfa=None, output=None, index=None, nodes=[], regions=[], forma
                 path = gfa_file.get_path(contig, throw_warning=False)
                 for node in path:
                     reference[contig].append(gfa_file[node])
+            if len(reference) == 0:
+                raise CommandLineError(
+                    "No reference contigs found in the rGFA. Check if the rGFA has the appropriate tags: SN, SO, SR."
+                )
             del gfa_file
 
     # now find out what lines to view and how to view
