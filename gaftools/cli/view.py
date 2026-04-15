@@ -109,31 +109,37 @@ def run(gaf_path, gfa=None, output=None, index=None, nodes=[], regions=[], forma
         if regions:
             assert nodes == []
             nodes = get_unstable(regions, ind)
-        for nd in nodes:
-            if nd not in ind_dict:
-                logger.warning(
-                    f"User provided region/node with {nd}. This node is not present in any GAF alignment."
-                )
-                if mode == "I":
-                    logger.warning(
-                        f"View mode is intersection. Since node {nd} is present, output is empty."
-                    )
-        if nodes[0] not in ind_dict:
-            offsets = set([])
+        if len(nodes) == 0:
+            logger.warning(
+                "All the regions provided by the user are not covered by the alignments."
+            )
+            offsets = set()
         else:
-            offsets = set(ind[ind_dict[nodes[0]]])
-        for nd in nodes[1:]:
-            # extracting all the lines that touches at least one of the nodes
-            new_offsets = set([])
-            if nd in ind_dict:
-                new_offsets = set(ind[ind_dict[nd]])
-            if mode == "U":
-                # taking union of alignments
-                offsets = offsets | new_offsets
+            for nd in nodes:
+                if nd not in ind_dict:
+                    logger.warning(
+                        f"User provided region/node with {nd}. This node is not present in any GAF alignment."
+                    )
+                    if mode == "I":
+                        logger.warning(
+                            f"View mode is intersection. Since node {nd} is present, output is empty."
+                        )
+            if nodes[0] not in ind_dict:
+                offsets = set([])
             else:
-                # taking intersection of alignments
-                assert mode == "I"
-                offsets = offsets & new_offsets
+                offsets = set(ind[ind_dict[nodes[0]]])
+            for nd in nodes[1:]:
+                # extracting all the lines that touches at least one of the nodes
+                new_offsets = set([])
+                if nd in ind_dict:
+                    new_offsets = set(ind[ind_dict[nd]])
+                if mode == "U":
+                    # taking union of alignments
+                    offsets = offsets | new_offsets
+                else:
+                    # taking intersection of alignments
+                    assert mode == "I"
+                    offsets = offsets & new_offsets
         offsets = list(offsets)
         offsets.sort()
         if len(offsets) == 0:
@@ -208,8 +214,12 @@ def get_unstable(regions, index):
             node_list = list(filter(lambda x: (x[1] == c), list(index.keys())))
             node_list.sort(key=lambda x: x[2])
             node_dict[c] = node_list
-
         node = search([contig[n], start[n], end[n]], node_list)
+        if len(node) == 0:
+            logger.warning(
+                f"Region {contig[n]}:{start[n]}-{end[n]} not found in the index. The alignments do not cover that region."
+            )
+            continue
         if len(node) > 1:
             # logger.info(f"INFO: Region {node[n]} spans multiple nodes.")
             for n in node:
@@ -243,14 +253,59 @@ def search(node, node_list):
         else:
             e = m - 1
         pos = s
-    # if there is only one node for the entire contig (case for non-reference nodes)
-    # then the above loop is not executed and we extract the only node with pos=0
-    result = [node_list[pos]]
-    while True:
-        if q_e < node_list[pos][3]:
-            break
+
+    # This if-elif statement will cover some edge cases where the node_list coming from the index has gaps.
+    # This can happen when the alignment does not cover a node.
+    # In the examples below ------ will denote nodes that are not covered and ++++++ are the nodes that are covered.
+    # In the binary search, if the query state does not belong to a +++++ node, then it will report either the node
+    #   to the left or right of the absent node.
+    if q_s < node_list[pos][2] and q_s < node_list[pos][3]:
+        #  Case 1:  ------------+++++++++++++
+        #               ^              ^
+        #           query start    node reported
+        if q_e <= node_list[pos][2]:
+            # query region ends before the reported node starts
+            return []
+        result = [node_list[pos]]
         pos += 1
+        while pos < len(node_list):
+            if q_e <= node_list[pos][2]:
+                break
+            result.append(node_list[pos])
+            pos += 1
+        return result
+    elif q_s > node_list[pos][2] and q_s >= node_list[pos][3]:
+        #  Case 2:  ++++++++++++---------------
+        #               ^              ^
+        #           node reported  query start
+        if pos == len(node_list) - 1:
+            # reported node is the last node
+            return []
+        pos += 1
+        if q_e <= node_list[pos][2]:
+            # query region ends before the current node starts
+            return []
+        result = [node_list[pos]]
+        pos += 1
+        while pos < len(node_list):
+            if q_e <= node_list[pos][2]:
+                break
+            result.append(node_list[pos])
+            pos += 1
+        return result
+
+    # now we are back to the normal case
+    # -----------+++++++++++++++++---------------
+    #                   ^
+    #  query starts here and node is reported here
+    assert q_s >= node_list[pos][2] and q_s < node_list[pos][3]
+    result = [node_list[pos]]
+    pos += 1
+    while pos < len(node_list):
+        if q_e <= node_list[pos][2]:
+            break
         result.append(node_list[pos])
+        pos += 1
 
     return result
 

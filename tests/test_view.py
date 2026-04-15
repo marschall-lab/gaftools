@@ -619,3 +619,147 @@ def test_node_selection_withconversion(tmp_path, gaf_file, gfa_file):
             except CommandLineError:
                 # expected
                 pass
+
+
+# the node selection tests ran fine. Just need to check if the conversion happens correctly.
+@pytest.mark.parametrize("index_file", ["view-index-stable.gvi", "view-index-unstable.gvi"])
+def test_region2node(index_file):
+    from gaftools.cli.view import get_unstable
+    import pickle
+
+    index = f"tests/data/index_and_view/{index_file}"
+    ind = None
+    with open(index, "rb") as tmp:
+        ind = pickle.load(tmp)
+    # Note: Absent nodes don't show up
+    # testing boundaries of the regions
+    selected_regions = ["REF#0#CONTIG1:60-65"]
+    assert get_unstable(selected_regions, ind) == []
+    selected_regions = ["REF#0#CONTIG1:59-65"]
+    assert get_unstable(selected_regions, ind) == ["s4"]
+    selected_regions = ["REF#0#CONTIG1:59-90"]
+    assert get_unstable(selected_regions, ind) == ["s4"]
+    selected_regions = ["REF#0#CONTIG1:59-91"]
+    assert set(get_unstable(selected_regions, ind)) == set(["s4", "s6"])
+    selected_regions = ["BAR#1#ASSM1:170-200"]
+    assert get_unstable(selected_regions, ind) == []
+    selected_regions = ["BAR#1#ASSM1:170-201"]
+    assert get_unstable(selected_regions, ind) == ["s27"]
+    selected_regions = ["BAR#1#ASSM1:40-201"]
+    assert get_unstable(selected_regions, ind) == ["s27"]
+    selected_regions = ["BAR#1#ASSM1:39-201"]
+    assert set(get_unstable(selected_regions, ind)) == set(["s24", "s27"])
+    selected_regions = ["BAR#1#ASSM1:0-10"]
+    assert get_unstable(selected_regions, ind) == []
+    selected_regions = ["BAR#1#ASSM1:0-11"]
+    assert get_unstable(selected_regions, ind) == ["s24"]
+    selected_regions = ["BAR#1#ASSM1:10-12"]
+    assert get_unstable(selected_regions, ind) == ["s24"]
+    selected_regions = ["REF#0#CONTIG1:59-91", "BAR#1#ASSM1:39-201"]
+    assert set(get_unstable(selected_regions, ind)) == set(["s4", "s6", "s24", "s27"])
+    selected_regions = ["REF#0#CONTIG1:60-95", "REF#0#CONTIG1:70-91"]
+    assert get_unstable(selected_regions, ind) == ["s6"]
+    selected_regions = ["REF#0#CONTIG1:5-30", "REF#0#CONTIG1:70-91"]
+    assert set(get_unstable(selected_regions, ind)) == set(["s1", "s2", "s6"])
+    selected_regions = ["FOO#1#ASSM1:60-85", "BAR#1#ASSM1:39-201"]
+    assert set(get_unstable(selected_regions, ind)) == set(["s15", "s24", "s27"])
+    selected_regions = ["FOO#1#ASSM1:60-86", "BAR#1#ASSM1:39-201"]
+    assert set(get_unstable(selected_regions, ind)) == set(["s15", "s16", "s24", "s27"])
+
+
+# Region conversion was testing above but making sure that these nodes are processed properly
+@pytest.mark.parametrize(
+    "gaf_file",
+    [
+        "graphaligner.gaf",
+        "graphaligner.gaf.gz",
+        "graphaligner-stable.gaf",
+        "graphaligner-stable.gaf.gz",
+    ],
+)
+@pytest.mark.parametrize(
+    "gfa_file", ["customgraph.gfa", "customgraph.gfa.gz", "gfa2rgfa/reference-graph.gfa"]
+)
+def test_region_selection(tmp_path, gaf_file, gfa_file):
+    view_index_file = (
+        "tests/data/index_and_view/view-index-stable.gvi"
+        if "stable" in gaf_file
+        else "tests/data/index_and_view/view-index-unstable.gvi"
+    )
+    gaf = f"tests/data/index_and_view/{gaf_file}"
+    gfa = f"tests/data/{gfa_file}"
+    truth = (
+        "tests/data/index_and_view/graphaligner-stable.gaf"
+        if "stable" in gaf_file
+        else "tests/data/index_and_view/graphaligner.gaf"
+    )
+    output = str(tmp_path) + "/output.gaf"
+
+    ### Intersection Mode
+    mode = "I"
+    if True:
+        # this region is not present in GAF file
+        selected_regions = ["REF#0#CONTIG1:60-65"]
+        run(
+            gaf_path=gaf,
+            gfa=gfa,  # since we do not convert coordinates, the gfa does not matter.
+            index=view_index_file,
+            regions=selected_regions,
+            mode=mode,
+            output=output,
+        )
+        truth_line_indices = []
+        truth_lines = subset_output_lines(parse_output(truth), truth_line_indices)
+        output_lines = parse_output(output)
+        assert len(output_lines) == len(truth_lines)
+        for n in range(len(output_lines)):
+            assert output_lines[n] == truth_lines[n]
+
+        # this region is not present in GAF file
+        selected_regions = ["BAR#1#ASSM1:170-200"]
+        run(
+            gaf_path=gaf,
+            gfa=gfa,  # since we do not convert coordinates, the gfa does not matter.
+            index=view_index_file,
+            regions=selected_regions,
+            mode=mode,
+            output=output,
+        )
+        truth_line_indices = []
+        truth_lines = subset_output_lines(parse_output(truth), truth_line_indices)
+        output_lines = parse_output(output)
+        assert len(output_lines) == len(truth_lines)
+        for n in range(len(output_lines)):
+            assert output_lines[n] == truth_lines[n]
+
+        selected_regions = ["REF#0#CONTIG1:0-6"]  # only s1
+        run(
+            gaf_path=gaf,
+            gfa=gfa,  # since we do not convert coordinates, the gfa does not matter.
+            index=view_index_file,
+            regions=selected_regions,
+            mode=mode,
+            output=output,
+        )
+        truth_line_indices = [0, 1, 13, 15]
+        truth_lines = subset_output_lines(parse_output(truth), truth_line_indices)
+        output_lines = parse_output(output)
+        assert len(output_lines) == len(truth_lines)
+        for n in range(len(output_lines)):
+            assert output_lines[n] == truth_lines[n]
+
+        selected_regions = ["REF#0#CONTIG1:0-6", "FOO#1#ASSM1:11-20"]  # s1 and s14
+        run(
+            gaf_path=gaf,
+            gfa=gfa,  # since we do not convert coordinates, the gfa does not matter.
+            index=view_index_file,
+            regions=selected_regions,
+            mode=mode,
+            output=output,
+        )
+        truth_line_indices = [1, 13, 15]
+        truth_lines = subset_output_lines(parse_output(truth), truth_line_indices)
+        output_lines = parse_output(output)
+        assert len(output_lines) == len(truth_lines)
+        for n in range(len(output_lines)):
+            assert output_lines[n] == truth_lines[n]
