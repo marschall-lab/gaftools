@@ -1,6 +1,7 @@
 import re
-import tracemalloc
-import linecache
+
+# import tracemalloc
+# import linecache
 import sys
 from pysam import libcbgzf
 
@@ -92,6 +93,7 @@ def reverse_cigar(cg):
     return new_cigar
 
 
+"""
 def display_top(snapshot, key_type="lineno", limit=3):
     snapshot = snapshot.filter_traces(
         (
@@ -117,6 +119,7 @@ def display_top(snapshot, key_type="lineno", limit=3):
         print("%s other: %.1f KiB" % (len(other), size / 1024))
     total = sum(stat.size for stat in top_stats)
     print("Total allocated size: %.1f KiB" % (total / 1024))
+"""
 
 
 class FileWriter:
