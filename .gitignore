@@ -20,3 +20,4 @@ gaftools/_version.py
 docs/_build
 .coverage
 test_files/
+.vscode/
