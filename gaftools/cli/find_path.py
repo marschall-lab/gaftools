@@ -5,7 +5,7 @@ Find the genomic sequence of a given connected GFA path.
 import logging
 import sys
 import os
-from gaftools.cli import log_memory_usage
+from gaftools.cli import log_memory_usage, CommandLineError
 from gaftools.timer import StageTimer
 from gaftools.gfa import GFA
 from gaftools.utils import FileWriter
@@ -33,8 +33,7 @@ def run(gfa_path, path=None, paths_file=None, keep_going=True, output=None, fast
                         f"The path {path} does not exist in the GFA, will keep going to next path if given"
                     )
                 else:
-                    logger.error(f"The path {path} does not exist in the GFA")
-                    sys.exit(1)
+                    raise CommandLineError(f"The path {path} does not exist in the GFA")
 
             path_seqs = [seq]
         else:
@@ -61,8 +60,7 @@ def run(gfa_path, path=None, paths_file=None, keep_going=True, output=None, fast
                 path_seqs.append(seq)
             reader.close()
         else:
-            logger.error(f"The input file {paths_file} does not exist")
-            sys.exit(1)
+            raise FileNotFoundError(f"The input file {paths_file} does not exist")
 
     writer = FileWriter(output)
     if fasta:

@@ -4,6 +4,7 @@ Test for gaftools find_path
 
 from gaftools.cli.find_path import run
 from gaftools.cli.order_gfa import run_order_gfa
+from gaftools.cli import CommandLineError
 import pytest
 
 
@@ -97,3 +98,37 @@ def test_orderedgraph2(tmp_path):
     truth_lines = parse_output(truth)
     for n in range(len(output_lines)):
         assert output_lines[n] == truth_lines[n]
+
+
+# the path extraction is tested in test_gfa_class.
+# this test exists to see if the code around that extraction function works
+@pytest.mark.parametrize(
+    "gfa_file",
+    [
+        "customgraph.gfa",
+        "customgraph.gfa.gz",
+        "gfa2rgfa/reference-graph.gfa",
+    ],
+)
+def test_path_as_text(tmp_path, gfa_file):
+    input_gfa = f"tests/data/{gfa_file}"
+    output = str(tmp_path) + "/output.fasta"
+    run(input_gfa, path=">s1", keep_going=True, output=output, fasta=False)
+    output_lines = parse_output(output)
+    assert len(output_lines) == 1
+    assert output_lines[0][0] == "ACTTATCCCC"
+
+    run(input_gfa, path="<s1", keep_going=True, output=output, fasta=False)
+    output_lines = parse_output(output)
+    assert len(output_lines) == 1
+    assert output_lines[0][0] == "GGGGATAAGT"
+
+    run(input_gfa, path=">s1>s4", keep_going=True, output=output, fasta=False)
+    output_lines = parse_output(output)
+    assert len(output_lines) == 0
+
+    try:
+        run(input_gfa, path=">s1>s4", keep_going=False, output=output, fasta=False)
+    except CommandLineError:
+        # expected
+        pass
