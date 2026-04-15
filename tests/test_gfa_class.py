@@ -49,11 +49,13 @@ def test_load_gfa():
     # test file not found
     try:
         graph = GFA("test/data/gfa/nonexistant_graph.gfa")
+        assert False
     except FileNotFoundError:
         pass
 
     try:
         graph = GFA("tests/data/gfa_class/test_GFA_class_wrong_graph.gfa")
+        assert False
     except ValueError:
         pass
 

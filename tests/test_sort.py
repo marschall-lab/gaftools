@@ -69,6 +69,7 @@ def test_sort_customgraph(tmp_path, gaf_file):
     if "stable" in gaf_file:
         try:
             run_sort(gfa=ordered_gfa, gaf=input_gaf, outgaf=output)
+            assert False
         except CommandLineError:
             # expected
             return

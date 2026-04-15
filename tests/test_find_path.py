@@ -129,6 +129,7 @@ def test_path_as_text(tmp_path, gfa_file):
 
     try:
         run(input_gfa, path=">s1>s4", keep_going=False, output=output, fasta=False)
+        assert False
     except CommandLineError:
         # expected
         pass

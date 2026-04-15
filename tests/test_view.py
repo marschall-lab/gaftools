@@ -108,6 +108,7 @@ def test_conversion_to_stable(tmp_path, gaf_file, gfa_file):
     else:
         try:
             run(gaf_path=gaf, format="stable", gfa=gfa, output=output)
+            assert False
         except CommandLineError:
             # expected
             pass
@@ -124,6 +125,7 @@ def test_conversion_to_stable(tmp_path, gaf_file, gfa_file):
     else:
         try:
             run(gaf_path=gaf, format="stable", gfa=gfa, output=output)
+            assert False
         except CommandLineError:
             # expected
             pass
@@ -157,6 +159,7 @@ def test_conversion_to_unstable(tmp_path, gaf_file, gfa_file):
     else:
         try:
             run(gaf_path=gaf, format="unstable", gfa=gfa, output=output)
+            assert False
         except CommandLineError:
             # expected
             pass
@@ -173,6 +176,7 @@ def test_conversion_to_unstable(tmp_path, gaf_file, gfa_file):
     else:
         try:
             run(gaf_path=gaf, format="unstable", gfa=gfa, output=output)
+            assert False
         except CommandLineError:
             # expected
             pass
@@ -392,6 +396,7 @@ def test_node_selection_withconversion(tmp_path, gaf_file, gfa_file):
                     format=format,
                     output=output,
                 )
+                assert False
             except CommandLineError:
                 # expected
                 pass
@@ -424,6 +429,7 @@ def test_node_selection_withconversion(tmp_path, gaf_file, gfa_file):
                     format=format,
                     output=output,
                 )
+                assert False
             except CommandLineError:
                 # expected
                 pass
@@ -456,6 +462,7 @@ def test_node_selection_withconversion(tmp_path, gaf_file, gfa_file):
                     format=format,
                     output=output,
                 )
+                assert False
             except CommandLineError:
                 # expected
                 pass
@@ -488,6 +495,7 @@ def test_node_selection_withconversion(tmp_path, gaf_file, gfa_file):
                     format=format,
                     output=output,
                 )
+                assert False
             except CommandLineError:
                 # expected
                 pass
@@ -520,6 +528,7 @@ def test_node_selection_withconversion(tmp_path, gaf_file, gfa_file):
                     format=format,
                     output=output,
                 )
+                assert False
             except CommandLineError:
                 # expected
                 pass
@@ -552,6 +561,7 @@ def test_node_selection_withconversion(tmp_path, gaf_file, gfa_file):
                     format=format,
                     output=output,
                 )
+                assert False
             except CommandLineError:
                 # expected
                 pass
@@ -584,6 +594,7 @@ def test_node_selection_withconversion(tmp_path, gaf_file, gfa_file):
                     format=format,
                     output=output,
                 )
+                assert False
             except CommandLineError:
                 # expected
                 pass
@@ -616,6 +627,7 @@ def test_node_selection_withconversion(tmp_path, gaf_file, gfa_file):
                     format=format,
                     output=output,
                 )
+                assert False
             except CommandLineError:
                 # expected
                 pass
