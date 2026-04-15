@@ -43,6 +43,7 @@ gaftools = "gaftools.__main__:main"
 [project.optional-dependencies]
 dev = [
     "pytest",
+    "pytest-cov",
     "coverage",
     "tox",
     "ruff",
