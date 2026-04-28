@@ -65,24 +65,6 @@ def is_file_gzipped(src):
         return inp.read(2) == b"\x1f\x8b"
 
 
-def search_intervals(intervals, query_start, query_end, start, end):
-    """Given the start-end coordinates in the GFA file for the given contig (SO, SO+LN), it
-    searches for the given (query_start, query_end) matches. (query_start, query_end) is the start
-    and end location of a mapping in the gaf file.
-    """
-
-    if start <= end:
-        mid = start + (end - start) // 2
-        if query_end <= int(intervals[mid].tags["SO"][1]):
-            return search_intervals(intervals, query_start, query_end, start, mid - 1)
-        elif query_start >= int(intervals[mid].tags["SO"][1]) + int(intervals[mid].seq_len):
-            return search_intervals(intervals, query_start, query_end, mid + 1, end)
-        else:
-            return start, end
-
-    return -1, -1
-
-
 def reverse_cigar(cg):
     import itertools
 
