@@ -13,10 +13,11 @@ from collections import defaultdict
 import logging
 
 import gaftools.utils as utils
-from gaftools.gaf import GAF
 from gaftools.gfa import GFA
 from gaftools.timer import StageTimer
 from gaftools.cli import log_memory_usage
+from gaftools.conversion import get_nodes_from_region
+from gaftools.errors import CommandLineError
 
 logger = logging.getLogger(__name__)
 
@@ -26,18 +27,6 @@ def run(gaf_path, gfa_path, output=None):
     if output is None:
         output = gaf_path + ".gvi"
 
-    # Detecting if GAF has stable or unstable coordinate
-    gaf = GAF(gaf_path)
-    stable = None
-    # checking format in the first 10 lines.
-    for i, gaf_line in enumerate(gaf.read_file()):
-        if i == 10:
-            break
-        if i == 0:
-            stable = gaf_line.detect_path_format()
-        assert stable == gaf_line.detect_path_format()
-    gaf.close()
-
     nodes = {}
     reference = defaultdict(lambda: [])
     ref_contig = []
@@ -45,13 +34,11 @@ def run(gaf_path, gfa_path, output=None):
     gfa_file = GFA(graph_file=gfa_path, low_memory=True)
     contigs = list(gfa_file.contigs.keys())
     ref_contig = [contig for contig in gfa_file.contigs if gfa_file.contigs[contig] == 0]
+    for contig in contigs:
+        path = gfa_file.get_path(contig, throw_warning=False)
+        for node in path:
+            reference[contig].append(gfa_file[node])
     nodes = gfa_file.nodes
-    if stable:
-        for contig in contigs:
-            path = gfa_file.get_path(contig, throw_warning=False)
-            for node in path:
-                reference[contig].append(gfa_file[node])
-        nodes = gfa_file.nodes
     del gfa_file
 
     if utils.is_file_gzipped(gaf_path):
@@ -67,32 +54,29 @@ def run(gaf_path, gfa_path, output=None):
         if not mapping:
             break
         try:
-            val = mapping.rstrip().split("\t")
+            gaf_line = mapping.rstrip().split("\t")
         except TypeError:
-            val = mapping.decode("utf-8").rstrip().split("\t")
+            gaf_line = mapping.decode("utf-8").rstrip().split("\t")
 
-        if stable:
-            with timers("convert_coord"):
-                alignment = convert_coord(val, reference)
-        else:
-            alignment = list(re.split(">|<", val[5]))[1:]
-        for a in alignment:
+        with timers("convert_coord"):
+            unstable_nodes = convert_coord(gaf_line, reference)
+        for nd in unstable_nodes:
             try:
                 out_dict[
                     (
-                        nodes[a].id,
-                        nodes[a].tags["SN"][1],
-                        int(nodes[a].tags["SO"][1]),
-                        int(nodes[a].tags["SO"][1]) + int(nodes[a].seq_len),
+                        nodes[nd].id,
+                        nodes[nd].tags["SN"][1],
+                        int(nodes[nd].tags["SO"][1]),
+                        int(nodes[nd].tags["SO"][1]) + int(nodes[nd].seq_len),
                     )
                 ].append(offset)
             except KeyError:
                 out_dict[
                     (
-                        nodes[a].id,
-                        nodes[a].tags["SN"][1],
-                        int(nodes[a].tags["SO"][1]),
-                        int(nodes[a].tags["SO"][1]) + int(nodes[a].seq_len),
+                        nodes[nd].id,
+                        nodes[nd].tags["SN"][1],
+                        int(nodes[nd].tags["SO"][1]),
+                        int(nodes[nd].tags["SO"][1]) + int(nodes[nd].seq_len),
                     )
                 ] = [offset]
     out_dict["ref_contig"] = ref_contig
@@ -117,9 +101,16 @@ def run(gaf_path, gfa_path, output=None):
 
 
 def convert_coord(line, ref):
+    has_stable = False
+    if (">" not in line[5] and "<" not in line[5]) or (":" in line[5]):
+        has_stable = True
+    if not has_stable:
+        return list(re.split(">|<", line[5]))[1:]
+
     unstable_coord = []
-    gaf_contigs = list(filter(None, re.split("(>)|(<)", line[5])))
-    for nd in gaf_contigs:
+    path = list(filter(None, re.split("(>)|(<)", line[5])))
+    for nd in path:
+        is_unstable_node = False
         if nd == ">" or nd == "<":
             continue
         if ":" in nd and "-" in nd:
@@ -127,35 +118,35 @@ def convert_coord(line, ref):
             query_contig_name = tmp[0]
             (query_start, query_end) = tmp[1].rstrip().split("-")
         else:
-            query_start = line[7]
-            query_end = line[8]
-            query_contig_name = nd
+            if len(path) == 1:
+                query_start = line[7]
+                query_end = line[8]
+                query_contig_name = nd
+            else:
+                # we found a vertex node.
+                is_unstable_node = True
 
+        if is_unstable_node:
+            unstable_coord.append(nd)
+            continue
         """Find the matching nodes from the reference genome here"""
-        start, end = utils.search_intervals(
-            ref[query_contig_name], int(query_start), int(query_end), 0, len(ref[query_contig_name])
+        if ref[query_contig_name] == []:
+            raise CommandLineError(
+                f"Found stable cooridnates for contig {query_contig_name} in the GAF file but appropriate tags not found in GFA. Check if the GFA provided is the same as the one used for alignment."
+            )
+        node_indices = get_nodes_from_region(
+            [query_contig_name, query_start, query_end], ref[query_contig_name]
         )
-
-        for node in ref[query_contig_name][start : end + 1]:
+        for i in node_indices:
+            node = ref[query_contig_name][i]
+            s = int(node.tags["SO"][1])
+            e = int(node.tags["SO"][1]) + int(node.seq_len)
             cases = -1
-            if (
-                int(node.tags["SO"][1])
-                <= int(query_start)
-                < int(node.tags["SO"][1]) + int(node.seq_len)
-            ):
+            if s <= int(query_start) < e:
                 cases = 1
-            elif (
-                int(node.tags["SO"][1])
-                < int(query_end)
-                <= int(node.tags["SO"][1]) + int(node.seq_len)
-            ):
+            elif s < int(query_end) <= e:
                 cases = 2
-            elif (
-                int(query_start)
-                < int(node.tags["SO"][1])
-                < int(node.tags["SO"][1]) + int(node.seq_len)
-                < int(query_end)
-            ):
+            elif int(query_start) < s < e < int(query_end):
                 cases = 3
 
             if cases != -1:
