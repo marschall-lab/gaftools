@@ -10,7 +10,8 @@ import os
 from collections import defaultdict
 
 from gaftools.utils import FileWriter
-from gaftools.cli import log_memory_usage, CommandLineError
+from gaftools.cli import log_memory_usage
+from gaftools.errors import CommandLineError
 from gaftools.timer import StageTimer
 from gaftools.gaf import GAF
 from gaftools.gfa import GFA
@@ -20,6 +21,7 @@ from gaftools.conversion import (
     unstable_to_stable,
     to_stable,
     to_unstable,
+    search,
 )
 
 logger = logging.getLogger(__name__)
@@ -30,39 +32,28 @@ def run(gaf_path, gfa=None, output=None, index=None, nodes=[], regions=[], forma
 
     writer = FileWriter(output)
     # Need to detect the format of the input gaf
-    gaf = GAF(gaf_path)
-    gaf_format = None
-    # checking format in the first 10 lines.
-    for i, gaf_line in enumerate(gaf.read_file()):
-        if i == 10:
-            break
-        if i == 0:
-            gaf_format = gaf_line.detect_path_format()
-        assert gaf_format == gaf_line.detect_path_format()
-    gaf.close()
-
     ref_contig = []
-    gfa_nodes = None
+    tagged_nodes = None
     contig_len = {}
     # if format is given, prepare some objects for use later
     if format:
+        gfa_file = GFA(graph_file=gfa, low_memory=True)
+        if len(gfa_file.contigs) == 0:
+            raise CommandLineError(
+                "No contigs found in the GFA. For conversion, rovide an rGFA with appropriate tags: SN, SO, SR."
+            )
         if format == "stable":
-            if gaf_format is True:
-                raise CommandLineError(
-                    "Input GAF already has stable coordinates. Please remove the --format stable option"
-                )
-            gfa_file = GFA(graph_file=gfa, low_memory=True)
-            gfa_nodes = {}
+            tagged_nodes = {}
             for id in gfa_file.nodes:
-                try:
-                    gfa_nodes[id] = StableNode(
+                if (
+                    ("SN" in gfa_file[id].tags)
+                    and ("SO" in gfa_file[id].tags)
+                    and (gfa_file[id].seq_len != 0)
+                ):
+                    tagged_nodes[id] = StableNode(
                         contig_id=gfa_file[id].tags["SN"][1],
                         start=int(gfa_file[id].tags["SO"][1]),
                         end=int(gfa_file[id].tags["SO"][1]) + int(gfa_file[id].seq_len),
-                    )
-                except KeyError:
-                    raise CommandLineError(
-                        f"Node {id} does not have rGFA tags (SN, SO or LN). Check if the graph is a proper rGFA."
                     )
             ref_contig = [contig for contig in gfa_file.contigs if gfa_file.contigs[contig] == 0]
             for contig in ref_contig:
@@ -70,13 +61,8 @@ def run(gaf_path, gfa=None, output=None, index=None, nodes=[], regions=[], forma
             del gfa_file
         else:
             assert format == "unstable"
-            if gaf_format is False:
-                raise CommandLineError(
-                    "Input GAF already has unstable coordinates. Please remove the --format unstable option"
-                )
             reference = defaultdict(lambda: [])
             # Assuming that the gfa is sorted using the order_gfa function.
-            gfa_file = GFA(graph_file=gfa, low_memory=True)
             contigs = list(gfa_file.contigs.keys())
             # all_paths = gfa_file.get_all_paths()
             # for contig in all_paths.keys():
@@ -86,10 +72,6 @@ def run(gaf_path, gfa=None, output=None, index=None, nodes=[], regions=[], forma
                 path = gfa_file.get_path(contig, throw_warning=False)
                 for node in path:
                     reference[contig].append(gfa_file[node])
-            if len(reference) == 0:
-                raise CommandLineError(
-                    "No reference contigs found in the rGFA. Check if the rGFA has the appropriate tags: SN, SO, SR."
-                )
             del gfa_file
 
     # now find out what lines to view and how to view
@@ -112,10 +94,10 @@ def run(gaf_path, gfa=None, output=None, index=None, nodes=[], regions=[], forma
 
         if regions:
             assert nodes == []
-            nodes = get_unstable(regions, ind)
+            nodes = get_unstable_from_index(regions, ind)
         if len(nodes) == 0:
             logger.warning(
-                "All the regions provided by the user are not covered by the alignments."
+                "All the regions/nodes provided by the user are not covered by the alignments."
             )
             offsets = set()
         else:
@@ -154,7 +136,7 @@ def run(gaf_path, gfa=None, output=None, index=None, nodes=[], regions=[], forma
             if format == "stable":
                 for ofs in offsets:
                     line = gaf.read_line(ofs)
-                    writer.write(to_stable(line, gfa_nodes, ref_contig, contig_len) + "\n")
+                    writer.write(to_stable(line, tagged_nodes, ref_contig, contig_len) + "\n")
             else:
                 assert format == "unstable"
                 for ofs in offsets:
@@ -171,7 +153,7 @@ def run(gaf_path, gfa=None, output=None, index=None, nodes=[], regions=[], forma
         # converting the format of the entire file
         if format:
             if format == "stable":
-                for line in unstable_to_stable(gaf_path, gfa_nodes, ref_contig, contig_len):
+                for line in unstable_to_stable(gaf_path, tagged_nodes, ref_contig, contig_len):
                     writer.write(line + "\n")
             else:
                 for line in stable_to_unstable(gaf_path, reference):
@@ -185,15 +167,15 @@ def run(gaf_path, gfa=None, output=None, index=None, nodes=[], regions=[], forma
                 else:
                     writer.write(line.rstrip() + "\n")
             gaf.close()
-
     writer.close()
+
     logger.info("\n== SUMMARY ==")
     total_time = timers.total()
     log_memory_usage()
     logger.info("Total time:                                  %9.2f s", total_time)
 
 
-def get_unstable(regions, index):
+def get_unstable_from_index(regions, index):
     """Takes the regions and returns the node IDs"""
 
     contig = []
@@ -218,100 +200,17 @@ def get_unstable(regions, index):
             node_list = list(filter(lambda x: (x[1] == c), list(index.keys())))
             node_list.sort(key=lambda x: x[2])
             node_dict[c] = node_list
-        node = search([contig[n], start[n], end[n]], node_list)
-        if len(node) == 0:
+        node_indices = search([contig[n], start[n], end[n]], node_list)
+        if len(node_indices) == 0:
             logger.warning(
                 f"Region {contig[n]}:{start[n]}-{end[n]} not found in the index. The alignments do not cover that region."
             )
             continue
-        if len(node) > 1:
-            # logger.info(f"INFO: Region {node[n]} spans multiple nodes.")
-            for n in node:
-                # logger.info(f"INFO: {n[0]}\t{n[1]}\t{n[2]}\t{n[3]}")
-                result.add(n[0])
-            continue
-
-        result.add(node[0][0])
+        # logger.info(f"INFO: Region {node[n]} spans multiple nodes.")
+        for i in node_indices:
+            # logger.info(f"INFO: {n[0]}\t{n[1]}\t{n[2]}\t{n[3]}")
+            result.add(node_list[i][0])
     return list(result)
-
-
-def search(node, node_list):
-    """Find the unstable node id from the region"""
-
-    if node[1] is None:
-        # Only contig is given
-        assert node[2] is None
-        return node_list
-    s = 0
-    pos = 0
-    e = len(node_list) - 1
-    q_s = int(node[1])
-    q_e = int(node[2])
-    while s != e:
-        m = int((s + e) / 2)
-        if (q_s >= node_list[m][2]) and (q_s < node_list[m][3]):
-            pos = m
-            break
-        elif q_s >= node_list[m][3]:
-            s = m + 1
-        else:
-            e = m - 1
-        pos = s
-
-    # This if-elif statement will cover some edge cases where the node_list coming from the index has gaps.
-    # This can happen when the alignment does not cover a node.
-    # In the examples below ------ will denote nodes that are not covered and ++++++ are the nodes that are covered.
-    # In the binary search, if the query state does not belong to a +++++ node, then it will report either the node
-    #   to the left or right of the absent node.
-    if q_s < node_list[pos][2] and q_s < node_list[pos][3]:
-        #  Case 1:  ------------+++++++++++++
-        #               ^              ^
-        #           query start    node reported
-        if q_e <= node_list[pos][2]:
-            # query region ends before the reported node starts
-            return []
-        result = [node_list[pos]]
-        pos += 1
-        while pos < len(node_list):
-            if q_e <= node_list[pos][2]:
-                break
-            result.append(node_list[pos])
-            pos += 1
-        return result
-    elif q_s > node_list[pos][2] and q_s >= node_list[pos][3]:
-        #  Case 2:  ++++++++++++---------------
-        #               ^              ^
-        #           node reported  query start
-        if pos == len(node_list) - 1:
-            # reported node is the last node
-            return []
-        pos += 1
-        if q_e <= node_list[pos][2]:
-            # query region ends before the current node starts
-            return []
-        result = [node_list[pos]]
-        pos += 1
-        while pos < len(node_list):
-            if q_e <= node_list[pos][2]:
-                break
-            result.append(node_list[pos])
-            pos += 1
-        return result
-
-    # now we are back to the normal case
-    # -----------+++++++++++++++++---------------
-    #                   ^
-    #  query starts here and node is reported here
-    assert q_s >= node_list[pos][2] and q_s < node_list[pos][3]
-    result = [node_list[pos]]
-    pos += 1
-    while pos < len(node_list):
-        if q_e <= node_list[pos][2]:
-            break
-        result.append(node_list[pos])
-        pos += 1
-
-    return result
 
 
 # fmt: off
