@@ -3,7 +3,7 @@ Test for gaftools view.
 """
 
 from gaftools.cli.view import run
-from gaftools.cli import CommandLineError
+from gaftools.errors import CommandLineError
 from pysam import libcbgzf
 import pytest
 
@@ -36,10 +36,10 @@ def subset_output_lines(lines, indices):
 @pytest.mark.parametrize(
     "gaf_file",
     [
-        "graphaligner.gaf",
-        "graphaligner.gaf.gz",
-        "graphaligner-stable.gaf",
-        "graphaligner-stable.gaf.gz",
+        "customgraph.gaf",
+        "customgraph.gaf.gz",
+        "customgraph-stable.gaf",
+        "customgraph-stable.gaf.gz",
     ],
 )
 def test_full_file_view(tmp_path, gaf_file):
@@ -60,10 +60,10 @@ def test_full_file_view(tmp_path, gaf_file):
 @pytest.mark.parametrize(
     "gaf_file",
     [
-        "graphaligner.gaf",
-        "graphaligner.gaf.gz",
-        "graphaligner-stable.gaf",
-        "graphaligner-stable.gaf.gz",
+        "customgraph.gaf",
+        "customgraph.gaf.gz",
+        "customgraph-stable.gaf",
+        "customgraph-stable.gaf.gz",
     ],
 )
 def test_full_file_view_bgzip(tmp_path, gaf_file):
@@ -83,10 +83,10 @@ def test_full_file_view_bgzip(tmp_path, gaf_file):
 @pytest.mark.parametrize(
     "gaf_file",
     [
-        "graphaligner.gaf",
-        "graphaligner.gaf.gz",
-        # "graphaligner-stable.gaf",
-        # "graphaligner-stable.gaf.gz",
+        "customgraph.gaf",
+        "customgraph.gaf.gz",
+        # "customgraph-stable.gaf",
+        # "customgraph-stable.gaf.gz",
     ],
 )
 @pytest.mark.parametrize(
@@ -95,7 +95,7 @@ def test_full_file_view_bgzip(tmp_path, gaf_file):
 def test_conversion_to_stable(tmp_path, gaf_file, gfa_file):
     gaf = f"tests/data/index_and_view/{gaf_file}"
     gfa = f"tests/data/{gfa_file}"
-    truth = "tests/data/index_and_view/graphaligner-stable.gaf"
+    truth = "tests/data/index_and_view/customgraph-stable.gaf"
     # non-bgzip output
     output = str(tmp_path) + "/output.gaf"
     if "reference" in gfa:
@@ -134,10 +134,10 @@ def test_conversion_to_stable(tmp_path, gaf_file, gfa_file):
 @pytest.mark.parametrize(
     "gaf_file",
     [
-        # "graphaligner.gaf",
-        # "graphaligner.gaf.gz",
-        "graphaligner-stable.gaf",
-        "graphaligner-stable.gaf.gz",
+        # "customgraph.gaf",
+        # "customgraph.gaf.gz",
+        "customgraph-stable.gaf",
+        "customgraph-stable.gaf.gz",
     ],
 )
 @pytest.mark.parametrize(
@@ -146,7 +146,7 @@ def test_conversion_to_stable(tmp_path, gaf_file, gfa_file):
 def test_conversion_to_unstable(tmp_path, gaf_file, gfa_file):
     gaf = f"tests/data/index_and_view/{gaf_file}"
     gfa = f"tests/data/{gfa_file}"
-    truth = "tests/data/index_and_view/graphaligner.gaf"
+    truth = "tests/data/index_and_view/customgraph.gaf"
     # non-bgzip output
     output = str(tmp_path) + "/output.gaf"
     if "reference" in gfa:
@@ -186,10 +186,10 @@ def test_conversion_to_unstable(tmp_path, gaf_file, gfa_file):
 @pytest.mark.parametrize(
     "gaf_file",
     [
-        "graphaligner.gaf",
-        "graphaligner.gaf.gz",
-        "graphaligner-stable.gaf",
-        "graphaligner-stable.gaf.gz",
+        "customgraph.gaf",
+        "customgraph.gaf.gz",
+        "customgraph-stable.gaf",
+        "customgraph-stable.gaf.gz",
     ],
 )
 @pytest.mark.parametrize(
@@ -197,16 +197,16 @@ def test_conversion_to_unstable(tmp_path, gaf_file, gfa_file):
 )
 def test_node_selection(tmp_path, gaf_file, gfa_file):
     view_index_file = (
-        "tests/data/index_and_view/view-index-stable.gvi"
+        "tests/data/index_and_view/customgraph-stable.gvi"
         if "stable" in gaf_file
-        else "tests/data/index_and_view/view-index-unstable.gvi"
+        else "tests/data/index_and_view/customgraph-unstable.gvi"
     )
     gaf = f"tests/data/index_and_view/{gaf_file}"
     gfa = f"tests/data/{gfa_file}"
     truth = (
-        "tests/data/index_and_view/graphaligner-stable.gaf"
+        "tests/data/index_and_view/customgraph-stable.gaf"
         if "stable" in gaf_file
-        else "tests/data/index_and_view/graphaligner.gaf"
+        else "tests/data/index_and_view/customgraph.gaf"
     )
     output = str(tmp_path) + "/output.gaf"
 
@@ -343,10 +343,10 @@ def test_node_selection(tmp_path, gaf_file, gfa_file):
 @pytest.mark.parametrize(
     "gaf_file",
     [
-        "graphaligner.gaf",
-        "graphaligner.gaf.gz",
-        "graphaligner-stable.gaf",
-        "graphaligner-stable.gaf.gz",
+        "customgraph.gaf",
+        "customgraph.gaf.gz",
+        "customgraph-stable.gaf",
+        "customgraph-stable.gaf.gz",
     ],
 )
 @pytest.mark.parametrize(
@@ -354,16 +354,16 @@ def test_node_selection(tmp_path, gaf_file, gfa_file):
 )
 def test_node_selection_withconversion(tmp_path, gaf_file, gfa_file):
     view_index_file = (
-        "tests/data/index_and_view/view-index-stable.gvi"
+        "tests/data/index_and_view/customgraph-stable.gvi"
         if "stable" in gaf_file
-        else "tests/data/index_and_view/view-index-unstable.gvi"
+        else "tests/data/index_and_view/customgraph-unstable.gvi"
     )
     gaf = f"tests/data/index_and_view/{gaf_file}"
     gfa = f"tests/data/{gfa_file}"
     truth = (
-        "tests/data/index_and_view/graphaligner.gaf"
+        "tests/data/index_and_view/customgraph.gaf"
         if "stable" in gaf_file
-        else "tests/data/index_and_view/graphaligner-stable.gaf"
+        else "tests/data/index_and_view/customgraph-stable.gaf"
     )
     format = "unstable" if "stable" in gaf else "stable"
     output = str(tmp_path) + "/output.gaf"
@@ -634,9 +634,9 @@ def test_node_selection_withconversion(tmp_path, gaf_file, gfa_file):
 
 
 # the node selection tests ran fine. Just need to check if the conversion happens correctly.
-@pytest.mark.parametrize("index_file", ["view-index-stable.gvi", "view-index-unstable.gvi"])
+@pytest.mark.parametrize("index_file", ["customgraph-stable.gvi", "customgraph-unstable.gvi"])
 def test_region2node(index_file):
-    from gaftools.cli.view import get_unstable
+    from gaftools.cli.view import get_unstable_from_index
     import pickle
 
     index = f"tests/data/index_and_view/{index_file}"
@@ -646,47 +646,47 @@ def test_region2node(index_file):
     # Note: Absent nodes don't show up
     # testing boundaries of the regions
     selected_regions = ["REF#0#CONTIG1:60-65"]
-    assert get_unstable(selected_regions, ind) == []
+    assert get_unstable_from_index(selected_regions, ind) == []
     selected_regions = ["REF#0#CONTIG1:59-65"]
-    assert get_unstable(selected_regions, ind) == ["s4"]
+    assert get_unstable_from_index(selected_regions, ind) == ["s4"]
     selected_regions = ["REF#0#CONTIG1:59-90"]
-    assert get_unstable(selected_regions, ind) == ["s4"]
+    assert get_unstable_from_index(selected_regions, ind) == ["s4"]
     selected_regions = ["REF#0#CONTIG1:59-91"]
-    assert set(get_unstable(selected_regions, ind)) == set(["s4", "s6"])
+    assert set(get_unstable_from_index(selected_regions, ind)) == set(["s4", "s6"])
     selected_regions = ["BAR#1#ASSM1:170-200"]
-    assert get_unstable(selected_regions, ind) == []
+    assert get_unstable_from_index(selected_regions, ind) == []
     selected_regions = ["BAR#1#ASSM1:170-201"]
-    assert get_unstable(selected_regions, ind) == ["s27"]
+    assert get_unstable_from_index(selected_regions, ind) == ["s27"]
     selected_regions = ["BAR#1#ASSM1:40-201"]
-    assert get_unstable(selected_regions, ind) == ["s27"]
+    assert get_unstable_from_index(selected_regions, ind) == ["s27"]
     selected_regions = ["BAR#1#ASSM1:39-201"]
-    assert set(get_unstable(selected_regions, ind)) == set(["s24", "s27"])
+    assert set(get_unstable_from_index(selected_regions, ind)) == set(["s24", "s27"])
     selected_regions = ["BAR#1#ASSM1:0-10"]
-    assert get_unstable(selected_regions, ind) == []
+    assert get_unstable_from_index(selected_regions, ind) == []
     selected_regions = ["BAR#1#ASSM1:0-11"]
-    assert get_unstable(selected_regions, ind) == ["s24"]
+    assert get_unstable_from_index(selected_regions, ind) == ["s24"]
     selected_regions = ["BAR#1#ASSM1:10-12"]
-    assert get_unstable(selected_regions, ind) == ["s24"]
+    assert get_unstable_from_index(selected_regions, ind) == ["s24"]
     selected_regions = ["REF#0#CONTIG1:59-91", "BAR#1#ASSM1:39-201"]
-    assert set(get_unstable(selected_regions, ind)) == set(["s4", "s6", "s24", "s27"])
+    assert set(get_unstable_from_index(selected_regions, ind)) == set(["s4", "s6", "s24", "s27"])
     selected_regions = ["REF#0#CONTIG1:60-95", "REF#0#CONTIG1:70-91"]
-    assert get_unstable(selected_regions, ind) == ["s6"]
+    assert get_unstable_from_index(selected_regions, ind) == ["s6"]
     selected_regions = ["REF#0#CONTIG1:5-30", "REF#0#CONTIG1:70-91"]
-    assert set(get_unstable(selected_regions, ind)) == set(["s1", "s2", "s6"])
+    assert set(get_unstable_from_index(selected_regions, ind)) == set(["s1", "s2", "s6"])
     selected_regions = ["FOO#1#ASSM1:60-85", "BAR#1#ASSM1:39-201"]
-    assert set(get_unstable(selected_regions, ind)) == set(["s15", "s24", "s27"])
+    assert set(get_unstable_from_index(selected_regions, ind)) == set(["s15", "s24", "s27"])
     selected_regions = ["FOO#1#ASSM1:60-86", "BAR#1#ASSM1:39-201"]
-    assert set(get_unstable(selected_regions, ind)) == set(["s15", "s16", "s24", "s27"])
+    assert set(get_unstable_from_index(selected_regions, ind)) == set(["s15", "s16", "s24", "s27"])
 
 
 # Region conversion was testing above but making sure that these nodes are processed properly
 @pytest.mark.parametrize(
     "gaf_file",
     [
-        "graphaligner.gaf",
-        "graphaligner.gaf.gz",
-        "graphaligner-stable.gaf",
-        "graphaligner-stable.gaf.gz",
+        "customgraph.gaf",
+        "customgraph.gaf.gz",
+        "customgraph-stable.gaf",
+        "customgraph-stable.gaf.gz",
     ],
 )
 @pytest.mark.parametrize(
@@ -694,16 +694,16 @@ def test_region2node(index_file):
 )
 def test_region_selection(tmp_path, gaf_file, gfa_file):
     view_index_file = (
-        "tests/data/index_and_view/view-index-stable.gvi"
+        "tests/data/index_and_view/customgraph-stable.gvi"
         if "stable" in gaf_file
-        else "tests/data/index_and_view/view-index-unstable.gvi"
+        else "tests/data/index_and_view/customgraph-unstable.gvi"
     )
     gaf = f"tests/data/index_and_view/{gaf_file}"
     gfa = f"tests/data/{gfa_file}"
     truth = (
-        "tests/data/index_and_view/graphaligner-stable.gaf"
+        "tests/data/index_and_view/customgraph-stable.gaf"
         if "stable" in gaf_file
-        else "tests/data/index_and_view/graphaligner.gaf"
+        else "tests/data/index_and_view/customgraph.gaf"
     )
     output = str(tmp_path) + "/output.gaf"
 
@@ -775,3 +775,39 @@ def test_region_selection(tmp_path, gaf_file, gfa_file):
         assert len(output_lines) == len(truth_lines)
         for n in range(len(output_lines)):
             assert output_lines[n] == truth_lines[n]
+
+
+##########
+# Tests for partial stable files
+##########
+
+
+@pytest.mark.parametrize(
+    "gfa_file", ["smallgraph.gfa", "smallgraph.gfa.gz", "smallgraph-partial.gfa"]
+)
+def test_partial_stable_to_unstable(tmp_path, gfa_file):
+    # testing conversion of partial stable to unstable
+    gaf = "tests/data/index_and_view/smallgraph-partial-stable.gaf"
+    gfa = f"tests/data/{gfa_file}"
+    output = str(tmp_path) + "/output.gaf"
+    truth = "tests/data/index_and_view/smallgraph-unstable.gaf"
+    run(gaf_path=gaf, gfa=gfa, format="unstable", output=output)
+    truth_lines = parse_output(truth)
+    output_lines = parse_output(output)
+    assert len(truth_lines) == len(output_lines)
+    for n in range(len(output_lines)):
+        assert output_lines[n] == truth_lines[n]
+
+
+def test_unstable_to_partial_stable(tmp_path):
+    # testing conversion of unstable to partial stable
+    gaf = "tests/data/index_and_view/smallgraph-unstable.gaf"
+    gfa = "tests/data/smallgraph-partial.gfa"
+    output = str(tmp_path) + "/output.gaf"
+    truth = "tests/data/index_and_view/smallgraph-partial-stable.gaf"
+    run(gaf_path=gaf, gfa=gfa, format="stable", output=output)
+    truth_lines = parse_output(truth)
+    output_lines = parse_output(output)
+    assert len(truth_lines) == len(output_lines)
+    for n in range(len(output_lines)):
+        assert output_lines[n] == truth_lines[n]

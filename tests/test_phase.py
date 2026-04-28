@@ -2,15 +2,13 @@
 Tests for gaftools phase
 """
 
-from gaftools.cli.phase import (
-    run,
-    HaplotagInformation,
+from gaftools.cli.phase import HaplotagInformation, run
+from gaftools.errors import (
     IncorrectHaplotypeError,
     IncorrectPhaseSetError,
     DuplicateHaplotagError,
     IncompatibleHaplotagError,
 )
-
 import pytest
 
 
@@ -47,7 +45,7 @@ def test_HaplotagInformation():
 
 def test_duplicate_entries():
     tsv = "tests/data/phase/duplicate-entries.tsv"
-    gaf = "tests/data/index_and_view/graphaligner.gaf"
+    gaf = "tests/data/index_and_view/customgraph.gaf"
     try:
         run(gaf, tsv)
         assert False
@@ -56,7 +54,7 @@ def test_duplicate_entries():
         pass
 
 
-@pytest.mark.parametrize("gaf_file", ["graphaligner.gaf", "graphaligner.gaf.gz"])
+@pytest.mark.parametrize("gaf_file", ["customgraph.gaf", "customgraph.gaf.gz"])
 def test_customgraph_alignments(tmp_path, gaf_file):
     tsv = "tests/data/phase/customgraph-haplotags.tsv"
     gaf = f"tests/data/index_and_view/{gaf_file}"

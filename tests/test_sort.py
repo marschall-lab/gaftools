@@ -4,7 +4,7 @@ Tests for 'gaftools sort'
 
 from gaftools.cli.sort import run_sort
 from gaftools.cli.order_gfa import run_order_gfa
-from gaftools.cli import CommandLineError
+from gaftools.errors import CommandLineError
 from gaftools.gaf import GAF
 import pytest
 
@@ -53,10 +53,10 @@ def test_sort_smallgraph(tmp_path, gaf_file):
 @pytest.mark.parametrize(
     "gaf_file",
     [
-        "graphaligner.gaf",
-        "graphaligner-stable.gaf",
-        "graphaligner.gaf.gz",
-        "graphaligner-stable.gaf.gz",
+        "customgraph.gaf",
+        "customgraph-stable.gaf",
+        "customgraph.gaf.gz",
+        "customgraph-stable.gaf.gz",
     ],
 )
 def test_sort_customgraph(tmp_path, gaf_file):

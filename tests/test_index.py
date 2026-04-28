@@ -18,10 +18,10 @@ def parse_output(filename):
 @pytest.mark.parametrize(
     "gaf_file",
     [
-        "graphaligner.gaf",
-        "graphaligner.gaf.gz",
-        "graphaligner-stable.gaf",
-        "graphaligner-stable.gaf.gz",
+        "customgraph.gaf",
+        "customgraph.gaf.gz",
+        "customgraph-stable.gaf",
+        "customgraph-stable.gaf.gz",
     ],
 )
 def test_index(tmp_path, gaf_file):
@@ -29,9 +29,9 @@ def test_index(tmp_path, gaf_file):
     input_gfa = "tests/data/gfa2rgfa/reference-graph.gfa"
     output = str(tmp_path) + "/output.gvi"
     truth = (
-        "tests/data/index_and_view/view-index-stable.gvi"
+        "tests/data/index_and_view/customgraph-stable.gvi"
         if "stable" in gaf_file
-        else "tests/data/index_and_view/view-index-unstable.gvi"
+        else "tests/data/index_and_view/customgraph-unstable.gvi"
     )
     run(gaf_path=input_gaf, gfa_path=input_gfa, output=output)
     output_dict = parse_output(output)

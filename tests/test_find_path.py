@@ -4,7 +4,7 @@ Test for gaftools find_path
 
 from gaftools.cli.find_path import run
 from gaftools.cli.order_gfa import run_order_gfa
-from gaftools.cli import CommandLineError
+from gaftools.errors import CommandLineError
 import pytest
 
 
