@@ -13,7 +13,7 @@ from gaftools.utils import is_file_gzipped, FileWriter
 from gaftools.timer import StageTimer
 from gaftools.gfa import GFA
 from gaftools.cli import log_memory_usage
-from gaftools.errors import CommandLineError
+from gaftools.errors import IncorrectGafFormatError
 
 logger = logging.getLogger(__name__)
 timers = StageTimer()
@@ -78,8 +78,9 @@ def sort(gaf, nodes, outgaf, index_dict, index_file):
                 line = line.decode("utf8").rstrip().split("\t")
             # checking for stable coordinates
             if not ((">" in line[5]) or ("<" in line[5])):
-                raise CommandLineError(
-                    "Detected stable coordinates in GAF. Sorting requires unstable coordinates. Please convert the GAF with gaftools view."
+                raise IncorrectGafFormatError(
+                    "Detected stable coordinates in GAF. Sorting requires unstable coordinates. "
+                    "Please convert the GAF with gaftools view."
                 )
             bo, no, start, inv, sn = process_alignment(line, nodes, offset)
             if inv == 1:

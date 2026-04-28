@@ -11,7 +11,7 @@ from collections import defaultdict
 
 from gaftools.utils import FileWriter
 from gaftools.cli import log_memory_usage
-from gaftools.errors import CommandLineError
+from gaftools.errors import IndexNotFoundError, IncorrectGfaFormatError
 from gaftools.timer import StageTimer
 from gaftools.gaf import GAF
 from gaftools.gfa import GFA
@@ -39,8 +39,9 @@ def run(gaf_path, gfa=None, output=None, index=None, nodes=[], regions=[], forma
     if format:
         gfa_file = GFA(graph_file=gfa, low_memory=True)
         if len(gfa_file.contigs) == 0:
-            raise CommandLineError(
-                "No contigs found in the GFA. For conversion, rovide an rGFA with appropriate tags: SN, SO, SR."
+            raise IncorrectGfaFormatError(
+                "No contig information found in the GFA. "
+                "For conversion, provide an rGFA with appropriate tags: SN, SO, SR."
             )
         if format == "stable":
             tagged_nodes = {}
@@ -79,7 +80,7 @@ def run(gaf_path, gfa=None, output=None, index=None, nodes=[], regions=[], forma
         if index is None:
             index = gaf_path + ".gvi"
             if not os.path.exists(index):
-                raise CommandLineError(
+                raise IndexNotFoundError(
                     "No index found. Please provide the path to the index or create one with gaftools index."
                 )
 

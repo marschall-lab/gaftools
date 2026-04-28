@@ -5,6 +5,7 @@ import re
 import os
 from collections import deque
 from gaftools.utils import rev_comp, is_correct_tag
+from gaftools.errors import CommandLineError
 from pysam import libcbgzf
 
 E_DIR = {("+", "+"): (1, 0), ("+", "-"): (1, 1), ("-", "+"): (0, 0), ("-", "-"): (0, 1)}
@@ -377,8 +378,7 @@ class GFA:
         Read a gfa file and return a populated graph object
         """
         if not os.path.exists(gfa_file_path):
-            logging.error("the gfa file path you gave does not exists, please try again!")
-            sys.exit()
+            raise FileNotFoundError(f"GFA file {gfa_file_path} does not exists.")
 
         # nodes = dict()
         edges = []
@@ -750,10 +750,9 @@ class GFA:
         """
         sorted_nodes = self.get_path(chrom, throw_warning)
         if not sorted_nodes:
-            logging.error(
+            raise CommandLineError(
                 "Was not able to return the length of the chromosome, check warning message(s)"
             )
-            sys.exit(1)
         else:
             return sum([int(self.nodes[x].seq_len) for x in sorted_nodes])
 

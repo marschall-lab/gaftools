@@ -4,7 +4,7 @@ Test for gaftools find_path
 
 from gaftools.cli.find_path import run
 from gaftools.cli.order_gfa import run_order_gfa
-from gaftools.errors import CommandLineError
+from gaftools.errors import PathNotFoundError
 import pytest
 
 
@@ -130,6 +130,6 @@ def test_path_as_text(tmp_path, gfa_file):
     try:
         run(input_gfa, path=">s1>s4", keep_going=False, output=output, fasta=False)
         assert False
-    except CommandLineError:
+    except PathNotFoundError:
         # expected
         pass

@@ -3,7 +3,7 @@ Test for gaftools view.
 """
 
 from gaftools.cli.view import run
-from gaftools.errors import CommandLineError
+from gaftools.errors import IncorrectGfaFormatError
 from pysam import libcbgzf
 import pytest
 
@@ -109,7 +109,7 @@ def test_conversion_to_stable(tmp_path, gaf_file, gfa_file):
         try:
             run(gaf_path=gaf, format="stable", gfa=gfa, output=output)
             assert False
-        except CommandLineError:
+        except IncorrectGfaFormatError:
             # expected
             pass
 
@@ -126,7 +126,7 @@ def test_conversion_to_stable(tmp_path, gaf_file, gfa_file):
         try:
             run(gaf_path=gaf, format="stable", gfa=gfa, output=output)
             assert False
-        except CommandLineError:
+        except IncorrectGfaFormatError:
             # expected
             pass
 
@@ -160,7 +160,7 @@ def test_conversion_to_unstable(tmp_path, gaf_file, gfa_file):
         try:
             run(gaf_path=gaf, format="unstable", gfa=gfa, output=output)
             assert False
-        except CommandLineError:
+        except IncorrectGfaFormatError:
             # expected
             pass
 
@@ -177,7 +177,7 @@ def test_conversion_to_unstable(tmp_path, gaf_file, gfa_file):
         try:
             run(gaf_path=gaf, format="unstable", gfa=gfa, output=output)
             assert False
-        except CommandLineError:
+        except IncorrectGfaFormatError:
             # expected
             pass
 
@@ -397,7 +397,7 @@ def test_node_selection_withconversion(tmp_path, gaf_file, gfa_file):
                     output=output,
                 )
                 assert False
-            except CommandLineError:
+            except IncorrectGfaFormatError:
                 # expected
                 pass
 
@@ -430,7 +430,7 @@ def test_node_selection_withconversion(tmp_path, gaf_file, gfa_file):
                     output=output,
                 )
                 assert False
-            except CommandLineError:
+            except IncorrectGfaFormatError:
                 # expected
                 pass
 
@@ -463,7 +463,7 @@ def test_node_selection_withconversion(tmp_path, gaf_file, gfa_file):
                     output=output,
                 )
                 assert False
-            except CommandLineError:
+            except IncorrectGfaFormatError:
                 # expected
                 pass
 
@@ -496,7 +496,7 @@ def test_node_selection_withconversion(tmp_path, gaf_file, gfa_file):
                     output=output,
                 )
                 assert False
-            except CommandLineError:
+            except IncorrectGfaFormatError:
                 # expected
                 pass
 
@@ -529,7 +529,7 @@ def test_node_selection_withconversion(tmp_path, gaf_file, gfa_file):
                     output=output,
                 )
                 assert False
-            except CommandLineError:
+            except IncorrectGfaFormatError:
                 # expected
                 pass
 
@@ -562,7 +562,7 @@ def test_node_selection_withconversion(tmp_path, gaf_file, gfa_file):
                     output=output,
                 )
                 assert False
-            except CommandLineError:
+            except IncorrectGfaFormatError:
                 # expected
                 pass
 
@@ -595,7 +595,7 @@ def test_node_selection_withconversion(tmp_path, gaf_file, gfa_file):
                     output=output,
                 )
                 assert False
-            except CommandLineError:
+            except IncorrectGfaFormatError:
                 # expected
                 pass
 
@@ -628,7 +628,7 @@ def test_node_selection_withconversion(tmp_path, gaf_file, gfa_file):
                     output=output,
                 )
                 assert False
-            except CommandLineError:
+            except IncorrectGfaFormatError:
                 # expected
                 pass
 

@@ -5,13 +5,13 @@ The BO (Bubble Order) tags order bubbles in the GFA.
 The NO (Node Order) tags order the nodes in a bubble (in a lexicographic order).
 """
 
-import sys
 import os
 import logging
 import time
 from collections import defaultdict
 from gaftools.gfa import GFA
 from gaftools.utils import DEFAULT_CHROMOSOME
+from gaftools.errors import ChromosomeNotFoundError, BranchedGfaComponentError
 
 logger = logging.getLogger(__name__)
 
@@ -31,20 +31,16 @@ def run_order_gfa(
         try:
             os.makedirs(outdir)
         except PermissionError:
-            logging.error(f"were not able to create directory {outdir}. Permission Denied")
-            sys.exit()
+            raise PermissionError(f"were not able to create directory {outdir}. Permission Denied")
         except FileNotFoundError:
-            logging.error(f"were not able to create directory {outdir}, File not found")
-            sys.exit()
+            raise FileNotFoundError(f"were not able to create directory {outdir}, File not found")
         except OSError:
-            logging.error(f"were not able to create directory {outdir}, OSError")
-            sys.exit()
+            raise OSError(f"were not able to create directory {outdir}, OSError")
 
     logger.info(f"Reading {gfa_filename}")
     # if true then sequences are stripped
     if not os.path.exists(gfa_filename):
-        logger.error(f"The file {gfa_filename} does not exist")
-        sys.exit(1)
+        raise FileNotFoundError(f"The file {gfa_filename} does not exist")
     graph = GFA(gfa_filename, low_memory=without_sequence)
     # the __str__ functions print the number of nodes and edges
     logger.info("The graph has:")
@@ -60,14 +56,11 @@ def run_order_gfa(
     if chromosome_order != [""]:  # user gave a list
         for c in chromosome_order:
             if c not in set(components.keys()):
-                logger.error(
-                    f"The chromosome name provided '{c}' did not match with a component in the graph"
+                raise ChromosomeNotFoundError(
+                    f"The chromosome name provided '{c}' did not match with a component in the graph.\n"
+                    f"The components found in the graph: {','.join(sorted(components.keys()))}\n"
+                    "Please check the chromosome order provided"
                 )
-                logger.error(
-                    f"The components found in the graph: {','.join(sorted(components.keys()))}"
-                )
-                logger.error("Please check the chromosome order provided")
-                sys.exit(1)
     else:  # user did not give chromosome order
         chromosome_order = sorted(components.keys())
         logger.info(
@@ -385,12 +378,10 @@ def decompose_and_order(
             )
             # function for forcing the order
         else:
-            logger.error(
-                f"In Chromosome {component_name}, we expect only two nodes with degree one for a line graph, that was not the case."
+            raise BranchedGfaComponentError(
+                f"In Chromosome {component_name}, we expect only two nodes with degree one for a line graph, that was not the case. "
                 "Ordering can be forced with --ignore-branching"
             )
-            sys.exit(1)
-            return None, None, None, None, None
 
     if len(degree_two) != len(scaffold_graph) - 2:
         if ignore_branching:

@@ -3,7 +3,6 @@ Realign a GAF file using wavefront alignment algorithm (WFA).
 """
 
 import logging
-import sys
 import queue
 import gzip
 import tempfile
@@ -11,7 +10,12 @@ import multiprocessing as mp
 from typing import Optional
 from dataclasses import dataclass, field
 from gaftools.cli import log_memory_usage
-from gaftools.errors import CommandLineError
+from gaftools.errors import (
+    CommandLineError,
+    ReadNotFoundError,
+    IncorrectReadFormatError,
+    IncorrectGafFormatError,
+)
 from gaftools.timer import StageTimer
 from gaftools.gaf import GAF
 from gaftools.gfa import GFA
@@ -48,7 +52,9 @@ class ReadAccessor:
         try:
             record = self.reader[query_name]
         except (KeyError, IndexError, RuntimeError):
-            raise CommandLineError(f"Read '{query_name}' not found in input reads file.")
+            raise ReadNotFoundError(
+                f"Read '{query_name}' not found in input reads file. [Known pyfastx issue]."
+            )
         seq = record.seq if hasattr(record, "seq") else str(record)
         return seq[query_start:query_end]
 
@@ -71,7 +77,7 @@ def detect_reads_format(reads_path):
             if line.startswith("@"):
                 return "fastq"
             break
-    raise CommandLineError(
+    raise IncorrectReadFormatError(
         f"Could not determine read format for '{reads_path}'. Expected FASTA or FASTQ."
     )
 
@@ -235,8 +241,9 @@ def realign_gaf(gaf, graph, fasta, writer, cores=1):
             logger.debug("Starting realignment of GAF file.")
             for line in gaf_file.read_file():
                 if line.detect_path_format():
-                    raise CommandLineError(
-                        "Detected stable coordinates in GAF. Sorting requires unstable coordinates. Please convert the GAF with gaftools view."
+                    raise IncorrectGafFormatError(
+                        "Detected stable coordinates in GAF. Realignment requires unstable coordinates. "
+                        "Please convert the GAF with gaftools view."
                     )
                 path_sequence = graph_obj.extract_path(line.path)
                 ref = path_sequence[line.path_start : line.path_end]
@@ -278,10 +285,9 @@ def realign_gaf(gaf, graph, fasta, writer, cores=1):
                             else:
                                 # all_exited returns false if one exited with non-zero code
                                 if not all_exited(processes):
-                                    logger.error(
+                                    raise CommandLineError(
                                         "One of the processes had a none-zero exit code. One reason could be that one of the processes consumed too much memory and was killed"
                                     )
-                                    sys.exit(1)
                         if out_string_obj is None:  # sentinel counter to count finished processes
                             n_sentinels += 1
                         else:  # priority queue to keep the output order same as input order
@@ -325,8 +331,9 @@ def realign_gaf(gaf, graph, fasta, writer, cores=1):
                         else:
                             # all_exited returns false if one exited with non-zero code
                             if not all_exited(processes):
-                                logger.error("One of the processes had a none-zero exit code")
-                                sys.exit(1)
+                                raise CommandLineError(
+                                    "One of the processes had a none-zero exit code"
+                                )
                     if out_string_obj is None:
                         n_sentinels += 1
                     else:

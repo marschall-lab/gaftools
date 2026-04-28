@@ -17,7 +17,7 @@ from gaftools.gfa import GFA
 from gaftools.timer import StageTimer
 from gaftools.cli import log_memory_usage
 from gaftools.conversion import get_nodes_from_region
-from gaftools.errors import CommandLineError
+from gaftools.errors import IncorrectGfaFormatError
 
 logger = logging.getLogger(__name__)
 
@@ -131,8 +131,10 @@ def convert_coord(line, ref):
             continue
         """Find the matching nodes from the reference genome here"""
         if ref[query_contig_name] == []:
-            raise CommandLineError(
-                f"Found stable cooridnates for contig {query_contig_name} in the GAF file but appropriate tags not found in GFA. Check if the GFA provided is the same as the one used for alignment."
+            raise IncorrectGfaFormatError(
+                f"Found stable cooridnates for contig {query_contig_name} in the GAF file "
+                "but appropriate tags not found in GFA. "
+                "Check if the GFA provided is the same as the one used for alignment."
             )
         node_indices = get_nodes_from_region(
             [query_contig_name, query_start, query_end], ref[query_contig_name]

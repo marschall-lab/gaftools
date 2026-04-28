@@ -4,7 +4,7 @@ Tests for 'gaftools sort'
 
 from gaftools.cli.sort import run_sort
 from gaftools.cli.order_gfa import run_order_gfa
-from gaftools.errors import CommandLineError
+from gaftools.errors import IncorrectGafFormatError
 from gaftools.gaf import GAF
 import pytest
 
@@ -70,7 +70,7 @@ def test_sort_customgraph(tmp_path, gaf_file):
         try:
             run_sort(gfa=ordered_gfa, gaf=input_gaf, outgaf=output)
             assert False
-        except CommandLineError:
+        except IncorrectGafFormatError:
             # expected
             return
     run_sort(gfa=ordered_gfa, gaf=input_gaf, outgaf=output)

@@ -7,7 +7,7 @@ import re
 
 import gaftools.utils as utils
 from gaftools.gaf import GAF
-from gaftools.errors import CommandLineError, IncorrectGfaFormatError
+from gaftools.errors import IncorrectGfaFormatError, IncorrectGafFormatError
 
 logger = logging.getLogger(__name__)
 
@@ -105,9 +105,10 @@ def to_unstable(gaf_line, reference):
             continue
         """Find the matching nodes from the reference genome here"""
         if reference[query_contig_name] == []:
-            raise CommandLineError(
-                f"Contig name {query_contig_name} in the GAF file was not found in the GFA. "
-                f"Check if the GFA appropriate tags like SN, SR and SO."
+            raise IncorrectGfaFormatError(
+                f"Found stable cooridnates for contig {query_contig_name} in the GAF file "
+                "but annotations not found for the contig in GFA. "
+                "Check if the GFA appropriate tags like SN, SR and SO."
             )
         node_indices = get_nodes_from_region(
             [query_contig_name, query_start, query_end], reference[query_contig_name]
@@ -187,8 +188,9 @@ def to_stable(gaf_line, tagged_nodes, ref_contig, contig_len):
     new_total = None
     new_start = None
     if not (">" in gaf_line.path or "<" in gaf_line.path) or ":" in gaf_line.path:
-        raise CommandLineError(
-            f"Read {gaf_line.query_name} has path {gaf_line.path} which does not follow unstable coordiante format. The file has to be in unstable coordinate."
+        raise IncorrectGafFormatError(
+            f"Read {gaf_line.query_name} has path {gaf_line.path} which does not follow unstable coordiante format."
+            "The whole file has to be in unstable coordinate."
         )
     gaf_nodes = list(filter(None, re.split("(>)|(<)", gaf_line.path)))
     node_list = []

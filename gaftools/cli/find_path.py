@@ -3,23 +3,18 @@ Find the genomic sequence of a given connected GFA path.
 """
 
 import logging
-import sys
 import os
 from gaftools.cli import log_memory_usage
 from gaftools.timer import StageTimer
 from gaftools.gfa import GFA
 from gaftools.utils import FileWriter
-from gaftools.errors import CommandLineError
+from gaftools.errors import PathNotFoundError, IncorrectPathFormatError
 
 logger = logging.getLogger(__name__)
 
 
 def run(gfa_path, path=None, paths_file=None, keep_going=True, output=None, fasta=False):
     timers = StageTimer()
-
-    if not path and not paths_file:
-        logger.error("Either an input path (--p, --path) or (--paths_file) must be specified")
-        sys.exit(1)
 
     logger.info(f"Reading GFA file {gfa_path}")
     graph = GFA(gfa_path)
@@ -34,12 +29,11 @@ def run(gfa_path, path=None, paths_file=None, keep_going=True, output=None, fast
                         f"The path {path} does not exist in the GFA, will keep going to next path if given"
                     )
                 else:
-                    raise CommandLineError(f"The path {path} does not exist in the GFA")
+                    raise PathNotFoundError(f"The path {path} does not exist in the GFA")
 
             path_seqs = [seq]
         else:
-            logger.error(f"The input path {path} is not a valid node path")
-            sys.exit(1)
+            IncorrectPathFormatError(f"The input path {path} is not a valid node path")
 
     else:
         if os.path.exists(paths_file):
@@ -56,8 +50,7 @@ def run(gfa_path, path=None, paths_file=None, keep_going=True, output=None, fast
                             f"The path {line} does not exist in the GFA, will keep going to next path if given"
                         )
                     else:
-                        logger.error(f"The path {line} does not exist in the GFA")
-                        sys.exit(1)
+                        raise PathNotFoundError(f"The path {line} does not exist in the GFA")
                 path_seqs.append(seq)
             reader.close()
         else:
@@ -90,7 +83,7 @@ def add_arguments(parser):
         help="GFA file (can be bgzip-compressed)")
     arg("-p", "--path", default=None,
         help='GFA node path to retrieve the sequence (e.g., ">s82312<s82313") with the quotes')
-    arg("--paths_file", default=None,
+    arg("--paths-file", default=None,
         help="File containing the paths to retrieve the sequences for, each path on new line")
     arg("-k", "--keep-going", action="store_true",
          help="Keep going after instead of stopping when a path does not exist")
@@ -100,6 +93,15 @@ def add_arguments(parser):
         help="Flag to output the sequence as a FASTA file with the seqeunce named seq_<node path>")
 
 # fmt:on
+
+
+def validate(args, parser):
+    if not args.path and not args.paths_file:
+        parser.error("Either an input path (--p, --path) or (--paths-file) must be specified")
+    if args.nodes and args.regions:
+        parser.error("provide either of the --regions and --nodes options and not both.")
+    if args.format and not args.gfa:
+        parser.error("GFA file has to be provided along with --format.")
 
 
 def main(args):

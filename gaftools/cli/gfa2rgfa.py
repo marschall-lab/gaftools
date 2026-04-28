@@ -3,7 +3,6 @@ Converting a GFA file to rGFA format using the W-lines and the acyclic reference
 """
 
 import os
-import sys
 import logging
 import re
 import tempfile
@@ -12,7 +11,7 @@ from pysam import libcbgzf
 from gaftools.utils import FileWriter
 from gaftools.timer import StageTimer
 from gaftools.cli import log_memory_usage
-from gaftools.errors import CommandLineError
+from gaftools.errors import CommandLineError, IncorrectGfaFormatError
 
 logger = logging.getLogger(__name__)
 timers = StageTimer()
@@ -48,11 +47,13 @@ def determine_reference(header_tags, reference_name, override_reference):
             # This is not part of the official documentation.
             if not reference_name:
                 raise CommandLineError(
-                    f"Found the following reference names in GFA header: {', '.join(ref_name)}. Please provide the correct reference using --reference-name."
+                    f"Found the following reference names in GFA header: {', '.join(ref_name)}. "
+                    "Please provide the correct reference using --reference-name."
                 )
             else:
                 logger.info(
-                    f"Found multiple reference names in header: {', '.join(ref_name)}. Using the user-specified reference: {reference_name}."
+                    f"Found multiple reference names in header: {', '.join(ref_name)}. "
+                    f"Using the user-specified reference: {reference_name}."
                 )
         else:
             logger.info(f"Found reference name {ref_name} in GFA header.")
@@ -69,15 +70,17 @@ def determine_reference(header_tags, reference_name, override_reference):
         and (not override_reference)
     ):
         raise CommandLineError(
-            f"Found reference(s) {', '.join(ref_name)} specified in GFA header. Found reference {reference_name} as user input. Provide the --override-reference flag to use reference {reference_name}."
+            f"Found reference(s) {', '.join(ref_name)} specified in GFA header. "
+            f"Found reference {reference_name} as user input. Provide the --override-reference flag to use reference {reference_name}."
         )
     if reference_name and ref_name and (reference_name not in ref_name) and override_reference:
         logger.info(
-            f"Found reference(s) {', '.join(ref_name)} specified in GFA header. Found reference {reference_name} as user input. Overriding the reference with {reference_name}."
+            f"Found reference(s) {', '.join(ref_name)} specified in GFA header. "
+            f"Found reference {reference_name} as user input. Overriding the reference with {reference_name}."
         )
     if reference_name and ref_name and (reference_name in ref_name) and override_reference:
         logger.info(
-            f"Header reference(s) {', '.join(ref_name)}  and user input reference {reference_name} have a match. gfa2rgfa will build the tags fresh."
+            f"Header reference(s) {', '.join(ref_name)} and user input reference {reference_name} have a match. gfa2rgfa will build the tags fresh."
         )
     if reference_name is None and ref_name:
         assert len(ref_name) == 1
@@ -230,7 +233,7 @@ def process_gfa_header(gfa):
             tags = readH(line)
             for key, value in tags.items():
                 if key in header_tags:
-                    raise CommandLineError(f"Multiple {key} in header.")
+                    raise IncorrectGfaFormatError(f"Multiple {key} in GFA header.")
                 header_tags[key] = value
         else:
             # if any other line type is detected, the loop terminates
@@ -325,8 +328,7 @@ def create_ref_tags(nodes, walks, reference_name, file, tmp_walk_file):
             hap = "0"
         walks_list = yield_walks(opened_file, walks[(ref, hap)], gzipped)
     except KeyError:
-        logger.error(f"No walks found for reference genome {reference_name}.")
-        sys.exit(1)
+        raise IncorrectGfaFormatError(f"No walks found for reference genome {reference_name}.")
     for assm_name, walk_start, walk_end, walk_path in walks_list:
         tmp_walk_file.write(
             f"W\t{ref}\t{hap}\t{assm_name}\t{walk_start}\t{walk_end}\t{walk_path}\n"
@@ -343,8 +345,8 @@ def create_ref_tags(nodes, walks, reference_name, file, tmp_walk_file):
             try:
                 _ = nodes[id]
             except KeyError:
-                raise CommandLineError(
-                    f"Node ID {id} found in the walk for {sn} but is not present in the GFA."
+                raise IncorrectGfaFormatError(
+                    f"Node ID {id} found in the walk for {sn} but is not present in the GFA S lines."
                 )
             if not isinstance(nodes[id], Node):
                 assert isinstance(nodes[id], OutputNode)
@@ -398,7 +400,7 @@ def create_assembly_tags(nodes, walks, sample, index, file, tmp_walk_file):
             try:
                 _ = nodes[id]
             except KeyError:
-                raise CommandLineError(
+                raise IncorrectGfaFormatError(
                     f"Node ID {id} found in the walk for {sn} but is not present in the GFA."
                 )
             # writing the temporary walk file and doing this conversion increased runtime significantly.
