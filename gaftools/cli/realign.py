@@ -10,7 +10,8 @@ import tempfile
 import multiprocessing as mp
 from typing import Optional
 from dataclasses import dataclass, field
-from gaftools.cli import log_memory_usage, CommandLineError
+from gaftools.cli import log_memory_usage
+from gaftools.errors import CommandLineError
 from gaftools.timer import StageTimer
 from gaftools.gaf import GAF
 from gaftools.gfa import GFA

@@ -8,9 +8,9 @@ import importlib
 import logging
 
 import gaftools.cli as cli_package
+from .errors import CommandLineError
 from . import __version__
 from .args import HelpfulArgumentParser
-from .cli import CommandLineError
 
 
 logger = logging.getLogger(__name__)

@@ -5,10 +5,11 @@ Find the genomic sequence of a given connected GFA path.
 import logging
 import sys
 import os
-from gaftools.cli import log_memory_usage, CommandLineError
+from gaftools.cli import log_memory_usage
 from gaftools.timer import StageTimer
 from gaftools.gfa import GFA
 from gaftools.utils import FileWriter
+from gaftools.errors import CommandLineError
 
 logger = logging.getLogger(__name__)
 

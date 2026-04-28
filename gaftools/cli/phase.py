@@ -13,22 +13,12 @@ from gaftools.utils import FileWriter
 from gaftools.cli import log_memory_usage
 from gaftools.timer import StageTimer
 from gaftools.gaf import GAF
-
-
-class IncorrectHaplotypeError(Exception):
-    pass
-
-
-class IncorrectPhaseSetError(Exception):
-    pass
-
-
-class DuplicateHaplotagError(Exception):
-    pass
-
-
-class IncompatibleHaplotagError(Exception):
-    pass
+from gaftools.errors import (
+    IncompatibleHaplotagError,
+    IncorrectHaplotypeError,
+    IncorrectPhaseSetError,
+    DuplicateHaplotagError,
+)
 
 
 HAPLOTYPE_PATTERN = re.compile(r"^H\d+$")

@@ -11,7 +11,8 @@ import pathlib
 from pysam import libcbgzf
 from gaftools.utils import FileWriter
 from gaftools.timer import StageTimer
-from gaftools.cli import log_memory_usage, CommandLineError
+from gaftools.cli import log_memory_usage
+from gaftools.errors import CommandLineError
 
 logger = logging.getLogger(__name__)
 timers = StageTimer()

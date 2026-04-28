@@ -12,7 +12,8 @@ from collections import defaultdict, namedtuple
 from gaftools.utils import is_file_gzipped, FileWriter
 from gaftools.timer import StageTimer
 from gaftools.gfa import GFA
-from gaftools.cli import log_memory_usage, CommandLineError
+from gaftools.cli import log_memory_usage
+from gaftools.errors import CommandLineError
 
 logger = logging.getLogger(__name__)
 timers = StageTimer()
