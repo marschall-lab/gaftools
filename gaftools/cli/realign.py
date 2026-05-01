@@ -53,7 +53,9 @@ class ReadAccessor:
             record = self.reader[query_name]
         except (KeyError, IndexError, RuntimeError):
             raise ReadNotFoundError(
-                f"Read '{query_name}' not found in input reads file. [Known pyfastx issue]."
+                f"Read '{query_name}' not found in input reads file. This is a known issue. "
+                "gaftools currently uses pyfastx which has issues with FASTQ read fetching. "
+                "Consider converting to FASTA to avoid this issue."
             )
         seq = record.seq if hasattr(record, "seq") else str(record)
         return seq[query_start:query_end]
