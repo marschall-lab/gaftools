@@ -74,30 +74,29 @@ def run_stat(
         total_mapq += mapping.mapping_quality
         total_primary += 1
 
-        with timers("cigar_stat"):
-            if cigar_stat:
-                """Cigar string analysis"""
-                cigar = mapping.cigar
-                all_cigars = ["".join(x) for _, x in itertools.groupby(cigar, key=str.isdigit)]
-                if len(all_cigars) == 2:
-                    total_perfect += 1
-                for cnt in range(0, len(all_cigars) - 1, 2):
-                    if all_cigars[cnt + 1] == "D":
-                        total_del += 1
-                        if int(all_cigars[cnt]) >= 50:
-                            total_del_large += 1
-                    elif all_cigars[cnt + 1] == "I":
-                        total_ins += 1
-                        if int(all_cigars[cnt]) >= 50:
-                            total_ins_large += 1
-                    elif all_cigars[cnt + 1] == "X":
-                        total_x += 1
-                        if int(all_cigars[cnt]) >= 50:
-                            total_x_large += 1
-                    elif all_cigars[cnt + 1] == "=":
-                        total_match += 1
-                        if int(all_cigars[cnt]) >= 50:
-                            total_match_large += 1
+        if cigar_stat:
+            """Cigar string analysis"""
+            cigar = mapping.cigar
+            all_cigars = ["".join(x) for _, x in itertools.groupby(cigar, key=str.isdigit)]
+            if len(all_cigars) == 2:
+                total_perfect += 1
+            for cnt in range(0, len(all_cigars) - 1, 2):
+                if all_cigars[cnt + 1] == "D":
+                    total_del += 1
+                    if int(all_cigars[cnt]) >= 50:
+                        total_del_large += 1
+                elif all_cigars[cnt + 1] == "I":
+                    total_ins += 1
+                    if int(all_cigars[cnt]) >= 50:
+                        total_ins_large += 1
+                elif all_cigars[cnt + 1] == "X":
+                    total_x += 1
+                    if int(all_cigars[cnt]) >= 50:
+                        total_x_large += 1
+                elif all_cigars[cnt + 1] == "=":
+                    total_match += 1
+                    if int(all_cigars[cnt]) >= 50:
+                        total_match_large += 1
     gaf_file.close()
 
     # avg_total_seq_identity = 0.0
@@ -138,10 +137,6 @@ def run_stat(
     logger.info("\n== SUMMARY ==")
     total_time = timers.total()
     log_memory_usage()
-    logger.info(
-        "Time to get CIGAR statistics:                %9.2f s", timers.elapsed("cigar_stat")
-    )
-    logger.info("Time spent on rest:                          %9.2f s", total_time - timers.sum())
     logger.info("Total time:                                  %9.2f s", total_time)
 
 
