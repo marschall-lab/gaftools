@@ -3,7 +3,7 @@ Tests for 'gaftools order-gfa'
 """
 
 from gaftools.gfa import GFA
-from gaftools.cli.order_gfa import run_order_gfa, name_comps
+from gaftools.cli.order_gfa import decompose_and_order, run_order_gfa, name_comps
 import pytest
 
 
@@ -154,6 +154,40 @@ def test_order_gfa_missing_so_scaffold_node_skips_component(tmp_path, caplog):
     assert "scaffold node(s) without an SO tag; cannot order this component" in caplog.text
     assert "Chromosome chr1 was skipped" in caplog.text
     assert not (tmp_path / "missing-so-scaffold-complete.gfa").exists()
+
+
+def test_order_gfa_empty_inside_ref_warns_and_continues(caplog):
+    graph = GFA()
+    for node_id, tags in [
+        ("a", ["SN:Z:chr1", "SO:i:0", "SR:i:0"]),
+        ("b", ["SN:Z:alt", "SO:i:1", "SR:i:1"]),
+        ("c", ["SN:Z:alt", "SO:i:2", "SR:i:1"]),
+        ("d", ["SN:Z:chr1", "SO:i:10", "SR:i:0"]),
+    ]:
+        graph.add_node(node_id, seq="A", tags=tags)
+
+    for node1, node2 in [("a", "b"), ("b", "c"), ("c", "a"), ("a", "d")]:
+        graph.add_edge(node1, "+", node2, "+", 0, [0])
+
+    scaffold_nodes, inside_nodes, node_order, bo, bubble_count = decompose_and_order(
+        graph,
+        {"a", "b", "c", "d"},
+        "chr1",
+        ignore_branching=True,
+        scaffold_file=None,
+        bo_start=0,
+    )
+
+    assert (
+        "terminal biconnected component with no internal node matching the reference SN/SO tags"
+        in caplog.text
+    )
+    assert scaffold_nodes == {"a", "d"}
+    assert inside_nodes == {"b", "c", "d"}
+    assert node_order["a"] == (1, 0)
+    assert node_order["d"] == (3, 0)
+    assert bo == 4
+    assert bubble_count == 2
 
 
 def test_name_comps_resets_current_tag():

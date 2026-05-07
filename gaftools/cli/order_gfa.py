@@ -377,6 +377,12 @@ def decompose_and_order(
                     to_adjust = min(inside_ref, key=lambda x: int(new_graph[x].tags["SO"][1]))
                 elif bc_end_nodes == {highest_artic_point} and inside_ref:
                     to_adjust = max(inside_ref, key=lambda x: int(new_graph[x].tags["SO"][1]))
+                elif bc_end_nodes in [{lowest_artic_point}, {highest_artic_point}]:
+                    logger.warning(
+                        "Chromosome %s has a terminal biconnected component with no internal node "
+                        "matching the reference SN/SO tags; leaving it unpromoted in the scaffold",
+                        component_name,
+                    )
                 else:
                     pass
 
