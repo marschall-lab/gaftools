@@ -16,6 +16,43 @@ from gaftools.errors import ChromosomeNotFoundError, BranchedGfaComponentError
 logger = logging.getLogger(__name__)
 
 
+def _format_node_examples(node_ids, limit=5):
+    examples = node_ids[:limit]
+    if len(node_ids) > limit:
+        examples.append("...")
+    return ",".join(examples)
+
+
+def _has_required_scaffold_sn(graph, scaffold_node_types, component_name):
+    # Only scaffold nodes must carry SN for component ordering to proceed.
+    scaffold_nodes = [n for n, node_type in scaffold_node_types.items() if node_type == "s"]
+    missing_sn_nodes = [n for n in scaffold_nodes if "SN" not in graph[n].tags]
+    if missing_sn_nodes:
+        logger.error(
+            "Chromosome %s has %d scaffold node(s) without an SN tag; cannot order this component. "
+            "Example node IDs: %s",
+            component_name,
+            len(missing_sn_nodes),
+            _format_node_examples(missing_sn_nodes),
+        )
+        return False
+    return True
+
+
+def _has_required_articulation_so(graph, artic_points, component_name):
+    missing_so_nodes = [n for n in artic_points if "SO" not in graph[n].tags]
+    if missing_so_nodes:
+        logger.error(
+            "Chromosome %s has %d scaffold node(s) without an SO tag; cannot order this component. "
+            "Example node IDs: %s",
+            component_name,
+            len(missing_so_nodes),
+            _format_node_examples(missing_so_nodes),
+        )
+        return False
+    return True
+
+
 def run_order_gfa(
     gfa_filename,
     outdir="./out",
@@ -294,6 +331,8 @@ def decompose_and_order(
     logger.info(
         f" It took {time.perf_counter() - start} seconds to find the Biconnected Components"
     )
+    if not _has_required_articulation_so(new_graph, artic_points, component_name):
+        return None, None, None, None, None
     highest_artic_point = max(artic_points, key=lambda x: int(new_graph[x].tags["SO"][1]))
     lowest_artic_point = min(artic_points, key=lambda x: int(new_graph[x].tags["SO"][1]))
 
@@ -325,12 +364,18 @@ def decompose_and_order(
                 # import pdb
                 # pdb.set_trace()
                 to_adjust = None
+                # Some bubble-internal nodes can be unannotated; only reference-tagged candidates
+                # with coordinates are relevant when promoting a node into the scaffold.
                 inside_ref = [
-                    n for n in bc_inside_nodes if graph[n].tags["SN"][1] == component_name
+                    n
+                    for n in bc_inside_nodes
+                    if "SN" in graph[n].tags
+                    and graph[n].tags["SN"][1] == component_name
+                    and "SO" in graph[n].tags
                 ]
-                if bc_end_nodes == {lowest_artic_point}:
+                if bc_end_nodes == {lowest_artic_point} and inside_ref:
                     to_adjust = min(inside_ref, key=lambda x: int(new_graph[x].tags["SO"][1]))
-                elif bc_end_nodes == {highest_artic_point}:
+                elif bc_end_nodes == {highest_artic_point} and inside_ref:
                     to_adjust = max(inside_ref, key=lambda x: int(new_graph[x].tags["SO"][1]))
                 else:
                     pass
@@ -354,6 +399,9 @@ def decompose_and_order(
             for end_node in bc_end_nodes:
                 tags = [0]
                 scaffold_graph.add_edge("bb_" + str(bubble_index), "+", end_node, "+", 0, tags)
+
+    if not _has_required_scaffold_sn(graph, scaffold_node_types, component_name):
+        return None, None, None, None, None
 
     # import pdb
     # pdb.set_trace()
@@ -448,8 +496,8 @@ def name_comps(graph, components):
     for each component we take a majority vote of the SN tage and name the component accordingly
     """
     named_comps = dict()
-    current_tag = ""
     for comp in components:
+        current_tag = ""
         counts = count_sn(graph, comp)
         most_freq = 0
         for tag, count in counts.items():

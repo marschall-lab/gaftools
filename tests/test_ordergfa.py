@@ -3,7 +3,7 @@ Tests for 'gaftools order-gfa'
 """
 
 from gaftools.gfa import GFA
-from gaftools.cli.order_gfa import run_order_gfa
+from gaftools.cli.order_gfa import run_order_gfa, name_comps
 import pytest
 
 
@@ -67,3 +67,99 @@ def test_order_gfa_customgraph(tmp_path, gfa_file):
     graph1 = GFA("tests/data/order_gfa/customgraph-ordered.gfa", low_memory=True)
     graph2 = GFA(output_gfa, low_memory=True)
     compare_bo_no_tags(graph1, graph2)
+
+
+def test_order_gfa_missing_sn_inside_node_still_orders(tmp_path):
+    input_gfa = tmp_path / "missing-sn-inside.gfa"
+    with open("tests/data/smallgraph.gfa", "r") as infile:
+        lines = infile.readlines()
+
+    replaced = False
+    with open(input_gfa, "w") as outfile:
+        for line in lines:
+            if (
+                not replaced
+                and line.startswith("S\ts644045\t")
+                and "SN:Z:HG01106#2#JAHAMB010000116.1" in line
+            ):
+                line = line.replace("\tSN:Z:HG01106#2#JAHAMB010000116.1", "", 1)
+                replaced = True
+            outfile.write(line)
+
+    assert replaced
+
+    run_order_gfa(
+        gfa_filename=str(input_gfa),
+        outdir=str(tmp_path),
+        by_chrom=False,
+        without_sequence=True,
+    )
+
+    output_gfa = str(tmp_path) + "/missing-sn-inside-complete.gfa"
+    graph1 = GFA("tests/data/order_gfa/smallgraph-ordered.gfa", low_memory=True)
+    graph2 = GFA(output_gfa, low_memory=True)
+    compare_bo_no_tags(graph1, graph2)
+    assert "SN" not in graph2.nodes["s644045"].tags
+
+
+def test_order_gfa_missing_sn_scaffold_node_skips_component(tmp_path, caplog):
+    input_gfa = tmp_path / "missing-sn-scaffold.gfa"
+    with open("tests/data/smallgraph.gfa", "r") as infile:
+        lines = infile.readlines()
+
+    replaced = False
+    with open(input_gfa, "w") as outfile:
+        for line in lines:
+            if not replaced and line.startswith("S\ts2\t") and "SN:Z:chr1" in line:
+                line = line.replace("\tSN:Z:chr1", "", 1)
+                replaced = True
+            outfile.write(line)
+
+    assert replaced
+
+    run_order_gfa(
+        gfa_filename=str(input_gfa),
+        outdir=str(tmp_path),
+        by_chrom=False,
+        without_sequence=True,
+    )
+
+    assert "scaffold node(s) without an SN tag; cannot order this component" in caplog.text
+    assert "Chromosome chr1 was skipped" in caplog.text
+    assert not (tmp_path / "missing-sn-scaffold-complete.gfa").exists()
+
+
+def test_order_gfa_missing_so_scaffold_node_skips_component(tmp_path, caplog):
+    input_gfa = tmp_path / "missing-so-scaffold.gfa"
+    with open("tests/data/smallgraph.gfa", "r") as infile:
+        lines = infile.readlines()
+
+    replaced = False
+    with open(input_gfa, "w") as outfile:
+        for line in lines:
+            if not replaced and line.startswith("S\ts2\t") and "SO:i:3293" in line:
+                line = line.replace("\tSO:i:3293", "", 1)
+                replaced = True
+            outfile.write(line)
+
+    assert replaced
+
+    run_order_gfa(
+        gfa_filename=str(input_gfa),
+        outdir=str(tmp_path),
+        by_chrom=False,
+        without_sequence=True,
+    )
+
+    assert "scaffold node(s) without an SO tag; cannot order this component" in caplog.text
+    assert "Chromosome chr1 was skipped" in caplog.text
+    assert not (tmp_path / "missing-so-scaffold-complete.gfa").exists()
+
+
+def test_name_comps_resets_current_tag():
+    graph = GFA()
+    graph.add_node("n1", tags=["SN:Z:chr1"])
+    graph.add_node("n2")
+
+    with pytest.raises(ValueError, match="SN tags could be missing"):
+        name_comps(graph, [{"n1"}, {"n2"}])
