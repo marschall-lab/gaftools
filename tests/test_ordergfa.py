@@ -3,7 +3,7 @@ Tests for 'gaftools order-gfa'
 """
 
 from gaftools.gfa import GFA
-from gaftools.cli.order_gfa import decompose_and_order, run_order_gfa, name_comps
+from gaftools.cli.order_gfa import decompose_and_order, force_graph_order, run_order_gfa, name_comps
 import pytest
 
 
@@ -188,6 +188,36 @@ def test_order_gfa_empty_inside_ref_warns_and_continues(caplog):
     assert node_order["d"] == (3, 0)
     assert bo == 4
     assert bubble_count == 2
+
+
+def test_force_graph_order_orders_middle_start_traversal_by_so():
+    graph = GFA()
+    scaffold_graph = GFA()
+    for node_id, so in [("a", 0), ("b", 10), ("c", 20)]:
+        tags = ["SN:Z:chr1", f"SO:i:{so}", "SR:i:0"]
+        graph.add_node(node_id, seq="A", tags=tags)
+        scaffold_graph.add_node(node_id, seq="A", tags=tags)
+
+    for node1, node2 in [("a", "b"), ("b", "c")]:
+        scaffold_graph.add_edge(node1, "+", node2, "+", 0, [0])
+
+    scaffold_nodes, inside_nodes, node_order, bo, bubble_count = force_graph_order(
+        graph,
+        scaffold_graph,
+        bubbles=[],
+        artic_points={"a", "b", "c"},
+        component_name="chr1",
+        inside_nodes=set(),
+        bo_start=0,
+    )
+
+    assert scaffold_nodes == {"a", "b", "c"}
+    assert inside_nodes == set()
+    assert node_order["a"] == (0, 0)
+    assert node_order["b"] == (1, 0)
+    assert node_order["c"] == (2, 0)
+    assert bo == 3
+    assert bubble_count == 0
 
 
 def test_name_comps_resets_current_tag():

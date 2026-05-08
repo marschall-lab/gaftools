@@ -53,6 +53,39 @@ def _has_required_articulation_so(graph, artic_points, component_name):
     return True
 
 
+def _order_traversal_by_so(scaffold_graph, trav):
+    # dfs_line gives us the nodes in a linear stretch, but not necessarily in reference order.
+    # Order the scaffold nodes by SO, then place each collapsed bubble between the scaffold
+    # nodes it connects to in this stretch.
+    trav_nodes = set(trav)
+    trav_scaffold = sorted(
+        [n for n in trav if not n.startswith("bb_")],
+        key=lambda n: int(scaffold_graph[n].tags["SO"][1]),
+    )
+    scaffold_pos = {n: i for i, n in enumerate(trav_scaffold)}
+    last_pos = len(trav_scaffold) - 1
+    sort_key = {n: float(i) for i, n in enumerate(trav_scaffold)}
+
+    for node in trav:
+        if not node.startswith("bb_"):
+            continue
+        neigh_pos = sorted(
+            scaffold_pos[n]
+            for n in scaffold_graph[node].neighbors()
+            if n in trav_nodes and not n.startswith("bb_")
+        )
+        if len(neigh_pos) == 2:
+            sort_key[node] = (neigh_pos[0] + neigh_pos[1]) / 2
+        elif len(neigh_pos) == 1 and neigh_pos[0] == 0:
+            sort_key[node] = -0.5
+        elif len(neigh_pos) == 1 and neigh_pos[0] == last_pos:
+            sort_key[node] = last_pos + 0.5
+        else:
+            raise ValueError("Could not place a bubble node relative to the scaffold SO order")
+
+    return sorted(trav, key=lambda n: sort_key[n])
+
+
 def run_order_gfa(
     gfa_filename,
     outdir="./out",
@@ -250,6 +283,8 @@ def force_graph_order(
 
     traversals = []
     for n in candidates:
+        # Each candidate traversal should be collected independently.
+        scaffold_graph.set_visited(False)
         traversals.append(scaffold_graph.dfs_line(n))
 
     ref_traversals = []
@@ -283,13 +318,10 @@ def force_graph_order(
 
     # sort each ref traversal according to the SO tag
     for trav in ref_traversals:
+        trav[:] = _order_traversal_by_so(scaffold_graph, trav)
         # I already know that the traversals in ref_traversals have the reference SN tag
         trav_scaffold = [n for n in trav if not n.startswith("bb_")]
         coordinates = list(int(scaffold_graph[n].tags["SO"][1]) for n in trav_scaffold)
-        # make sure that the traversal is in ascending order
-        if coordinates[0] > coordinates[-1]:
-            trav.reverse()
-            coordinates.reverse()
         for i in range(len(coordinates) - 1):
             assert coordinates[i] < coordinates[i + 1]
         trav.append(coordinates[0])
