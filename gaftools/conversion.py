@@ -318,6 +318,15 @@ def search(region, node_list):
     returns the nodes that belong to the region
     """
 
+    if len(node_list) == 0:
+        # no nodes corresponding to the contig defined in region[0]
+        logger.warning(
+            f"Contig {region[0]} not found in the rGFA. "
+            "It is possible that no reads aligned to this contig. "
+            "Another possibility is that the contig name is incorrect. Contig should match the SN tag of nodes. "
+        )
+        return []
+
     if region[1] is None:
         # Only contig is given
         assert region[2] is None

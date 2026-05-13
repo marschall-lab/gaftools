@@ -61,6 +61,10 @@ def run(gaf_path, gfa_path, output=None):
         with timers("convert_coord"):
             unstable_nodes = convert_coord(gaf_line, reference)
         for nd in unstable_nodes:
+            if "SO" not in nodes[nd].tags or "SN" not in nodes[nd].tags:
+                raise IncorrectGfaFormatError(
+                    f"Node {nd} does not have SO and SN tags. Index requires the GFA to have rGFA tags for all nodes."
+                )
             try:
                 out_dict[
                     (
