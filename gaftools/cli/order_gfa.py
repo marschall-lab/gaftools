@@ -429,7 +429,10 @@ def decompose_and_order(
             continue
 
         if len(bc_inside_nodes) == 0:
-            assert len(bc_end_nodes) == 2
+            if len(bc_end_nodes) != 2:
+                unordered_nodes.update(bc)
+                inside_nodes.update(bc_end_nodes)
+                continue
             node1, node2 = tuple(bc_end_nodes)
             tags = [0]
             scaffold_graph.add_edge(node1, "+", node2, "+", 0, tags)

@@ -224,6 +224,52 @@ def test_order_gfa_one_ref_endpoint_with_nonref_articulation_gets_unordered_tags
     assert bubble_count == 1
 
 
+def test_order_gfa_multiend_articulation_only_block_gets_unordered_tags():
+    graph = GFA()
+    for node_id, tags in [
+        ("x", ["SN:Z:chr1", "SO:i:0", "SR:i:0"]),
+        ("a", ["SN:Z:chr1", "SO:i:10", "SR:i:0"]),
+        ("b", ["SN:Z:alt", "SO:i:20", "SR:i:1"]),
+        ("c", ["SN:Z:chr1", "SO:i:30", "SR:i:0"]),
+        ("d", ["SN:Z:chr1", "SO:i:40", "SR:i:0"]),
+        ("y", ["SN:Z:alt", "SO:i:50", "SR:i:1"]),
+        ("z", ["SN:Z:alt", "SO:i:60", "SR:i:1"]),
+        ("w", ["SN:Z:chr1", "SO:i:70", "SR:i:0"]),
+    ]:
+        graph.add_node(node_id, seq="A", tags=tags)
+
+    for node1, node2 in [
+        ("x", "a"),
+        ("a", "b"),
+        ("b", "d"),
+        ("d", "c"),
+        ("c", "a"),
+        ("b", "y"),
+        ("d", "z"),
+        ("c", "w"),
+    ]:
+        graph.add_edge(node1, "+", node2, "+", 0, [0])
+
+    scaffold_nodes, inside_nodes, node_order, bo, bubble_count = decompose_and_order(
+        graph,
+        {"x", "a", "b", "c", "d", "y", "z", "w"},
+        "chr1",
+        ignore_branching=True,
+        scaffold_file=None,
+        bo_start=0,
+    )
+
+    assert node_order["x"] == (0, 0)
+    assert node_order["a"] == (-1, -1)
+    assert node_order["b"] == (-1, -1)
+    assert node_order["c"] == (-1, -1)
+    assert node_order["d"] == (-1, -1)
+    assert node_order["y"] == (-1, -1)
+    assert len(node_order) == 8
+    assert bo > 0
+    assert bubble_count >= 1
+
+
 def test_order_gfa_two_node_component_orders_by_so(tmp_path):
     graph = GFA()
     for node_id, so in [("b", 10), ("a", 0)]:
