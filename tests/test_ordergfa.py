@@ -190,6 +190,56 @@ def test_order_gfa_empty_inside_ref_warns_and_continues(caplog):
     assert bubble_count == 2
 
 
+def test_order_gfa_two_node_component_orders_by_so(tmp_path):
+    graph = GFA()
+    for node_id, so in [("b", 10), ("a", 0)]:
+        graph.add_node(node_id, seq="A", tags=["SN:Z:chr1", f"SO:i:{so}", "SR:i:0"])
+    graph.add_edge("a", "+", "b", "+", 0, [0])
+
+    input_gfa = tmp_path / "two-node.gfa"
+    graph.write_gfa(output_file=str(input_gfa))
+
+    run_order_gfa(
+        gfa_filename=str(input_gfa),
+        outdir=str(tmp_path),
+        by_chrom=False,
+        without_sequence=True,
+    )
+
+    output_gfa = GFA(str(tmp_path / "two-node-complete.gfa"), low_memory=True)
+    assert output_gfa.nodes["a"].tags["BO"] == ("i", "0")
+    assert output_gfa.nodes["a"].tags["NO"] == ("i", "0")
+    assert output_gfa.nodes["b"].tags["BO"] == ("i", "1")
+    assert output_gfa.nodes["b"].tags["NO"] == ("i", "0")
+
+
+def test_order_gfa_circular_component_gets_unordered_tags(tmp_path, caplog):
+    graph = GFA()
+    for node_id, so in [("a", 0), ("b", 10), ("c", 20)]:
+        graph.add_node(node_id, seq="A", tags=["SN:Z:chr1", f"SO:i:{so}", "SR:i:0"])
+
+    for node1, node2 in [("a", "b"), ("b", "c"), ("c", "a")]:
+        graph.add_edge(node1, "+", node2, "+", 0, [0])
+
+    input_gfa = tmp_path / "circular.gfa"
+    graph.write_gfa(output_file=str(input_gfa))
+
+    run_order_gfa(
+        gfa_filename=str(input_gfa),
+        outdir=str(tmp_path),
+        by_chrom=False,
+        without_sequence=True,
+    )
+
+    assert "has no articulation points after biconnected decomposition" in caplog.text
+    assert "emitting BO=-1 and NO=-1 for all nodes in this component" in caplog.text
+
+    output_gfa = GFA(str(tmp_path / "circular-complete.gfa"), low_memory=True)
+    for node_id in ["a", "b", "c"]:
+        assert output_gfa.nodes[node_id].tags["BO"] == ("i", "-1")
+        assert output_gfa.nodes[node_id].tags["NO"] == ("i", "-1")
+
+
 def test_force_graph_order_orders_middle_start_traversal_by_so():
     graph = GFA()
     scaffold_graph = GFA()

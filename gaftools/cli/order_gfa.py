@@ -53,6 +53,23 @@ def _has_required_articulation_so(graph, artic_points, component_name):
     return True
 
 
+def _order_two_node_component(graph, component, component_name, bo_start):
+    if not _has_required_articulation_so(graph, component, component_name):
+        return None, None, None, None, None
+
+    ordered_nodes = sorted(component, key=lambda x: int(graph[x].tags["SO"][1]))
+    node_order = {
+        ordered_nodes[0]: (bo_start, 0),
+        ordered_nodes[1]: (bo_start + 1, 0),
+    }
+    return set(component), set(), node_order, bo_start + 2, 0
+
+
+def _mark_component_unordered(component, bo_start):
+    node_order = {node: (-1, -1) for node in component}
+    return set(), set(component), node_order, bo_start, 0
+
+
 def _order_traversal_by_so(scaffold_graph, trav):
     # dfs_line gives us the nodes in a linear stretch, but not necessarily in reference order.
     # Order the scaffold nodes by SO, then place each collapsed bubble between the scaffold
@@ -164,8 +181,8 @@ def run_order_gfa(
             graph, component_nodes, chromosome, ignore_branching, scaffold_file, bo
         )
 
-        # skip a chromosome if something went wrong
-        if scaffold_nodes:
+        # skip a chromosome only if ordering failed completely
+        if node_order is not None:
             f_gfa = (
                 outdir
                 + os.sep
@@ -356,6 +373,8 @@ def decompose_and_order(
     if len(component) == 1:
         node = list(component)[0]
         return component, set(), {node: (bo_start, 0)}, bo_start + 1, 0
+    if len(component) == 2:
+        return _order_two_node_component(graph, component, component_name, bo_start)
 
     new_graph = graph.graph_from_comp(component)
     start = time.perf_counter()
@@ -363,6 +382,14 @@ def decompose_and_order(
     logger.info(
         f" It took {time.perf_counter() - start} seconds to find the Biconnected Components"
     )
+    if not artic_points:
+        logger.warning(
+            "Chromosome %s has no articulation points after biconnected decomposition; "
+            "likely a circular or fully biconnected component; emitting BO=-1 and NO=-1 "
+            "for all nodes in this component.",
+            component_name,
+        )
+        return _mark_component_unordered(component, bo_start)
     if not _has_required_articulation_so(new_graph, artic_points, component_name):
         return None, None, None, None, None
     highest_artic_point = max(artic_points, key=lambda x: int(new_graph[x].tags["SO"][1]))
