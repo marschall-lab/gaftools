@@ -34,11 +34,13 @@ def run(gaf_path, gfa_path, output=None):
     gfa_file = GFA(graph_file=gfa_path, low_memory=True)
     contigs = list(gfa_file.contigs.keys())
     ref_contig = [contig for contig in gfa_file.contigs if gfa_file.contigs[contig] == 0]
+    nodes = gfa_file.nodes
     for contig in contigs:
         path = gfa_file.get_path(contig, throw_warning=False)
         for node in path:
-            reference[contig].append(gfa_file[node])
-    nodes = gfa_file.nodes
+            node = nodes[node]
+            assert "SO" in node.tags and "SN" in node.tags
+            reference[contig].append(node)
     del gfa_file
 
     if utils.is_file_gzipped(gaf_path):

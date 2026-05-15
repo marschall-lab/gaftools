@@ -7,6 +7,7 @@ import re
 
 import gaftools.utils as utils
 from gaftools.gaf import GAF
+from gaftools.gfa import Node
 from gaftools.errors import IncorrectGfaFormatError, IncorrectGafFormatError
 
 logger = logging.getLogger(__name__)
@@ -279,30 +280,19 @@ def get_nodes_from_region(region, tagged_contig_nodes):
     tagged_contig_nodes: Iterable[gfa.Node]
     """
 
-    node_list = []
-    for node in tagged_contig_nodes:
-        if len(node_list) > 0:
-            assert node_list[-1][2] < int(node.tags["SO"][1])
-        node_list.append(
-            [
-                node.id,
-                node.tags["SN"][1],
-                int(node.tags["SO"][1]),
-                int(node.tags["SO"][1]) + node.seq_len,
-            ]
-        )
-
-    unstable_node_indices = search(region, node_list)
+    unstable_node_indices = search(region, tagged_contig_nodes)
 
     # checking if the unstable nodes cover the whole region or there are gaps.
     # cannot deal with gaps.
     for i in range(1, len(unstable_node_indices)):
-        prev_unstable_node = node_list[unstable_node_indices[i] - 1]
-        curr_unstable_node = node_list[unstable_node_indices[i]]
-        if prev_unstable_node[3] != curr_unstable_node[2]:
+        prev_unstable_node = tagged_contig_nodes[unstable_node_indices[i] - 1]
+        curr_unstable_node = tagged_contig_nodes[unstable_node_indices[i]]
+        prev_end = int(prev_unstable_node.tags["SO"][1]) + prev_unstable_node.seq_len
+        curr_start = int(curr_unstable_node.tags["SO"][1])
+        if prev_end != curr_start:
             raise IncorrectGfaFormatError(
                 f"Tried to convert region {region[0]}:{region[1]}-{region[2]}. "
-                f"Found discontinuous nodes {', '.join([node_list[x][0] for x in unstable_node_indices])}. Region is not fully annotated in the GFA."
+                f"Found discontinuous nodes {', '.join([tagged_contig_nodes[x].id for x in unstable_node_indices])}. Region is not fully annotated in the GFA."
             )
 
     return unstable_node_indices
@@ -313,11 +303,16 @@ def search(region, node_list):
     Find the unstable node indices in node_list from region information
 
     region: [contig, start, end] encodes the region information
-    node_list: sorted list of tagged nodes of format Iterable[node_name, contig, start, end] (sort index is start)
+    node_list:
+        - For converting alignment path:
+            - Iterable[gfa.Node] (which should be sorted). Using its start and end information.
+            - This information comes from GFA.
+        - For converting user-defined regions:
+            - Iterable[node_name, contig, start, end].
+            - This comes from the view index file.
 
     returns the nodes that belong to the region
     """
-
     if len(node_list) == 0:
         # no nodes corresponding to the contig defined in region[0]
         logger.warning(
@@ -326,6 +321,26 @@ def search(region, node_list):
             "Another possibility is that the contig name is incorrect. Contig should match the SN tag of nodes. "
         )
         return []
+
+    def get_start_node(n):
+        return int(n.tags["SO"][1])
+
+    def get_end_node(n):
+        return int(n.tags["SO"][1]) + n.seq_len
+
+    def get_start_list(n):
+        return n[2]
+
+    def get_end_list(n):
+        return n[3]
+
+    # checking type of object inside node_list
+    if isinstance(node_list[0], Node):
+        get_start = get_start_node
+        get_end = get_end_node
+    else:
+        get_start = get_start_list
+        get_end = get_end_list
 
     if region[1] is None:
         # Only contig is given
@@ -338,10 +353,10 @@ def search(region, node_list):
     q_e = int(region[2])
     while s != e:
         m = int((s + e) / 2)
-        if (q_s >= node_list[m][2]) and (q_s < node_list[m][3]):
+        if (q_s >= get_start(node_list[m])) and (q_s < get_end(node_list[m])):
             pos = m
             break
-        elif q_s >= node_list[m][3]:
+        elif q_s >= get_end(node_list[m]):
             s = m + 1
         else:
             e = m - 1
@@ -352,22 +367,22 @@ def search(region, node_list):
     # In the examples below ------ will denote nodes that are not covered and ++++++ are the nodes that are covered.
     # In the binary search, if the query state does not belong to a +++++ node, then it will report either the node
     #   to the left or right of the absent node.
-    if q_s < node_list[pos][2] and q_s < node_list[pos][3]:
+    if q_s < get_start(node_list[pos]) and q_s < get_end(node_list[pos]):
         #  Case 1:  ------------+++++++++++++
         #               ^              ^
         #           query start    node reported
-        if q_e <= node_list[pos][2]:
+        if q_e <= get_start(node_list[pos]):
             # query region ends before the reported node starts
             return []
         result = [pos]
         pos += 1
         while pos < len(node_list):
-            if q_e <= node_list[pos][2]:
+            if q_e <= get_start(node_list[pos]):
                 break
             result.append(pos)
             pos += 1
         return result
-    elif q_s > node_list[pos][2] and q_s >= node_list[pos][3]:
+    elif q_s > get_start(node_list[pos]) and q_s >= get_end(node_list[pos]):
         #  Case 2:  ++++++++++++---------------
         #               ^              ^
         #           node reported  query start
@@ -375,13 +390,13 @@ def search(region, node_list):
             # reported node is the last node
             return []
         pos += 1
-        if q_e <= node_list[pos][2]:
+        if q_e <= get_start(node_list[pos]):
             # query region ends before the current node starts
             return []
         result = [pos]
         pos += 1
         while pos < len(node_list):
-            if q_e <= node_list[pos][2]:
+            if q_e <= get_start(node_list[pos]):
                 break
             result.append(pos)
             pos += 1
@@ -391,11 +406,11 @@ def search(region, node_list):
     # -----------+++++++++++++++++---------------
     #                   ^
     #  query starts here and node is reported here
-    assert q_s >= node_list[pos][2] and q_s < node_list[pos][3]
+    assert q_s >= get_start(node_list[pos]) and q_s < get_end(node_list[pos])
     result = [pos]
     pos += 1
     while pos < len(node_list):
-        if q_e <= node_list[pos][2]:
+        if q_e <= get_start(node_list[pos]):
             break
         result.append(pos)
         pos += 1

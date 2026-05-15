@@ -72,7 +72,9 @@ def run(gaf_path, gfa=None, output=None, index=None, nodes=[], regions=[], forma
             for contig in contigs:
                 path = gfa_file.get_path(contig, throw_warning=False)
                 for node in path:
-                    reference[contig].append(gfa_file[node])
+                    node = gfa_file[node]
+                    assert "SO" in node.tags and "SN" in node.tags
+                    reference[contig].append(node)
             del gfa_file
 
     # now find out what lines to view and how to view
