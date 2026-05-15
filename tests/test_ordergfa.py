@@ -102,7 +102,7 @@ def test_order_gfa_missing_sn_inside_node_still_orders(tmp_path):
     assert "SN" not in graph2.nodes["s644045"].tags
 
 
-def test_order_gfa_missing_sn_scaffold_node_skips_component(tmp_path, caplog):
+def test_order_gfa_missing_sn_scaffold_node_gets_unordered_tags(tmp_path):
     input_gfa = tmp_path / "missing-sn-scaffold.gfa"
     with open("tests/data/smallgraph.gfa", "r") as infile:
         lines = infile.readlines()
@@ -124,9 +124,10 @@ def test_order_gfa_missing_sn_scaffold_node_skips_component(tmp_path, caplog):
         without_sequence=True,
     )
 
-    assert "scaffold node(s) without an SN tag; cannot order this component" in caplog.text
-    assert "Chromosome chr1 was skipped" in caplog.text
-    assert not (tmp_path / "missing-sn-scaffold-complete.gfa").exists()
+    output_gfa = GFA(str(tmp_path / "missing-sn-scaffold-complete.gfa"), low_memory=True)
+    for node_id in ["s1", "s2", "s3", "s4"]:
+        assert output_gfa.nodes[node_id].tags["BO"] == ("i", "-1")
+        assert output_gfa.nodes[node_id].tags["NO"] == ("i", "-1")
 
 
 def test_order_gfa_missing_so_scaffold_node_skips_component(tmp_path, caplog):
@@ -188,6 +189,39 @@ def test_order_gfa_empty_inside_ref_warns_and_continues(caplog):
     assert node_order["d"] == (3, 0)
     assert bo == 4
     assert bubble_count == 2
+
+
+def test_order_gfa_one_ref_endpoint_with_nonref_articulation_gets_unordered_tags():
+    graph = GFA()
+    for node_id, tags in [
+        ("x", ["SN:Z:chr1", "SO:i:0", "SR:i:0"]),
+        ("a", ["SN:Z:chr1", "SO:i:10", "SR:i:0"]),
+        ("b", ["SN:Z:alt", "SO:i:20", "SR:i:1"]),
+        ("c", ["SN:Z:alt", "SO:i:30", "SR:i:1"]),
+        ("y", ["SN:Z:alt", "SO:i:40", "SR:i:1"]),
+    ]:
+        graph.add_node(node_id, seq="A", tags=tags)
+
+    for node1, node2 in [("x", "a"), ("a", "b"), ("b", "c"), ("c", "a"), ("c", "y")]:
+        graph.add_edge(node1, "+", node2, "+", 0, [0])
+
+    scaffold_nodes, inside_nodes, node_order, bo, bubble_count = decompose_and_order(
+        graph,
+        {"x", "a", "b", "c", "y"},
+        "chr1",
+        ignore_branching=True,
+        scaffold_file=None,
+        bo_start=0,
+    )
+
+    assert scaffold_nodes == {"x", "a", "c"}
+    assert node_order["x"] == (0, 0)
+    assert node_order["a"] == (-1, -1)
+    assert node_order["b"] == (-1, -1)
+    assert node_order["c"] == (-1, -1)
+    assert node_order["y"] == (-1, -1)
+    assert bo == 3
+    assert bubble_count == 1
 
 
 def test_order_gfa_two_node_component_orders_by_so(tmp_path):

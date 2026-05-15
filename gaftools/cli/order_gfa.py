@@ -70,6 +70,12 @@ def _mark_component_unordered(component, bo_start):
     return set(), set(component), node_order, bo_start, 0
 
 
+def _mark_nodes_unordered(node_order, unordered_nodes):
+    for node in unordered_nodes:
+        node_order[node] = (-1, -1)
+    return node_order
+
+
 def _order_traversal_by_so(scaffold_graph, trav):
     # dfs_line gives us the nodes in a linear stretch, but not necessarily in reference order.
     # Order the scaffold nodes by SO, then place each collapsed bubble between the scaffold
@@ -405,11 +411,23 @@ def decompose_and_order(
         scaffold_node_types[n] = "s"
 
     inside_nodes = set()
+    unordered_nodes = set()
     for bc in all_biccs:
         # the components still have the articulation nodes in, need to be removed
         bc_inside_nodes = bc.difference(artic_points)
         bc_end_nodes = bc.intersection(artic_points)
+        ref_end_nodes = {
+            n
+            for n in bc_end_nodes
+            if "SN" in graph[n].tags and graph[n].tags["SN"][1] == component_name
+        }
         inside_nodes.update(bc_inside_nodes)
+
+        if len(ref_end_nodes) == 0 or (len(ref_end_nodes) == 1 and len(bc_end_nodes) > 1):
+            unordered_nodes.update(bc)
+            inside_nodes.update(bc_end_nodes)
+            continue
+
         if len(bc_inside_nodes) == 0:
             assert len(bc_end_nodes) == 2
             node1, node2 = tuple(bc_end_nodes)
@@ -418,13 +436,9 @@ def decompose_and_order(
 
         else:
             if len(bc_end_nodes) == 1:
-                # I find the lowest SO value for the reference nodes, I extract that and add it as an artic node
-                # and add this to the scaffold_graph i am creating
-                # import pdb
-                # pdb.set_trace()
+                # For terminal reference blocks, try to promote the closest reference-tagged
+                # internal node into the scaffold so the chromosome ends remain orderable.
                 to_adjust = None
-                # Some bubble-internal nodes can be unannotated; only reference-tagged candidates
-                # with coordinates are relevant when promoting a node into the scaffold.
                 inside_ref = [
                     n
                     for n in bc_inside_nodes
@@ -442,8 +456,6 @@ def decompose_and_order(
                         "matching the reference SN/SO tags; leaving it unpromoted in the scaffold",
                         component_name,
                     )
-                else:
-                    pass
 
                 if to_adjust:
                     artic_points.add(to_adjust)
@@ -464,6 +476,19 @@ def decompose_and_order(
             for end_node in bc_end_nodes:
                 tags = [0]
                 scaffold_graph.add_edge("bb_" + str(bubble_index), "+", end_node, "+", 0, tags)
+
+    for node in unordered_nodes:
+        if node in scaffold_node_types and len(scaffold_graph[node].neighbors()) == 0:
+            del scaffold_graph[node]
+            del scaffold_node_types[node]
+
+    if len(scaffold_graph) == 0:
+        logger.warning(
+            "Chromosome %s has no scaffold blocks with at least two reference endpoints; "
+            "emitting BO=-1 and NO=-1 for all nodes in this component.",
+            component_name,
+        )
+        return _mark_component_unordered(component, bo_start)
 
     if not _has_required_scaffold_sn(graph, scaffold_node_types, component_name):
         return None, None, None, None, None
@@ -486,9 +511,12 @@ def decompose_and_order(
     if len(degree_one) != 2:
         if ignore_branching:
             logger.info("Scaffold graph is not a line, user chose to ignore the branching")
-            return force_graph_order(
+            scaffold_nodes, inside_nodes, node_order, bo, bubble_count = force_graph_order(
                 graph, scaffold_graph, bubbles, artic_points, component_name, inside_nodes, bo_start
             )
+            if node_order is not None:
+                _mark_nodes_unordered(node_order, unordered_nodes)
+            return scaffold_nodes, inside_nodes, node_order, bo, bubble_count
             # function for forcing the order
         else:
             raise BranchedGfaComponentError(
@@ -499,9 +527,12 @@ def decompose_and_order(
     if len(degree_two) != len(scaffold_graph) - 2:
         if ignore_branching:
             logger.info("Scaffold graph is not a line, forcing the order of the graph")
-            return force_graph_order(
+            scaffold_nodes, inside_nodes, node_order, bo, bubble_count = force_graph_order(
                 graph, scaffold_graph, bubbles, artic_points, component_name, inside_nodes, bo_start
             )
+            if node_order is not None:
+                _mark_nodes_unordered(node_order, unordered_nodes)
+            return scaffold_nodes, inside_nodes, node_order, bo, bubble_count
 
         else:
             logger.error(
@@ -540,6 +571,7 @@ def decompose_and_order(
             for i, n in enumerate(sorted(bubbles[int(node[3:])])):
                 node_order[n] = (bo, i + 1)
         bo += 1
+    _mark_nodes_unordered(node_order, unordered_nodes)
     return artic_points, inside_nodes, node_order, bo, len(bubbles)
 
 
