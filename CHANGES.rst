@@ -1,6 +1,16 @@
 Changes
 =======
 
+v1.4.0 (20/05/2026)
+-------------------
+
+* Better error handling with more diverse error handling classes.
+* Reading reference name from GFA header in :code:`gfa2rgfa`.
+* Standardising contig names in SN tags to :code:`<sample name>#<haplotype name>#<contig name>` in :code:`gfa2rgfa` output.
+* Coordinate conversion with incomplete rGFA (not all nodes have rGFA tags) in :code:`view`. Not yet implemented for other subcommands.
+* Restructured and improved pytest testing.
+* Better handling of non-linear components in :code:`order_gfa`, like circular components.
+
 v1.3.2 (25/03/2026)
 -------------------
 
