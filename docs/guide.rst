@@ -82,26 +82,22 @@ It returns the sequence of the path(s) by default but using the :code:`--fasta` 
 
 If one of the paths does not exist, the process will terminate, the user can use :code:`-k, --keep-going` to skip the paths that do not exist and continue with the next path if available.
 
-.. code-block::
+.. code-block:: none
   :caption: find_path arguments
 
-    usage: gaftools find_path [-h] [-p PATH] [--paths_file PATHS_FILE] [-k] [-o OUTPUT] [-f] GFA
+  Find the genomic sequence of a given connected GFA path.
 
-    Find the genomic sequence of a given connected GFA path.
+  positional arguments:
+    GFA                   GFA file (can be bgzip-compressed)
 
-    positional arguments:
-      GFA                   GFA file (can be bgzip-compressed)
-
-    options:
-      -h, --help            show this help message and exit
-      -p PATH, --path PATH  GFA node path to retrieve the sequence (e.g., ">s82312<s82313") with the quotes
-      --paths_file PATHS_FILE
-                            File containing the paths to retrieve the sequences for, each path on new line
-      -k, --keep-going      Keep going after instead of stopping when a path does not exist
-      -o OUTPUT, --output OUTPUT
-                            Output file. If omitted, use standard output.
-      -f, --fasta           Flag to output the sequence as a FASTA file with the seqeunce named seq_<node path>
-    gaftools error: the following arguments are required: GFA
+  options:
+    -h, --help            show this help message and exit
+    -p, --path PATH       GFA node path to retrieve the sequence (e.g., ">s82312<s82313") with the quotes
+    --paths-file PATHS_FILE
+                          File containing the paths to retrieve the sequences for, each path on new line
+    -k, --keep-going      Keep going after instead of stopping when a path does not exist
+    -o, --output OUTPUT   Output file. If omitted, use standard output.
+    -f, --fasta           Flag to output the sequence as a FASTA file with the seqeunce named seq_<node path>
 
 .. _gaftools-gfa2rgfa:
 
@@ -110,7 +106,7 @@ gaftools gfa2rgfa
 
 This subcommand creates rGFA equivalent of GFA files using the W lines present in the GFA.
 
-For creating the rGFA tags for all the reference nodes, the minimum requirements (as specified below) should be given. We assume that the pangenome graph is based on a pangenome reference (as is the case with minigraph-based graph constructions methods).
+For creating the rGFA tags for all the reference nodes, the minimum requirements (as specified below) should be given. We assume that the pangenome graph is based on a base reference assembly (as is the case with minigraph-based graph constructions methods).
 
 For further tagging the non-reference nodes coming from assemblies added to the reference assembly, the :code:`seqfile` can be provided and corresponding W lines should be available in the GFA (refer to 'Format of seqfile').
 If the :code:`seqfile` is not provided, then the order in which walks are given in the GFA will be used to tag the non-reference nodes. Users can provide their own order of assemblies in the seqfile, and the coordinates will be generated accordingly.
@@ -124,7 +120,7 @@ If the GFA already has the reference nodes tagged (as is the case of the GFA gen
 Minimum Requirements
 --------------------
 
-* The GFA should have a W line corresponding to the reference name provided as part of the command (using :code:`--reference-name`).
+* The GFA should have a reference path defined in the Header lines with :code:`RS:Z` tag or given by the user with :code:`--reference-name`. There should also be W-lines for the reference path.
 * The reference path described by the W line should be cycle-free and oriented in the forward direction (path of the format :code:`>node_1>node_2....>node_N`)
 
 Note: From the Human Pangenome Reference Consortium, the graphs generated using minigraph-cactus follow these requirements. The PGGB graphs do not.
@@ -149,23 +145,23 @@ Usage
 
 The :code:`gfa2rgfa` subcommand takes 1 obligatory input, a GFA file. It creates a rGFA file with appropriate tags.
 
-.. code-block::
+.. code-block:: none
   :caption: gfa2rgfa arguments
 
-  usage: gaftools gfa2rgfa [-h] [--reference-name REFERENCE NAME] [--reference-tagged] [--seqfile SEQFILE] [--output GFA] GFA
+  usage: gaftools gfa2rgfa [-h] [--reference-name REFERENCE NAME] [--override-reference] [--seqfile SEQFILE] [--output rGFA] GFA
 
-  Converting a GFA file to rGFA format using the W-lines and the acyclic reference path. (e.g., minigraph-based graphs).
+  Converting a GFA file to rGFA format using the W-lines and the acyclic reference path. (e.g., minigraph-based graphs)
 
   positional arguments:
-    GFA                   GFA file (can be bgzip-compressed). This GFA should have a W-line corresponding to the reference genome or the
-                          reference nodes have to be tagged already.
+    GFA                   GFA file (can be bgzip-compressed). This GFA should have a W-line corresponding to the reference genome or the reference nodes have to be tagged already.
 
   options:
     -h, --help            show this help message and exit
     --reference-name REFERENCE NAME
-                          The name of the reference genome given in the W-line. Default: CHM13
-    --reference-tagged    Flag to denote reference nodes are already tagged in the GFA.
-    --seqfile SEQFILE     File containing the sequence in which assemblies were given. Provide the seqfile given as part of running minigraph-cactus (only the first column is required). It has the format: <assembly_name><tab><assembly_path>. If not provided, the order of assemblies will be taken from the GFA file. User-defined order of assemblies can also be given. There should be W lines for each assembly in the GFA.
+                          The name of the reference genome given in the W-line. If --reference-name is not specified, it looks for reference name in H lines.
+    --override-reference  Flag to override any nodes tagged in the GFA as reference nodes.
+    --seqfile SEQFILE     File containing the sequence in which assemblies were given. Provide the seqfile given as part of running minigraph-cactus (only the first column is required). It has the format: <assembly_name><tab><assembly_path>. If not provided, the order of assemblies will be taken from
+                          the GFA file. User-defined order of assemblies can also be given. There should be W lines for each assembly in the GFA.
     --output rGFA         Output rGFA (bgzipped if the file ends with .gz). If omitted, use standard output.
 
 
@@ -183,7 +179,7 @@ The index is a reverse look-up table with the keys being nodes in the graph and 
 The index is stored as a Python dictionary with the node IDs (as strings) as keys and a list of offset values (as integers) as values for the key.
 This dictionary is written to memory using the :code:`pickle` module.
 
-.. code-block::
+.. code-block:: none
   :caption: view index structure
 
   {
@@ -198,20 +194,24 @@ Usage
 The :code:`index` subcommand takes 2 obligatory inputs, a GAF alignment file and its corresponding rGFA graph. It creates an viewing index file with the
 extension :code:`.gvi` which is required by the :code:`view` command.
 
-.. code-block::
+.. code-block:: none
   :caption: index arguments
 
   usage: gaftools index [-h] [-o OUTPUT] GAF rGFA
 
+  Index a GAF file for the view functionality.
+
+  This script creates an inverse look-up table where:
+      - key: the node information
+      - value: the offsets in the GAF file where the node is present
+
   positional arguments:
-    GAF                   Input GAF file (can be bgzip-compressed)
-    rGFA                  Reference rGFA file
+    GAF                  GAF file (can be bgzip-compressed)
+    rGFA                 rGFA file (can be bgzip-compressed)
 
-  optional arguments:
-    -h, --help            show this help message and exit
-    -o OUTPUT, --output OUTPUT
-                          Path to the output Indexed GAF file. If omitted, use <GAF File>.gvi
-
+  options:
+    -h, --help           show this help message and exit
+    -o, --output OUTPUT  Output GAF View Index (GVI) file. Default: <GAF file>.gvi
 
 .. _gaftools-order-gfa:
 
@@ -268,29 +268,28 @@ Users can also specify an output directory.
 The outputs of :code:`order_gfa` are separate rGFA graphs for each chromosome and a graph for all chromosomes both ordered by S lines first then L lines, and the S lines are ordered by
 their BO tag then NO tag, also will output a CSV file with node colors similar to the figure above that works with Bandage.
 
-.. code-block::
+.. code-block:: none
   :caption: order_gfa arguments
 
-    usage: gaftools order_gfa [-h] [--chromosome-order CHROMOSOME_ORDER] [--without-sequence] [--outdir OUTDIR] [--by-chrom] [--ignore-branching] [--output_scaffold] GRAPH
+  usage: gaftools order_gfa [-h] [--chromosome-order CHROMOSOME_ORDER] [--without-sequence] [--outdir OUTDIR] [--by-chrom] [--ignore-branching] [--output-scaffold] GRAPH
 
-    Order bubbles in the GFA by adding BO and NO tags.
+  Order bubbles in the GFA by adding BO and NO tags.
 
-    The BO (Bubble Order) tags order bubbles in the GFA.
-    The NO (Node Order) tags order the nodes in a bubble (in a lexicographic order).
+  The BO (Bubble Order) tags order bubbles in the GFA.
+  The NO (Node Order) tags order the nodes in a bubble (in a lexicographic order).
 
-    positional arguments:
-      GRAPH                 Input rGFA file
+  positional arguments:
+    GRAPH                 Input rGFA file
 
-    options:
-      -h, --help            show this help message and exit
-      --chromosome-order CHROMOSOME_ORDER
-                            Order in which to arrange chromosomes in terms of BO sorting. By default, it is arranged in the lexicographic order of identified component names. Expecting comma-separated list. Example: 'chr1,chr2,chr3'
-      --without-sequence    Strip sequences from the output graph (for less memory usage and easier visualization). Default = False
-      --outdir OUTDIR       Output Directory to store all the GFA and CSV files. Default location is a "out" folder from the directory of execution.
-      --by-chrom            Outputs each chromosome as a separate GFA, otherwise, all chromosomes in one GFA file
-      --ignore-branching    Force the order even when branching paths occur in the scaffold graph. Alternative alleles will not be ordered
-      --output_scaffold     Output the scaffold graph in GFA format. The scaffold graph is the graph created from collapsing all the biconnected components.
-    gaftools error: the following arguments are required: GRAPH
+  options:
+    -h, --help            show this help message and exit
+    --chromosome-order CHROMOSOME_ORDER
+                          Order in which to arrange chromosomes in terms of BO sorting. By default, it is arranged in the lexicographic order of identified component names. Expecting comma-separated list. Example: 'chr1,chr2,chr3'
+    --without-sequence    Strip sequences from the output graph (for less memory usage and easier visualization). Default = False
+    --outdir OUTDIR       Output Directory to store all the GFA and CSV files. Default location is a "out" folder from the directory of execution.
+    --by-chrom            Outputs each chromosome as a separate GFA, otherwise, all chromosomes in one GFA file
+    --ignore-branching    Force the order even when branching paths occur in the scaffold graph. Alternative alleles will not be ordered
+    --output-scaffold     Output the scaffold graph in GFA format. The scaffold graph is the graph created from collapsing all the biconnected components.
 
 .. _gaftools-phase:
 
@@ -310,19 +309,23 @@ further details.
 
 The :code:`phase` command adds these tags to the GAF file so that downstream processes can utilize them.
 
-.. code-block::
+.. code-block:: none
   :caption: phase arguments
 
   usage: gaftools phase [-h] [-o OUTPUT] GAF TSV
 
-  positional arguments:
-    GAF                   Input GAF file (can be bgzip-compressed)
-    TSV                   WhatsHap haplotag TSV file. Refer to https://whatshap.readthedocs.io/en/latest/guide.html#whatshap-haplotag
+  Add phasing information to the GAF file from a haplotag TSV file.
 
-  optional arguments:
-    -h, --help            show this help message and exit
-    -o OUTPUT, --output OUTPUT
-                          Output GAF file. If omitted, output is directed to standard output.
+  The script uses the TSV file containing the haplotag information generated from WhatsHap's haplotag command.
+  The H1 and H2 labels for each read are then added to the reads in the GAF file.
+
+  positional arguments:
+    GAF                  GAF file (can be bgzip-compressed)
+    TSV                  WhatsHap haplotag TSV file. Refer to https://whatshap.readthedocs.io/en/latest/guide.html#whatshap-haplotag
+
+  options:
+    -h, --help           show this help message and exit
+    -o, --output OUTPUT  Output GAF file (bgzipped if the file ends with .gz). If omitted, output is directed to stdout.
 
 
 .. _gaftools-realign:
@@ -347,22 +350,22 @@ that they need to maybe use a cluster with sufficient memory. For example, we te
 by the system due to high memory consumption, the realignment run will be aborted.
 
 
-.. code-block::
+.. code-block:: none
   :caption: realign arguments
 
-  usage: gaftools realign [-h] [-o OUTPUT] [-c CORES] GAF rGFA READS
+  usage: gaftools realign [-h] [-o OUTPUT] [-c CORES] GAF GFA READS
+
+  Realign a GAF file using wavefront alignment algorithm (WFA).
 
   positional arguments:
-    GAF                   Input GAF file (can be bgzip-compressed)
-    rGFA                  reference rGFA file
-    READS                 Input reads file in FASTA or FASTQ format (optionally gzipped)
+    GAF                  GAF file (can be bgzip-compressed)
+    GFA                  GFA file (can be bgzip-compressed)
+    READS                Reads file in FASTA or FASTQ format (optionally gzipped)
 
   options:
-    -h, --help            show this help message and exit
-    -o OUTPUT, --output OUTPUT
-                          Output GAF file. If omitted, use standard output.
-    -c CORES, --cores CORES
-                          Number of cores to use for alignments.
+    -h, --help           show this help message and exit
+    -o, --output OUTPUT  Output GAF file (bgzipped if the file ends with .gz). If omitted, use standard output.
+    -c, --cores CORES    Number of cores to use for alignments.
 
 
 .. _gaftools-sort:
@@ -382,7 +385,7 @@ The current index is just pointers to the start and end position of alignments t
 The index is stored as a Python dictionary with the chromosome names (as strings) as keys and the start offset and end offset of the alignments in the GAF file as values.
 This dictionary is written to memory using the :code:`pickle` module.
 
-.. code-block::
+.. code-block:: none
   :caption: sort index structure
 
   {
@@ -405,23 +408,21 @@ By default, the GAF is outputted in :code:`stdout` and without a sorting index. 
 can be used to provide path to the output GAF and its sorting index. If no :code:`--outind` is given, the command automatically creates one
 with the name of the GAF file provided and :code:`.gsi` extension.
 
-The :code:`--bgzip` flag allows to compress the GAF file and create an index based on the compression.
-
-.. code-block::
+.. code-block:: none
   :caption: sort arguments
 
-  usage: gaftools sort [-h] [--outgaf OUTGAF] [--outind OUTIND] [--bgzip] GAF GFA
+  usage: gaftools sort [-h] [--outgaf OUTGAF] [--outind OUTIND] GAF GFA
+
+  Sort the GAF alignments using BO and NO tags of the corresponding graph.
 
   positional arguments:
-    GAF              Input GAF File (can be bgzip-compressed)
+    GAF              GAF File (can be bgzip-compressed)
     GFA              GFA file with the sort keys (BO and NO tagged). This is done with gaftools order_gfa
 
-  optional arguments:
+  options:
     -h, --help       show this help message and exit
-    --outgaf OUTGAF  Output GAF File path (Default: sys.stdout)
-    --outind OUTIND  Output Index File path for the GAF file. When --outgaf is not given, no index is created. If it is given and --outind is not specified, it will have
-                    same file name with .gsi extension)
-    --bgzip          Flag to bgzip the output. Can only be given with --outgaf.
+    --outgaf OUTGAF  Output GAF (bgzipped if the file ends with .gz). If omitted, use standard output.
+    --outind OUTIND  Output GAF Sorting Index file. When --outgaf is not given, no index is created. If it is given and --outind is not specified, it will have same file name with .gsi extension)
 
 
 .. _gaftools-stat:
@@ -438,19 +439,20 @@ Usage
 The :code:`stat` subcommand takes 1 obligatory inputs, a GAF alignment file. It outputs statistics for the GAF file in the
 :code:`stdout` by default. The :code:`--cigar` flag can be provided for more detailed statistics but requires more time.
 
-.. code-block::
+.. code-block:: none
   :caption: index arguments
 
   usage: gaftools stat [-h] [-o OUTPUT] [--cigar] GAF
 
-  positional arguments:
-    GAF                   Input GAF file (can be bgzip-compressed)
+  Calculate statistics of the given GAF file.
 
-  optional arguments:
-    -h, --help            show this help message and exit
-    -o OUTPUT, --output OUTPUT
-                          Output file. If omitted, use standard output.
-    --cigar               Outputs cigar related statistics (requires more time)
+  positional arguments:
+    GAF                  GAF file (can be bgzip-compressed)
+
+  options:
+    -h, --help           show this help message and exit
+    -o, --output OUTPUT  Output file. If omitted, use standard output.
+    --cigar              Outputs cigar related statistics (requires more time)
 
 
 .. _gaftools-view:
@@ -471,30 +473,33 @@ the rGFA file which was used for the alignment and the index file created with :
 
 By only providing the GAF file, the :code:`view` command can output the entire file.
 
-By providing the rGFA file along with the GAF file, the :code:`view` command can output the entire file and also
-convert its alignments formatting from stable to unstable or vice-versa when specified in the :code:`--format` option.
+Additional files required for certain functionality:
+ * Subsetting alignments based on region (given with :code:`--region` or :code:`-r`) or node (given with :code:`--node` or :code:`-n`) requires the viewing index generated by :code:`gaftools index`.
+ * Converting coordinate system with :code:`--format` or :code:`-f` requires an GFA file.
 
-By providing the index file as well, you can subset the GAF alignment file based on nodes (using the :code:`--node` option)
-or regions (using the :code:`--region` option). You will also have the option of converting their alignment formatting.
+Modes of selecting alignments (when giving multiple nodes or regions):
+ * Union selects alignments that align to at least one of the nodes or regions.
+ * Intersection selects alignments that align to all of the nodes or regions.
 
-.. code-block::
+.. code-block:: none
   :caption: view arguments
 
-  usage: gaftools view [-h] [-g GFA] [-o OUTPUT] [-i INDEX] [-n NODE] [-r REGION] [-f FORMAT] GAF
+  usage: gaftools view [-h] [-g GFA] [-o OUTPUT] [-i INDEX] [-n NODE] [-r REGION] [-f FORMAT] [-m MODE] GAF
+
+  View, subset or convert a GAF file (GAF file should be indexed first, using gaftools index, for subsetting).
+
+  The view command allows subsetting the GAF file based on node IDs or regions available.
 
   positional arguments:
-    GAF                   Input GAF file (can be bgzip-compressed)
+    GAF                  GAF file (can be bgzip-compressed)
 
-  optional arguments:
-    -h, --help            show this help message and exit
-    -g GFA, --gfa GFA     Input GFA file (can be gzip-compressed). Required when converting from one coordinate system to another.
-    -o OUTPUT, --output OUTPUT
-                          Output file. Default is stdout.
-    -i INDEX, --index INDEX
-                          Path to GAF Index file. This index is created using gaftools index. If path is not provided, it is assumed to be in the same directory as GAF file
-                          with the same name and .gvi extension (default location of the index script)
-    -n NODE, --node NODE  Nodes to search. Multiple can be provided (Eg. gaftools view .... -n s1 -n s2 -n s3 .....).
-    -r REGION, --region REGION
-                          Regions to search. Multiple can be provided (Eg. gaftools view .... -r chr1:10-20 -r chr1:50-60 .....).
-    -f FORMAT, --format FORMAT
-                          format of output path (unstable | stable)
+  options:
+    -h, --help           show this help message and exit
+    -g, --gfa GFA        GFA file (can be bgzip-compressed). Required when converting from one coordinate system to another.
+    -o, --output OUTPUT  Output GAF (bgzipped if the file ends with .gz). If omitted, use standard output.
+    -i, --index INDEX    Path to GAF Viewing Index file. Required when subsetting alignments based on region or nodes. This index is created using gaftools index. If path is not provided, it is assumed to be in the same directory as GAF file with the same name and .gvi extension (default location of
+                        the index script)
+    -n, --node NODE      Nodes to search. Multiple can be provided (Eg. gaftools view .... -n s1 -n s2 -n s3 .....).
+    -r, --region REGION  Regions to search. Multiple can be provided (Eg. gaftools view .... -r chr1:10-20 -r chr1:50-60 .....).
+    -f, --format FORMAT  Format of output path (unstable | stable)
+    -m, --mode MODE      Mode of selecting alignment with multiple regions/nodes provided ("I" | "U"). Choose "I" for finding alignments with all provided regions/nodes (intersection) and "U" for finding alignments with at least one of the provided regions/nodes (union). (default: U)

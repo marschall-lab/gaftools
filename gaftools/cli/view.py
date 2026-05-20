@@ -1,5 +1,5 @@
 """
-View, subset or convert a GAF file (GAF file should be indexed first, using gaftools index).
+View, subset or convert a GAF file (GAF file should be indexed first, using gaftools index, for subsetting).
 
 The view command allows subsetting the GAF file based on node IDs or regions available.
 """
@@ -223,11 +223,11 @@ def add_arguments(parser):
     arg('gaf_path', metavar='GAF',
         help='GAF file (can be bgzip-compressed)')
     arg('-g', '--gfa', dest='gfa', metavar='GFA', default=None,
-        help='GFA file (can be bggzip-compressed). Required when converting from one coordinate system to another.')
+        help='GFA file (can be bgzip-compressed). Required when converting from one coordinate system to another.')
     arg('-o', '--output', dest='output', metavar='OUTPUT', default=None,
         help='Output GAF (bgzipped if the file ends with .gz). If omitted, use standard output.')
     arg('-i', '--index', default=None,
-        help='Path to GAF Viewing Index file. This index is created using gaftools index. '
+        help='Path to GAF Viewing Index file. Required when subsetting alignments based on region or nodes. This index is created using gaftools index. '
         'If path is not provided, it is assumed to be in the same directory as GAF file with the same name and .gvi extension (default location of the index script)')
     arg('-n', '--node', dest='nodes', metavar='NODE', default=[], action='append',
         help='Nodes to search. '
