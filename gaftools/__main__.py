@@ -45,11 +45,14 @@ def setup_logging(debug):
 def ensure_version():
     from pysam import __version__ as pysam_version
     from pyfastx import __version__ as pyfastx_version
-    from packaging.version import Version
+    import re
 
-    if Version(pysam_version) < Version("0.18.0"):
+    def parse_version(version_string):
+        return tuple(int(x) for x in re.findall(r"\d+", version_string))
+
+    if parse_version(pysam_version) < parse_version("0.18.0"):
         sys.exit(f"gaftools requires pysam >= 0.18.0, but found {pysam_version}")
-    if Version(pyfastx_version) < Version("2.3.1"):
+    if parse_version(pyfastx_version) < parse_version("2.3.1"):
         sys.exit(f"gaftools requires pyfastx >= 2.3.1, but found {pyfastx_version}")
 
 
