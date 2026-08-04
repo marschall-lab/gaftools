@@ -98,10 +98,6 @@ def add_arguments(parser):
 def validate(args, parser):
     if not args.path and not args.paths_file:
         parser.error("Either an input path (--p, --path) or (--paths-file) must be specified")
-    if args.nodes and args.regions:
-        parser.error("provide either of the --regions and --nodes options and not both.")
-    if args.format and not args.gfa:
-        parser.error("GFA file has to be provided along with --format.")
 
 
 def main(args):
