@@ -81,4 +81,5 @@ lint.ignore = [
     "E203",  # whitespace before ':' -- must be ignored for Black
     "E501",  # line too long
     "E741",  # Ambiguous variable name
+    "E721",  # use types() for type checking
 ]
