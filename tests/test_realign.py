@@ -42,7 +42,7 @@ def write_gzip_file(src, dest):
 
 # this tells pytest to run the test for all these file formats basically
 # TODO: Fix FASTQ issue and add the files back to testing
-@pytest.mark.parametrize("reads_file", ["reads.fa", "reads.fa.gz"])
+@pytest.mark.parametrize("reads_file", ["reads.fa", "reads.fa.gz", "reads.fastq", "reads.fastq.gz"])
 @pytest.mark.parametrize("gaf_file", ["graphaligner.gaf", "graphaligner.gaf.gz"])
 def test_realign(tmp_path, reads_file, gaf_file):
     input_gaf = f"tests/data/realign/{gaf_file}"
