@@ -3,11 +3,10 @@ Sort the GAF alignments using BO and NO tags of the corresponding graph.
 """
 
 import logging
-import functools
 import re
 import pickle as pkl
 from pysam import libcbgzf
-from collections import defaultdict, namedtuple
+from collections import defaultdict
 
 from gaftools.utils import is_file_gzipped, FileWriter
 from gaftools.timer import StageTimer
@@ -17,6 +16,7 @@ from gaftools.errors import IncorrectGafFormatError
 
 logger = logging.getLogger(__name__)
 timers = StageTimer()
+PATH_SPLIT_REGEX = re.compile(r"(>)|(<)")
 
 """
 The script uses the BO and NO tags defined by the order_gfa command. Using the bubble ordering done, the alignments are sorted.
@@ -62,7 +62,6 @@ def sort(gaf, nodes, outgaf, index_dict, index_file):
     else:
         reader = open(gaf, "r")
 
-    Alignment = namedtuple("Alignment", ["offset", "BO", "NO", "start", "inv", "sn"])
     gaf_alignments = []
     count_inverse = 0
     # First pass: Store all the alignment lines as minimally. Just storing line offset and alignment string.
@@ -72,10 +71,9 @@ def sort(gaf, nodes, outgaf, index_dict, index_file):
             line = reader.readline()
             if not line:
                 break
-            try:
-                line = line.rstrip().split("\t")
-            except TypeError:
-                line = line.decode("utf8").rstrip().split("\t")
+            if type(line) is bytes:  # noqa: E721
+                line = line.decode("utf8")
+            line = line.rstrip().split("\t", 9)
             # checking for stable coordinates
             if not ((">" in line[5]) or ("<" in line[5])):
                 raise IncorrectGafFormatError(
@@ -85,15 +83,13 @@ def sort(gaf, nodes, outgaf, index_dict, index_file):
             bo, no, start, inv, sn = process_alignment(line, nodes, offset)
             if inv == 1:
                 count_inverse += 1
-            gaf_alignments.append(
-                Alignment(offset=offset, BO=bo, NO=no, start=start, inv=inv, sn=sn)
-            )
+            gaf_alignments.append((bo, no, start, offset, inv, sn))
 
     logger.info("\tNumber of alignments with inversions: %d" % (count_inverse))
     # Sorting the alignments based on BO and NO tag
     with timers("sort_gaf"):
         logger.info("\tSorting the alignments...")
-        gaf_alignments.sort(key=functools.cmp_to_key(compare_gaf))
+        gaf_alignments.sort(key=gaf_sort_key)
 
     # Writing the sorted file
     writer = FileWriter(outgaf)
@@ -103,24 +99,21 @@ def sort(gaf, nodes, outgaf, index_dict, index_file):
     with timers("write_gaf"):
         logger.debug("Writing Output File...")
         for index, alignment in enumerate(gaf_alignments):
-            off = alignment.offset
+            # Unpack the standard tuple instantly
+            bo, no, start, off, inv, sn = alignment
             reader.seek(off)
             line = reader.readline()
-            if isinstance(line, bytes):
-                line = line.decode("utf-8").rstrip()
-            elif isinstance(line, str):
-                line = line.rstrip()
-            else:
-                raise RuntimeError("GAF alignments not in string or byte format.")
-            line += "\tbo:i:%d\tsn:Z:%s\tiv:i:%d\n" % (alignment.BO, alignment.sn, alignment.inv)
-            writer.write(line)
+            if type(line) is bytes:  # noqa: E721
+                line = line.decode("utf-8")
+            line = line.rstrip()
+            writer.write(f"{line}\tbo:i:{bo}\tsn:Z:{sn}\tiv:i:{inv}\n")
             if index_file is not None:
                 out_off = writer.tell()
-                if index_dict[alignment.sn][0] is None:
-                    index_dict[alignment.sn][0] = out_off if index != 0 else start_offset
-                    index_dict[alignment.sn][1] = out_off
+                if index_dict[sn][0] is None:
+                    index_dict[sn][0] = out_off if index != 0 else start_offset
+                    index_dict[sn][1] = out_off
                 else:
-                    index_dict[alignment.sn][1] = out_off
+                    index_dict[sn][1] = out_off
     writer.close()
     if index_file is not None:
         if "unknown" in index_dict:
@@ -132,7 +125,7 @@ def sort(gaf, nodes, outgaf, index_dict, index_file):
 
 
 def process_alignment(line, nodes, offset):
-    path = list(filter(None, re.split("(>)|(<)", line[5])))
+    path = [n for n in PATH_SPLIT_REGEX.split(line[5]) if n]
     orient = None
     # If there is no scaffold node present in the alignment, then assuming that it is in the correct orientation.
     # TODO: Need to find a way to deal with such alignments.
@@ -143,14 +136,15 @@ def process_alignment(line, nodes, offset):
     inv = 0  # Whether the alignment has an inversion
     sn = None
     for n in path:
-        if n in [">", "<"]:
+        if n in (">", "<"):
             orient = n
             continue
 
-        sn_tag = nodes[n].tags["SN"][1]
-        bo_tag = int(nodes[n].tags["BO"][1])
-        no_tag = int(nodes[n].tags["NO"][1])
-        sr_tag = int(nodes[n].tags["SR"][1])
+        node_tags = nodes[n].tags
+        sn_tag = node_tags["SN"][1]
+        bo_tag = int(node_tags["BO"][1])
+        no_tag = int(node_tags["NO"][1])
+        sr_tag = int(node_tags["SR"][1])
 
         # Finding the chromosome where the alignment is
         if sn is None and sr_tag == 0:
@@ -159,7 +153,7 @@ def process_alignment(line, nodes, offset):
             assert sn == sn_tag
 
         if bo_tag == -1 or no_tag == -1:
-            logger.debug("[ERR]\tOF:i:%d\tND:Z:%s" % (offset, n))
+            logger.debug("[ERR]\tOF:i:%d\tND:Z:%s", offset, n)
             continue
         # Skipping the non-scaffold nodes
         if no_tag != 0:
@@ -167,12 +161,14 @@ def process_alignment(line, nodes, offset):
         # Only keeping the orientation of the scaffold nodes in the path matching
         orient_list.append(orient)
     # If there are scaffold nodes in both direction, this indicates an inversion
-    if orient_list.count(">") != 0 and orient_list.count("<") != 0:
+    fwd_count = orient_list.count(">")
+    rev_count = orient_list.count("<")
+    if fwd_count > 0 and rev_count > 0:
         inv = 1
     # TODO: What to do when the start node that we have is an untagged node?
     # One argument is to just sort them to the end and completely ignore them since they dont belong to any vcf bubble.
     # That works for my tools but not ideal for general purpose.
-    if orient_list.count(">") < orient_list.count("<"):
+    if fwd_count < rev_count:
         l = int(line[6])
         e = int(line[8])
         start = l - e
@@ -189,6 +185,19 @@ def process_alignment(line, nodes, offset):
     return bo, no, start, inv, sn
 
 
+def gaf_sort_key(al):
+    """
+    Key function for sorting GAF alignments.
+    Returns a tuple evaluated natively at C-speed by Python's Timsort.
+    """
+    if al[0] == -1:
+        return (1, 0, 0, 0, al[3])
+
+    return (0, al[0], al[1], al[2], al[3])
+
+
+"""
+# Deprecated
 def compare_gaf(al1, al2):
     # Since we are sorting in ascending order, al1 is above al2 if it comes before al2.
     # Have to consider the case when the start node is untagged and has BO and NO has -1. These should be sorted to the end and not the start
@@ -211,7 +220,7 @@ def compare_gaf(al1, al2):
     # Comparing NO tags
     if al1.NO < al2.NO:
         return -1
-    if al1.BO > al2.BO:
+    if al1.NO > al2.NO:
         return 1
 
     # Comparing start position in node
@@ -225,6 +234,7 @@ def compare_gaf(al1, al2):
         return -1
     if al1.offset > al2.offset:
         return 1
+"""
 
 
 # fmt: off
