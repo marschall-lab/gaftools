@@ -99,7 +99,7 @@ def sort(gaf, nodes, outgaf, index_dict, index_file):
 
     logger.info("Parsing GAF file and sorting it")
 
-    CHUNK_LIMIT = 10
+    CHUNK_LIMIT = 5_000_000
     total_buffered = 0
     # buffer[sn] = list of tuples
     buffer = defaultdict(list)
