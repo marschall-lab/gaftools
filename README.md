@@ -4,7 +4,7 @@ gaftools is a fast and comprehensive toolkit designed for processing pangenome a
 
 Detailed documentation is available [here](https://gaftools.readthedocs.io/en/latest/index.html).
 
-The preprint is available [here](https://www.biorxiv.org/content/10.1101/2024.12.10.627813v1).
+The publication is available [here](https://doi.org/10.1093/bioinformatics/btag406).
 
 ## Citation
 
