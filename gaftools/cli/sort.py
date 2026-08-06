@@ -210,7 +210,8 @@ def sort(gaf, nodes, outgaf, index_dict, index_file):
                 pkl.dump(index_dict, ind)
 
     finally:
-        reader.close()
+        if reader:
+            reader.close()
         temp_dir.cleanup()
 
 
