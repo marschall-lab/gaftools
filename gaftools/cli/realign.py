@@ -2,26 +2,29 @@
 Realign a GAF file using wavefront alignment algorithm (WFA).
 """
 
-import logging
-import queue
+from __future__ import annotations
+
 import gzip
-import tempfile
+import logging
 import multiprocessing as mp
-from typing import Optional
+import queue
+import tempfile
 from dataclasses import dataclass, field
+
+import pyfastx
+from pywfa.align import WavefrontAligner
+
 from gaftools.cli import log_memory_usage
 from gaftools.errors import (
     CommandLineError,
-    ReadNotFoundError,
-    IncorrectReadFormatError,
     IncorrectGafFormatError,
+    IncorrectReadFormatError,
+    ReadNotFoundError,
 )
-from gaftools.timer import StageTimer
 from gaftools.gaf import GAF
 from gaftools.gfa import GFA
+from gaftools.timer import StageTimer
 from gaftools.utils import FileWriter, is_file_gzipped
-import pyfastx
-from pywfa.align import WavefrontAligner
 
 logger = logging.getLogger(__name__)
 timers = StageTimer()
@@ -45,7 +48,7 @@ class ReadAccessor:
     """
 
     reader: object
-    tempdir: Optional[tempfile.TemporaryDirectory] = None
+    tempdir: tempfile.TemporaryDirectory | None = None
 
     def fetch(self, query_name, query_start, query_end):
         # Avoid relying on `query_name in reader` semantics, which can vary by pyfastx build.
@@ -164,7 +167,7 @@ def wfa_alignment(seq_batch, qu):
                 f"{gaf_line.path_start}\t{gaf_line.path_end}\t{gaf_line.residue_matches}"
                 f"\t{gaf_line.alignment_block_length}\t{gaf_line.mapping_quality}"
             )
-            for k in gaf_line.tags.keys():
+            for k in gaf_line.tags:
                 out_string += f"\t{k}{gaf_line.tags[k]}"
             qu.put(PriorityAlignment(prior_counter, out_string + "\n"))
             # queue.put(out_string + "\n")
@@ -204,7 +207,7 @@ def wfa_alignment(seq_batch, qu):
             cigar = aligner.cigarstring.replace("M", "=")
             gaf_line.tags["cg:Z:"] = cigar
             # queue.put(out_string + "\n")
-            for k in gaf_line.tags.keys():
+            for k in gaf_line.tags:
                 # output.write("\t%s%s"%(k, gaf_line.tags[k]))
                 out_string += f"\t{k}{gaf_line.tags[k]}"
                 # out_string += "\t%s%s" % (k, gaf_line.tags[k])

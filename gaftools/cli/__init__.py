@@ -3,9 +3,9 @@ The code has been taken from WhatsHap.
 Link to WhatsHap: https://github.com/whatshap/whatshap
 """
 
-import sys
-import resource
 import logging
+import resource
+import sys
 
 logger = logging.getLogger(__name__)
 

@@ -3,8 +3,8 @@ The code has been taken from WhatsHap.
 Link to WhatsHap: https://github.com/whatshap/whatshap
 """
 
-from argparse import ArgumentParser, RawDescriptionHelpFormatter
 import sys
+from argparse import ArgumentParser, RawDescriptionHelpFormatter
 
 
 class HelpfulArgumentParser(ArgumentParser):
@@ -18,4 +18,4 @@ class HelpfulArgumentParser(ArgumentParser):
     def error(self, message):
         self.print_help(sys.stderr)
         args = {"prog": "gaftools", "message": message}
-        self.exit(2, "%(prog)s error: %(message)s\n" % args)
+        self.exit(2, "{prog} error: {message}\n".format(**args))

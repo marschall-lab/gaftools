@@ -1,6 +1,8 @@
 import argparse
+
 from pysam import libcbgzf
-import gaftools.utils as utils
+
+from gaftools import utils
 
 
 def run(fname):

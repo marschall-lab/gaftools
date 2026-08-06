@@ -2,10 +2,11 @@
 Test for gaftools view.
 """
 
+import pytest
+from pysam import libcbgzf
+
 from gaftools.cli.view import run
 from gaftools.errors import IncorrectGfaFormatError
-from pysam import libcbgzf
-import pytest
 
 
 def parse_line(line):
@@ -636,8 +637,9 @@ def test_node_selection_withconversion(tmp_path, gaf_file, gfa_file):
 # the node selection tests ran fine. Just need to check if the conversion happens correctly.
 @pytest.mark.parametrize("index_file", ["customgraph-stable.gvi", "customgraph-unstable.gvi"])
 def test_region2node(index_file):
-    from gaftools.cli.view import get_unstable_from_index
     import pickle
+
+    from gaftools.cli.view import get_unstable_from_index
 
     index = f"tests/data/index_and_view/{index_file}"
     ind = None
@@ -652,7 +654,7 @@ def test_region2node(index_file):
     selected_regions = ["REF#0#CONTIG1:59-90"]
     assert get_unstable_from_index(selected_regions, ind) == ["s4"]
     selected_regions = ["REF#0#CONTIG1:59-91"]
-    assert set(get_unstable_from_index(selected_regions, ind)) == set(["s4", "s6"])
+    assert set(get_unstable_from_index(selected_regions, ind)) == {"s4", "s6"}
     selected_regions = ["BAR#1#ASSM1:170-200"]
     assert get_unstable_from_index(selected_regions, ind) == []
     selected_regions = ["BAR#1#ASSM1:170-201"]
@@ -660,7 +662,7 @@ def test_region2node(index_file):
     selected_regions = ["BAR#1#ASSM1:40-201"]
     assert get_unstable_from_index(selected_regions, ind) == ["s27"]
     selected_regions = ["BAR#1#ASSM1:39-201"]
-    assert set(get_unstable_from_index(selected_regions, ind)) == set(["s24", "s27"])
+    assert set(get_unstable_from_index(selected_regions, ind)) == {"s24", "s27"}
     selected_regions = ["BAR#1#ASSM1:0-10"]
     assert get_unstable_from_index(selected_regions, ind) == []
     selected_regions = ["BAR#1#ASSM1:0-11"]
@@ -668,15 +670,15 @@ def test_region2node(index_file):
     selected_regions = ["BAR#1#ASSM1:10-12"]
     assert get_unstable_from_index(selected_regions, ind) == ["s24"]
     selected_regions = ["REF#0#CONTIG1:59-91", "BAR#1#ASSM1:39-201"]
-    assert set(get_unstable_from_index(selected_regions, ind)) == set(["s4", "s6", "s24", "s27"])
+    assert set(get_unstable_from_index(selected_regions, ind)) == {"s4", "s6", "s24", "s27"}
     selected_regions = ["REF#0#CONTIG1:60-95", "REF#0#CONTIG1:70-91"]
     assert get_unstable_from_index(selected_regions, ind) == ["s6"]
     selected_regions = ["REF#0#CONTIG1:5-30", "REF#0#CONTIG1:70-91"]
-    assert set(get_unstable_from_index(selected_regions, ind)) == set(["s1", "s2", "s6"])
+    assert set(get_unstable_from_index(selected_regions, ind)) == {"s1", "s2", "s6"}
     selected_regions = ["FOO#1#ASSM1:60-85", "BAR#1#ASSM1:39-201"]
-    assert set(get_unstable_from_index(selected_regions, ind)) == set(["s15", "s24", "s27"])
+    assert set(get_unstable_from_index(selected_regions, ind)) == {"s15", "s24", "s27"}
     selected_regions = ["FOO#1#ASSM1:60-86", "BAR#1#ASSM1:39-201"]
-    assert set(get_unstable_from_index(selected_regions, ind)) == set(["s15", "s16", "s24", "s27"])
+    assert set(get_unstable_from_index(selected_regions, ind)) == {"s15", "s16", "s24", "s27"}
 
 
 # Region conversion was testing above but making sure that these nodes are processed properly

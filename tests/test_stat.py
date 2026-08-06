@@ -2,8 +2,9 @@
 Tests for 'gaftools stat'
 """
 
-from gaftools.cli.stat import run_stat
 import pytest
+
+from gaftools.cli.stat import run_stat
 
 
 def parse_output(filename):

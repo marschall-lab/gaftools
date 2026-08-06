@@ -1,7 +1,9 @@
-import re
 import logging
+import re
+
 from pysam import libcbgzf
-import gaftools.utils as utils
+
+from gaftools import utils
 
 logger = logging.getLogger(__name__)
 
@@ -51,34 +53,21 @@ class Alignment:
     # detect whether the paths are in stable or unstable coordinates
     # returns True for stable
     def detect_path_format(self):
-        if ":" in self.path:
-            # this is possible for paths of the form <contig>:<start>-<end>
-            return True
-        if ">" in self.path or "<" in self.path:
-            # if : is not present, then path can be of form <contig> or unstable coordinate. Check unstable by looking for > or <
-            return False
-        # only possibility left is of form <contig>
-        return True
+        # Returns True for stable coordinates (e.g., "contig:1-100" or "contig"),
+        # and False for unstable graph coordinates containing directional arrows ('>' or '<').
+        return ":" in self.path or (">" not in self.path and "<" not in self.path)
 
     # return the alignment as a string
     def __str__(self):
-        line = "%s\t%s\t%s\t%s\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d" % (
-            self.query_name,
-            self.query_length,
-            self.query_start,
-            self.query_end,
-            self.strand,
-            self.path,
-            self.path_length,
-            self.path_start,
-            self.path_end,
-            self.residue_matches,
-            self.alignment_block_length,
-            self.mapping_quality,
+        line = (
+            f"{self.query_name}\t{self.query_length}\t{self.query_start}\t"
+            f"{self.query_end}\t{self.strand}\t{self.path}\t{self.path_length}\t"
+            f"{self.path_start}\t{self.path_end}\t{self.residue_matches}\t"
+            f"{self.alignment_block_length}\t{self.mapping_quality}"
         )
         self.tags["cg:Z:"] = self.cigar
-        for k in self.tags.keys():
-            line += "\t%s%s" % (k, self.tags[k])
+        for k in self.tags:
+            line += f"\t{k}{self.tags[k]}"
         return line
 
 

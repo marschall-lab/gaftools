@@ -2,16 +2,16 @@
 # Link to WhatsHap: https://github.com/whatshap/whatshap
 
 
-import sys
-import pkgutil
 import importlib
 import logging
+import pkgutil
+import sys
 
 import gaftools.cli as cli_package
-from .errors import CommandLineError
+
 from . import __version__
 from .args import HelpfulArgumentParser
-
+from .errors import CommandLineError
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +26,7 @@ class NiceFormatter(logging.Formatter):
 
     def format(self, record):
         if record.levelno != logging.INFO:
-            record.msg = "{}: {}".format(record.levelname, record.msg)
+            record.msg = f"{record.levelname}: {record.msg}"
         return super().format(record)
 
 
@@ -43,9 +43,10 @@ def setup_logging(debug):
 
 # Ensure all the versions here
 def ensure_version():
-    from pysam import __version__ as pysam_version
-    from pyfastx import __version__ as pyfastx_version
     import re
+
+    from pyfastx import __version__ as pyfastx_version
+    from pysam import __version__ as pysam_version
 
     def parse_version(version_string):
         return tuple(int(x) for x in re.findall(r"\d+", version_string))
@@ -93,7 +94,7 @@ def main(argv=sys.argv[1:]):
         try:
             module.main(args)
         except CommandLineError as e:
-            logger.error(str(e), exc_info=True)
+            logger.error(str(e))
             logger.debug("Command line error. Traceback:", exc_info=True)
             sys.exit(1)
 

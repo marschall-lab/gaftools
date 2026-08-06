@@ -5,10 +5,10 @@ Core scripts for converting coordinates.
 import logging
 import re
 
-import gaftools.utils as utils
+from gaftools import utils
+from gaftools.errors import IncorrectGafFormatError, IncorrectGfaFormatError
 from gaftools.gaf import GAF
 from gaftools.gfa import Node
-from gaftools.errors import IncorrectGfaFormatError, IncorrectGafFormatError
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ class StableNode:
         self.end = end
 
     def to_string(self, orient):
-        return "%s%s:%d-%d" % (orient, self.contig_id, self.start, self.end)
+        return f"{orient}{self.contig_id}:{self.start}-{self.end}"
 
 
 def merge_nodes(node1, node2, orient1, orient2):
@@ -159,18 +159,11 @@ def to_unstable(gaf_line, reference):
         else:
             new_end = new_start + (gaf_line.path_end - gaf_line.path_start)
 
-    new_line = "%s\t%s\t%s\t%s\t+\t%s\t%d\t%d\t%d\t%d\t%d\t%d" % (
-        gaf_line.query_name,
-        gaf_line.query_length,
-        gaf_line.query_start,
-        gaf_line.query_end,
-        unstable_coord,
-        new_total,
-        new_start,
-        new_end,
-        gaf_line.residue_matches,
-        gaf_line.alignment_block_length,
-        gaf_line.mapping_quality,
+    new_line = (
+        f"{gaf_line.query_name}\t{gaf_line.query_length}\t{gaf_line.query_start}\t"
+        f"{gaf_line.query_end}\t+\t{unstable_coord}\t{new_total}\t"
+        f"{new_start}\t{new_end}\t{gaf_line.residue_matches}\t"
+        f"{gaf_line.alignment_block_length}\t{gaf_line.mapping_quality}"
     )
 
     # Add cigar in reverse
@@ -178,8 +171,8 @@ def to_unstable(gaf_line, reference):
         new_cigar = utils.reverse_cigar(gaf_line.cigar)
         gaf_line.tags["cg:Z:"] = new_cigar
 
-    for k in gaf_line.tags.keys():
-        new_line += "\t%s%s" % (k, gaf_line.tags[k])
+    for k in gaf_line.tags:
+        new_line += f"\t{k}{gaf_line.tags[k]}"
 
     return new_line
 
@@ -245,19 +238,11 @@ def to_stable(gaf_line, tagged_nodes, ref_contig, contig_len):
         new_start = gaf_line.path_start
         new_total = gaf_line.path_length
 
-    new_line += "%s\t%s\t%s\t%s\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d" % (
-        gaf_line.query_name,
-        gaf_line.query_length,
-        gaf_line.query_start,
-        gaf_line.query_end,
-        gaf_line.strand,
-        stable_coord,
-        new_total,
-        new_start,
-        new_start + gaf_line.path_end - gaf_line.path_start,
-        gaf_line.residue_matches,
-        gaf_line.alignment_block_length,
-        gaf_line.mapping_quality,
+    new_line += (
+        f"{gaf_line.query_name}\t{gaf_line.query_length}\t{gaf_line.query_start}\t"
+        f"{gaf_line.query_end}\t{gaf_line.strand}\t{stable_coord}\t{new_total}\t"
+        f"{new_start}\t{new_start + gaf_line.path_end - gaf_line.path_start}\t"
+        f"{gaf_line.residue_matches}\t{gaf_line.alignment_block_length}\t{gaf_line.mapping_quality}"
     )
 
     # Add cigar in reverse
@@ -266,8 +251,8 @@ def to_stable(gaf_line, tagged_nodes, ref_contig, contig_len):
         gaf_line.tags["cg:Z:"] = new_cigar
 
     # adding tags in the sequence it was found
-    for k in gaf_line.tags.keys():
-        new_line += "\t%s%s" % (k, gaf_line.tags[k])
+    for k in gaf_line.tags:
+        new_line += f"\t{k}{gaf_line.tags[k]}"
 
     return new_line
 

@@ -3,8 +3,10 @@ Test for gaftools index.
 """
 
 import pickle
-from gaftools.cli.index import run
+
 import pytest
+
+from gaftools.cli.index import run
 
 
 # parsing the index file which is a pickled dictionary
@@ -37,8 +39,8 @@ def test_index(tmp_path, gaf_file):
     output_dict = parse_output(output)
     truth_dict = parse_output(truth)
     assert len(output_dict.keys()) == len(truth_dict.keys())
-    for id in output_dict.keys():
-        assert id in truth_dict.keys()
+    for id in output_dict:
+        assert id in truth_dict
         output_offsets = sorted(output_dict[id])
         truth_offsets = sorted(truth_dict[id])
         assert len(output_offsets) == len(truth_offsets)

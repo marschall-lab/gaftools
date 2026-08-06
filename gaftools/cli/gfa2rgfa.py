@@ -2,16 +2,18 @@
 Converting a GFA file to rGFA format using the W-lines and the acyclic reference path. (e.g., minigraph-based graphs)
 """
 
-import os
 import logging
+import os
+import pathlib
 import re
 import tempfile
-import pathlib
+
 from pysam import libcbgzf
-from gaftools.utils import FileWriter
-from gaftools.timer import StageTimer
+
 from gaftools.cli import log_memory_usage
 from gaftools.errors import CommandLineError, IncorrectGfaFormatError
+from gaftools.timer import StageTimer
+from gaftools.utils import FileWriter
 
 logger = logging.getLogger(__name__)
 timers = StageTimer()
@@ -137,9 +139,7 @@ def run(
                 "No seqfile was provided. Defaulting to the order of assemblies provided in the GFA."
             )
             sample_order = [
-                f"{sample}#{hap}"
-                for sample, hap in walks.keys()
-                if (f"{sample}#{hap}" != reference_name)
+                f"{sample}#{hap}" for sample, hap in walks if (f"{sample}#{hap}" != reference_name)
             ]
             for index, sample in enumerate(sample_order):
                 logger.info(

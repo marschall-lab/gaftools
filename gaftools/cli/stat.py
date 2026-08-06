@@ -2,12 +2,13 @@
 Calculate statistics of the given GAF file.
 """
 
-import logging
 import itertools
-from gaftools.utils import FileWriter
-from gaftools.gaf import GAF, Read
+import logging
+
 from gaftools.cli import log_memory_usage
+from gaftools.gaf import GAF, Read
 from gaftools.timer import StageTimer
+from gaftools.utils import FileWriter
 
 logger = logging.getLogger(__name__)
 timers = StageTimer()
@@ -64,11 +65,13 @@ def run_stat(
             # reads[mapping.query_name].total_map_ratio += map_ratio
             # reads[mapping.query_name].total_seq_identity += seq_identity
 
-            if reads[mapping.query_name].highest_map_ratio < map_ratio:
-                reads[mapping.query_name].highest_map_ratio = map_ratio
+            reads[mapping.query_name].highest_map_ratio = max(
+                reads[mapping.query_name].highest_map_ratio, map_ratio
+            )
 
-            if reads[mapping.query_name].highest_seq_identity < seq_identity:
-                reads[mapping.query_name].highest_seq_identity = seq_identity
+            reads[mapping.query_name].highest_seq_identity = max(
+                reads[mapping.query_name].highest_seq_identity, seq_identity
+            )
 
         total_aligned_bases += mapping.residue_matches
         total_mapq += mapping.mapping_quality
@@ -104,7 +107,7 @@ def run_stat(
     avg_highest_seq_identity = 0.0
     avg_highest_map_ratio = 0.0
 
-    for k, v in reads.items():
+    for v in reads.values():
         # avg_total_seq_identity += float(v.total_seq_identity) / v.aln_count
         # avg_total_map_ratio += float(v.total_map_ratio) / v.aln_count
         avg_highest_seq_identity += float(v.highest_seq_identity)

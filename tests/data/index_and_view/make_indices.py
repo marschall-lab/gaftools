@@ -26,8 +26,8 @@ def make_index():
     node_info["s13"] = ["REF#0#CONTIG1", 200, 210]
 
     # re-formating the node_info dict
-    for id in node_info.keys():
-        sn, so, se = node_info[id]
+    for id, value in node_info.items():
+        sn, so, se = value
         node_info[id] = (id, sn, so, se)
 
     stable_offsets = {}
@@ -77,16 +77,16 @@ def make_index():
     unstable_offsets["s13"] = [1292]
 
     stable_dict = {}
-    for id in node_info.keys():
-        stable_dict[node_info[id]] = stable_offsets[id]
+    for id, value in node_info.items():
+        stable_dict[value] = stable_offsets[id]
     stable_dict["ref_contig"] = ["REF#0#CONTIG1"]
 
     with open("view-index-stable.gvi", "wb") as handle:
         pickle.dump(stable_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     unstable_dict = {}
-    for id in node_info.keys():
-        unstable_dict[node_info[id]] = unstable_offsets[id]
+    for id, value in node_info.items():
+        unstable_dict[value] = unstable_offsets[id]
     unstable_dict["ref_contig"] = ["REF#0#CONTIG1"]
 
     with open("view-index-unstable.gvi", "wb") as handle:

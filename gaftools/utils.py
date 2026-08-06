@@ -3,6 +3,7 @@ import re
 # import tracemalloc
 # import linecache
 import sys
+
 from pysam import libcbgzf
 
 DEFAULT_CHROMOSOME = [
@@ -54,10 +55,8 @@ def is_correct_tag(tag):
     # first check if tag follows the scheme two_letters:{AifZHB}:value
     if not re.match(tag_regex, tag):
         return False
-    name, tag_type, value = tag.split(":")
-    if not re.match(types_regex[tag_type], value):
-        return False
-    return True
+    _name, tag_type, value = tag.split(":")
+    return re.match(types_regex[tag_type], value)
 
 
 def is_file_gzipped(src):

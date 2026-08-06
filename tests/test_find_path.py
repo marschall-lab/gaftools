@@ -2,10 +2,11 @@
 Test for gaftools find_path
 """
 
+import pytest
+
 from gaftools.cli.find_path import run
 from gaftools.cli.order_gfa import run_order_gfa
 from gaftools.errors import PathNotFoundError
-import pytest
 
 
 def parse_output(filename):

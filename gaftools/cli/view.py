@@ -5,29 +5,35 @@ The view command allows subsetting the GAF file based on node IDs or regions ava
 """
 
 import logging
-import pickle
 import os
+import pickle
 from collections import defaultdict
 
-from gaftools.utils import FileWriter
 from gaftools.cli import log_memory_usage
-from gaftools.errors import IndexNotFoundError, IncorrectGfaFormatError
-from gaftools.timer import StageTimer
-from gaftools.gaf import GAF
-from gaftools.gfa import GFA
 from gaftools.conversion import (
     StableNode,
+    search,
     stable_to_unstable,
-    unstable_to_stable,
     to_stable,
     to_unstable,
-    search,
+    unstable_to_stable,
 )
+from gaftools.errors import IncorrectGfaFormatError, IndexNotFoundError
+from gaftools.gaf import GAF
+from gaftools.gfa import GFA
+from gaftools.timer import StageTimer
+from gaftools.utils import FileWriter
 
 logger = logging.getLogger(__name__)
 
 
-def run(gaf_path, gfa=None, output=None, index=None, nodes=[], regions=[], format=None, mode="U"):
+def run(
+    gaf_path, gfa=None, output=None, index=None, nodes=None, regions=None, format=None, mode="U"
+):
+    if regions is None:
+        regions = []
+    if nodes is None:
+        nodes = []
     timers = StageTimer()
 
     writer = FileWriter(output)
@@ -62,7 +68,7 @@ def run(gaf_path, gfa=None, output=None, index=None, nodes=[], regions=[], forma
             del gfa_file
         else:
             assert format == "unstable"
-            reference = defaultdict(lambda: [])
+            reference = defaultdict(list)
             # Assuming that the gfa is sorted using the order_gfa function.
             contigs = list(gfa_file.contigs.keys())
             # all_paths = gfa_file.get_all_paths()
@@ -90,7 +96,7 @@ def run(gaf_path, gfa=None, output=None, index=None, nodes=[], regions=[], forma
         with open(index, "rb") as tmp:
             ind = pickle.load(tmp)
 
-        ind_key = sorted(list(ind.keys()), key=lambda x: (x[1], x[2]))
+        ind_key = sorted(ind.keys(), key=lambda x: (x[1], x[2]))
         ind_dict = {}
         for i in ind_key:
             ind_dict[i[0]] = i
@@ -114,12 +120,12 @@ def run(gaf_path, gfa=None, output=None, index=None, nodes=[], regions=[], forma
                             f"View mode is intersection. Since node {nd} is present, output is empty."
                         )
             if nodes[0] not in ind_dict:
-                offsets = set([])
+                offsets = set()
             else:
                 offsets = set(ind[ind_dict[nodes[0]]])
             for nd in nodes[1:]:
                 # extracting all the lines that touches at least one of the nodes
-                new_offsets = set([])
+                new_offsets = set()
                 if nd in ind_dict:
                     new_offsets = set(ind[ind_dict[nd]])
                 if mode == "U":
@@ -203,10 +209,10 @@ def get_unstable_from_index(regions, index):
             node_list = list(filter(lambda x: (x[1] == c), list(index.keys())))
             node_list.sort(key=lambda x: x[2])
             node_dict[c] = node_list
-        node_indices = search([contig[n], start[n], end[n]], node_list)
+        node_indices = search([c, start[n], end[n]], node_list)
         if len(node_indices) == 0:
             logger.warning(
-                f"Region {contig[n]}:{start[n]}-{end[n]} not found in the index. The alignments do not cover that region."
+                f"Region {c}:{start[n]}-{end[n]} not found in the index. The alignments do not cover that region."
             )
             continue
         # logger.info(f"INFO: Region {node[n]} spans multiple nodes.")

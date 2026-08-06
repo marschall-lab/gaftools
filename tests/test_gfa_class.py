@@ -1,5 +1,6 @@
-from gaftools.gfa import GFA
 import pytest
+
+from gaftools.gfa import GFA
 
 """
 The example graph I am using looks like this
@@ -78,7 +79,7 @@ def test_delete_node():
 
 def test_add_node():
     graph = GFA("tests/data/gfa_class/test_GFA_class.gfa")
-    node_line = "S\t5\tCCCC".split()
+    node_line = ["S", "5", "CCCC"]
     graph.add_node(node_line[1], node_line[2])
     assert "5" in graph
     assert graph["5"].seq == "CCCC"

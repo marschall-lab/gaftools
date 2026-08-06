@@ -2,11 +2,12 @@
 Tests for 'gaftools sort'
 """
 
-from gaftools.cli.sort import run_sort
+import pytest
+
 from gaftools.cli.order_gfa import run_order_gfa
+from gaftools.cli.sort import run_sort
 from gaftools.errors import IncorrectGafFormatError
 from gaftools.gaf import GAF
-import pytest
 
 
 def parse_output(filename):

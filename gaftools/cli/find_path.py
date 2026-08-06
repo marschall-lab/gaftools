@@ -4,11 +4,12 @@ Find the genomic sequence of a given connected GFA path.
 
 import logging
 import os
+
 from gaftools.cli import log_memory_usage
-from gaftools.timer import StageTimer
+from gaftools.errors import IncorrectPathFormatError, PathNotFoundError
 from gaftools.gfa import GFA
+from gaftools.timer import StageTimer
 from gaftools.utils import FileWriter
-from gaftools.errors import PathNotFoundError, IncorrectPathFormatError
 
 logger = logging.getLogger(__name__)
 

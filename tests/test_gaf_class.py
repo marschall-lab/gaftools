@@ -2,8 +2,9 @@
 Tests for gaf.py.
 """
 
-from gaftools.gaf import Alignment, GAF
 import pytest
+
+from gaftools.gaf import GAF, Alignment
 
 
 @pytest.mark.parametrize("gaf_file", ["smallexample.gaf", "smallexample.gaf.gz"])

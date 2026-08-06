@@ -6,18 +6,19 @@ This script creates an inverse look-up table where:
     - value: the offsets in the GAF file where the node is present
 """
 
-import re
-import pickle
-from pysam import libcbgzf
-from collections import defaultdict
 import logging
+import pickle
+import re
+from collections import defaultdict
 
-import gaftools.utils as utils
-from gaftools.gfa import GFA
-from gaftools.timer import StageTimer
+from pysam import libcbgzf
+
+from gaftools import utils
 from gaftools.cli import log_memory_usage
 from gaftools.conversion import get_nodes_from_region
 from gaftools.errors import IncorrectGfaFormatError
+from gaftools.gfa import GFA
+from gaftools.timer import StageTimer
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +29,7 @@ def run(gaf_path, gfa_path, output=None):
         output = gaf_path + ".gvi"
 
     nodes = {}
-    reference = defaultdict(lambda: [])
+    reference = defaultdict(list)
     ref_contig = []
 
     gfa_file = GFA(graph_file=gfa_path, low_memory=True)
@@ -89,9 +90,8 @@ def run(gaf_path, gfa_path, output=None):
 
     gaf_file.close()
 
-    with open(output, "wb") as handle:
-        with timers("write_file"):
-            pickle.dump(out_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    with open(output, "wb") as handle, timers("write_file"):
+        pickle.dump(out_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     logger.info("\n== SUMMARY ==")
     total_time = timers.total()

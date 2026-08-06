@@ -2,21 +2,22 @@
 Sort the GAF alignments using BO and NO tags of the corresponding graph.
 """
 
-import logging
-import re
-import pickle as pkl
-from pysam import libcbgzf
-from collections import defaultdict
-import tempfile
-import heapq
-import os
 import bisect
+import heapq
+import logging
+import os
+import pickle as pkl
+import re
+import tempfile
+from collections import defaultdict
 
-from gaftools.utils import is_file_gzipped, FileWriter
-from gaftools.timer import StageTimer
-from gaftools.gfa import GFA
+from pysam import libcbgzf
+
 from gaftools.cli import log_memory_usage
 from gaftools.errors import IncorrectGafFormatError
+from gaftools.gfa import GFA
+from gaftools.timer import StageTimer
+from gaftools.utils import FileWriter, is_file_gzipped
 
 logger = logging.getLogger(__name__)
 timers = StageTimer()
@@ -50,10 +51,10 @@ def run_sort(gfa, gaf, outgaf=None, outind=None):
     total_time = timers.total()
     log_memory_usage()
     # fmt: off
-    logger.info("Time to parse GFA file:                      %9.2f s" % (timers.elapsed("read_gfa")))
-    logger.info("Time to parse GAF file:                      %9.2f s" % (timers.elapsed("read_gaf")))
-    logger.info("Time to sort GAF file:                       %9.2f s" % (timers.elapsed("sort_gaf")))
-    logger.info("Time to write GAF file:                      %9.2f s" % (timers.elapsed("write_gaf")))
+    logger.info("Time to parse GFA file:                      {:9.2f} s".format(timers.elapsed("read_gfa")))
+    logger.info("Time to parse GAF file:                      {:9.2f} s".format(timers.elapsed("read_gaf")))
+    logger.info("Time to sort GAF file:                       {:9.2f} s".format(timers.elapsed("sort_gaf")))
+    logger.info("Time to write GAF file:                      {:9.2f} s".format(timers.elapsed("write_gaf")))
     logger.info("Time spent on rest:                          %9.2f s", total_time - timers.sum())
     logger.info("Total time:                                  %9.2f s", total_time)
     # fmt: on
@@ -71,10 +72,10 @@ def flush_buffer(buf, counts, temp_directory):
         filepath = os.path.join(temp_directory.name, f"{sn}_{chunk_id}.tmp")
         logger.info(f"Writing sorted temp file {filepath}...")
         with open(filepath, "w") as out:
-            for key_tuple, final_line in alignments:
-                out.write(
-                    f"{key_tuple[0]}\t{key_tuple[1]}\t{key_tuple[2]}\t{key_tuple[3]}\t{key_tuple[4]}\t{final_line}"
-                )
+            out.writelines(
+                f"{key_tuple[0]}\t{key_tuple[1]}\t{key_tuple[2]}\t{key_tuple[3]}\t{key_tuple[4]}\t{final_line}"
+                for key_tuple, final_line in alignments
+            )
         counts[sn] += 1
     buf.clear()
 
@@ -116,13 +117,17 @@ def sort(gaf, nodes, outgaf, index_dict, index_file):
         # These intervals will be used to bucket the lines based on chromosome
         logger.info("Extracting BO intervals for chromosomes from GFA...")
         chr_min_bo = {}
-        for _, node in nodes.items():
+        for node in nodes.values():
             n_sn = node.tags.get("SN", [None, None])[1]
             n_sr = int(node.tags.get("SR", [None, None])[1])
             n_bo = int(node.tags.get("BO", [None, -1])[1])
-            if n_sr == 0 and n_sn and n_bo != -1:
-                if n_sn not in chr_min_bo or n_bo < chr_min_bo[n_sn]:
-                    chr_min_bo[n_sn] = n_bo
+            if (
+                (n_sr == 0)
+                and (n_sn)
+                and (n_bo != -1)
+                and ((n_sn not in chr_min_bo) or (n_bo < chr_min_bo[n_sn]))
+            ):
+                chr_min_bo[n_sn] = n_bo
         # Create sorted list of boundaries: [(0, 'chr1'), (1500, 'chr2'), ...]
         bo_boundaries = sorted([(bo, sn) for sn, bo in chr_min_bo.items()])
         bo_keys = [b[0] for b in bo_boundaries]
@@ -136,7 +141,7 @@ def sort(gaf, nodes, outgaf, index_dict, index_file):
                 raw_line = reader.readline()
                 if not raw_line:
                     break
-                if type(raw_line) is bytes:  # noqa: E721
+                if type(raw_line) is bytes:
                     raw_line = raw_line.decode("utf8")
                 raw_line = raw_line.rstrip()
                 line_arr = raw_line.split("\t", 9)
@@ -163,7 +168,7 @@ def sort(gaf, nodes, outgaf, index_dict, index_file):
             if total_buffered > 0:
                 flush_buffer(buffer, chunk_counts, temp_dir)
 
-        logger.info("Number of alignments with inversions: %d" % (count_inverse))
+        logger.info(f"Number of alignments with inversions: {count_inverse}")
 
         # Sort chromosomes by their starting BO tag
         ordered_chromosomes = sorted(chr_min_bo.keys(), key=lambda k: chr_min_bo[k])

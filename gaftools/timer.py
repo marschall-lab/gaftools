@@ -12,7 +12,7 @@ class StageTimer:
     """Measure run times of multiple non-overlapping stages of a program"""
 
     def __init__(self):
-        self._start = dict()
+        self._start = {}
         self._elapsed = defaultdict(float)
         self._overall_start_time = time.time()
 

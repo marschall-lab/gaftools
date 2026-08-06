@@ -5,13 +5,14 @@ The BO (Bubble Order) tags order bubbles in the GFA.
 The NO (Node Order) tags order the nodes in a bubble (in a lexicographic order).
 """
 
-import os
 import logging
+import os
 import time
 from collections import defaultdict
+
+from gaftools.errors import BranchedGfaComponentError, ChromosomeNotFoundError
 from gaftools.gfa import GFA
 from gaftools.utils import DEFAULT_CHROMOSOME
-from gaftools.errors import ChromosomeNotFoundError, BranchedGfaComponentError
 
 logger = logging.getLogger(__name__)
 
@@ -120,7 +121,7 @@ def run_order_gfa(
 ):
     chromosome_order = chromosome_order.split(sep=",")
     if not os.path.isdir(outdir):
-        logging.warning(f"The directory {outdir} does not exist, creating one")
+        logger.warning(f"The directory {outdir} does not exist, creating one")
         try:
             os.makedirs(outdir)
         except PermissionError:
@@ -227,9 +228,7 @@ def run_order_gfa(
                     so_tag = node.tags["SO"][1]
                 else:
                     so_tag = "NA"
-                f_colors.write(
-                    "{},{},{},{},{},{}\n".format(node_name, color, sn_tag, so_tag, bo_tag, no_tag)
-                )
+                f_colors.write(f"{node_name},{color},{sn_tag},{so_tag},{bo_tag},{no_tag}\n")
 
             graph.write_gfa(
                 set_of_nodes=component_nodes,
@@ -242,45 +241,36 @@ def run_order_gfa(
 
         else:
             logger.warning(f"Chromosome {chromosome} was skipped")
-    if not by_chrom:
-        if out_gfa:
-            final_gfa = (
-                outdir
-                + os.sep
-                + gfa_filename.split(os.sep)[-1].split(".")[0]
-                + "-complete"
-                + ".gfa"
-            )
-            final_csv = (
-                outdir
-                + os.sep
-                + gfa_filename.split(os.sep)[-1].split(".")[0]
-                + "-complete"
-                + ".csv"
-            )
-            with open(final_gfa, "w") as outfile:
-                # outputting all the S lines first
-                for f in out_gfa:
-                    with open(f, "r") as infile:
-                        for l in infile:
-                            if l.startswith("S"):
-                                outfile.write(l)
-                # outputting all the L lines
-                for f in out_gfa:
-                    with open(f, "r") as infile:
-                        for l in infile:
-                            if l.startswith("L"):
-                                outfile.write(l)
-                for f in out_gfa:
-                    os.remove(f)
-
-            with open(final_csv, "w") as outfile:
-                for f in out_csv:
-                    with open(f, "r") as infile:
-                        for l in infile:
+    if not by_chrom and out_gfa:
+        final_gfa = (
+            outdir + os.sep + gfa_filename.split(os.sep)[-1].split(".")[0] + "-complete" + ".gfa"
+        )
+        final_csv = (
+            outdir + os.sep + gfa_filename.split(os.sep)[-1].split(".")[0] + "-complete" + ".csv"
+        )
+        with open(final_gfa, "w") as outfile:
+            # outputting all the S lines first
+            for f in out_gfa:
+                with open(f, "r") as infile:
+                    for l in infile:
+                        if l.startswith("S"):
                             outfile.write(l)
-                for f in out_csv:
-                    os.remove(f)
+            # outputting all the L lines
+            for f in out_gfa:
+                with open(f, "r") as infile:
+                    for l in infile:
+                        if l.startswith("L"):
+                            outfile.write(l)
+            for f in out_gfa:
+                os.remove(f)
+
+        with open(final_csv, "w") as outfile:
+            for f in out_csv:
+                with open(f, "r") as infile:
+                    for l in infile:
+                        outfile.write(l)
+            for f in out_csv:
+                os.remove(f)
 
     logger.info("Total bubbles: %d", total_bubbles)
 
@@ -314,11 +304,11 @@ def force_graph_order(
     non_ref_traversals = []
     # now we need to filter the traversals to only keep the ones that have the reference SN tag
     for trav in traversals:
-        trav_sn_tags = set(graph[n].tags["SN"][1] for n in trav if not n.startswith("bb_"))
+        trav_sn_tags = {graph[n].tags["SN"][1] for n in trav if not n.startswith("bb_")}
         if len(trav_sn_tags) != 1:
             non_ref_traversals.append(trav)
         else:
-            if list(trav_sn_tags)[0] == component_name:
+            if next(iter(trav_sn_tags)) == component_name:
                 ref_traversals.append(trav)
             else:
                 non_ref_traversals.append(trav)
@@ -330,7 +320,7 @@ def force_graph_order(
         return None, None, None, None, None
 
     # we deal with the non-reference nodes and give them -1 for BO and NO tag, un-ordered
-    node_order = dict()
+    node_order = {}
     for trav in non_ref_traversals:
         for n in trav:
             if not n.startswith("bb_"):
@@ -344,7 +334,7 @@ def force_graph_order(
         trav[:] = _order_traversal_by_so(scaffold_graph, trav)
         # I already know that the traversals in ref_traversals have the reference SN tag
         trav_scaffold = [n for n in trav if not n.startswith("bb_")]
-        coordinates = list(int(scaffold_graph[n].tags["SO"][1]) for n in trav_scaffold)
+        coordinates = [int(scaffold_graph[n].tags["SO"][1]) for n in trav_scaffold]
         for i in range(len(coordinates) - 1):
             assert coordinates[i] < coordinates[i + 1]
         trav.append(coordinates[0])
@@ -377,7 +367,7 @@ def decompose_and_order(
     logger.info(f" Input component: {len(component)} nodes")
     logger.info(f" Finding Biconnected Components of the component {component_name}")
     if len(component) == 1:
-        node = list(component)[0]
+        node = next(iter(component))
         return component, set(), {node: (bo_start, 0)}, bo_start + 1, 0
     if len(component) == 2:
         return _order_two_node_component(graph, component, component_name, bo_start)
@@ -403,7 +393,7 @@ def decompose_and_order(
 
     bubbles = []
     scaffold_graph = GFA()
-    scaffold_node_types = dict()
+    scaffold_node_types = {}
 
     for n in artic_points:
         scaffold_graph.add_node(n)
@@ -551,9 +541,9 @@ def decompose_and_order(
     ]
 
     # check that all scaffold nodes carry the same sequence name (SN), i.e. all came for the linear reference
-    assert len(set(new_graph[n].tags["SN"] for n in traversal_scaffold_only)) == 1
+    assert len({new_graph[n].tags["SN"] for n in traversal_scaffold_only}) == 1
     # I save tags as key:(type, value), so "SO":(i, '123')
-    coordinates = list(int(new_graph[n].tags["SO"][1]) for n in traversal_scaffold_only)
+    coordinates = [int(new_graph[n].tags["SO"][1]) for n in traversal_scaffold_only]
 
     # make sure that the traversal is in ascending order
     if coordinates[0] > coordinates[-1]:
@@ -564,7 +554,7 @@ def decompose_and_order(
         assert coordinates[i] < coordinates[i + 1]
 
     # compute dictionary mapping each node name to the corresponding "bubble order" and "node order" (BO,NO)
-    node_order = dict()
+    node_order = {}
     bo = bo_start
     for node in traversal:
         node_type = scaffold_node_types[node]
@@ -595,7 +585,7 @@ def name_comps(graph, components):
     the graph is GFA object and components is a list of sets of the node ids of each component
     for each component we take a majority vote of the SN tage and name the component accordingly
     """
-    named_comps = dict()
+    named_comps = {}
     for comp in components:
         current_tag = ""
         counts = count_sn(graph, comp)

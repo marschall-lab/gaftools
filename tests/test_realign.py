@@ -3,10 +3,11 @@ Tests for 'gaftools realign'
 """
 
 import gzip
+
 import pytest
 
-from gaftools.gaf import GAF
 from gaftools.cli.realign import run_realign
+from gaftools.gaf import GAF
 
 
 def write_fastq_from_fasta(fasta_path, fastq_path):

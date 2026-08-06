@@ -1,14 +1,15 @@
 from __future__ import annotations
 
-import sys
 import logging
-from collections import defaultdict
-import re
 import os
-from collections import deque
-from gaftools.utils import rev_comp, is_correct_tag
-from gaftools.errors import CommandLineError
+import re
+import sys
+from collections import defaultdict, deque
+
 from pysam import libcbgzf
+
+from gaftools.errors import CommandLineError
+from gaftools.utils import is_correct_tag, rev_comp
 
 E_DIR = {("+", "+"): (1, 0), ("+", "-"): (1, 1), ("-", "+"): (0, 0), ("-", "-"): (0, 1)}
 
@@ -16,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 class Node:
-    __slots__ = ("id", "seq", "seq_len", "start", "end", "visited", "tags")
+    __slots__ = ("end", "id", "seq", "seq_len", "start", "tags", "visited")
 
     def __init__(self, identifier):
         self.id = identifier
@@ -25,7 +26,7 @@ class Node:
         self.start = set()
         self.end = set()
         self.visited = False
-        self.tags = dict()
+        self.tags = {}
 
     def __sizeof__(self):
         """
@@ -57,11 +58,11 @@ class Node:
         only_topo_atts = ["id", "start", "end"]
         if only_topo:
             for a in only_topo_atts:
-                if not getattr(self, a) == getattr(other, a):
+                if getattr(self, a) != getattr(other, a):
                     return False
         else:
             for a in all_ats:
-                if not getattr(self, a) == getattr(other, a):
+                if getattr(self, a) != getattr(other, a):
                     return False
         return True
 
@@ -77,13 +78,9 @@ class Node:
         returns true if other is a neighbor in that direction, false otherwise
         """
         if direction == 0:
-            if other in [x[0] for x in self.start]:
-                return True
-            return False
+            return other in [x[0] for x in self.start]
         elif direction == 1:
-            if other in [x[0] for x in self.end]:
-                return True
-            return False
+            return other in [x[0] for x in self.end]
         else:
             raise ValueError(
                 f"Trying to access a wrong direction in node {self.id}, give 0 for start or 1 for end"
@@ -110,7 +107,7 @@ class Node:
         try:
             self.start.remove((neighbor, side, overlap))
         except KeyError:
-            logging.warning(
+            logger.warning(
                 f"Could not remove edge {(neighbor, side, overlap)} from {self.id}'s start as it does not exist"
             )
 
@@ -122,7 +119,7 @@ class Node:
         try:
             self.end.remove((neighbor, side, overlap))
         except KeyError:
-            logging.warning(
+            logger.warning(
                 f"Could not remove edge {(neighbor, side, overlap)} from {self.id}'s end as it does not exist"
             )
 
@@ -161,16 +158,16 @@ class GFA:
     Graph object containing the important information about the graph
     """
 
-    __slots__ = ["nodes", "low_memory", "edge_tags", "contigs", "contig_to_nodes"]
+    __slots__ = ["contig_to_nodes", "contigs", "edge_tags", "low_memory", "nodes"]
 
     def __init__(self, graph_file=None, low_memory=False):
-        self.nodes = dict()
-        self.edge_tags = dict()
+        self.nodes = {}
+        self.edge_tags = {}
         self.contigs = defaultdict(
             lambda: None
         )  # storing contigs with their SR tag to determine primary contig. Requires SN tags
         self.contig_to_nodes = defaultdict(
-            lambda: []
+            list
         )  # storing the map between the contig name and the nodes in that contig. Requires SN tags
         self.low_memory = low_memory
         if graph_file:
@@ -217,7 +214,7 @@ class GFA:
         if isinstance(value, Node):
             self.nodes[key] = value
         else:
-            raise ValueError("the object given to set should be a Node object")
+            raise TypeError("the object given to set should be a Node object")
 
     def __delitem__(self, key):
         """
@@ -303,9 +300,8 @@ class GFA:
                 # I am adding the tags as key:value, key is tag_name:type and value is the value at the end
                 # e.g. SN:i:10 will be {"SN": ('i', '10')}
                 self[node_id].tags[tag[0]] = (tag[1], tag[2])  # (type, value)
-            if node.seq == "" and node.seq_len == 0:
-                if "LN" in self[node_id].tags:
-                    node.seq_len = int(self[node_id].tags["LN"][1])
+            if node.seq == "" and node.seq_len == 0 and "LN" in self[node_id].tags:
+                node.seq_len = int(self[node_id].tags["LN"][1])
             if "SN" in self[node_id].tags and "SR" in self[node_id].tags:
                 contig_name = self[node_id].tags["SN"][1]
                 contig_rank = int(self[node_id].tags["SR"][1])
@@ -314,7 +310,7 @@ class GFA:
                 else:
                     assert self.contigs[contig_name] == contig_rank
         else:
-            logging.warning(
+            logger.warning(
                 f"You are trying to add node {node_id} and it already exists in the graph"
             )
 
@@ -369,9 +365,9 @@ class GFA:
         counter = 1
         for cc in connected_comps:
             if len(cc) > 1:
-                output_file = output_dir + os.path.sep + "component{}.gfa".format(counter)
+                output_file = output_dir + os.path.sep + f"component{counter}.gfa"
                 counter += 1
-                logging.info("Writing Component {}...".format(output_file))
+                logger.info(f"Writing Component {output_file}...")
 
                 self.write_graph(set_of_nodes=cc, output_file=output_file, append=False)
 
@@ -435,23 +431,23 @@ class GFA:
         """
         sorts the set_of_nodes based on the BO and NO tags and returns a sorted list
         """
-        separate_bubbles = dict()
+        separate_bubbles = {}
         for n in set_of_nodes:
             if self[n].tags["BO"][1] not in separate_bubbles:
                 separate_bubbles[self[n].tags["BO"][1]] = [n]
             else:
                 separate_bubbles[self[n].tags["BO"][1]].append(n)
         bo_ids = []
-        for bo, n_list in separate_bubbles.items():
-            bo_ids.append(bo)
-            separate_bubbles[bo] = sorted(
-                separate_bubbles[bo], key=lambda x: int(self.nodes[x].tags["NO"][1])
+        for bo_id, bubble in separate_bubbles.items():
+            bo_ids.append(bo_id)
+            separate_bubbles[bo_id] = sorted(
+                bubble, key=lambda x: int(self.nodes[x].tags["NO"][1])
             )  # sorting the BO bucket by NO
 
         sorted_set_of_nodes = []
         for bo in sorted(bo_ids):
-            for n_id in separate_bubbles[bo]:
-                sorted_set_of_nodes.append(n_id)
+            sorted_set_of_nodes.extend(separate_bubbles[bo])
+
         return sorted_set_of_nodes
 
     def write_gfa(
@@ -481,20 +477,20 @@ class GFA:
             if os.path.exists(output_file):
                 f = open(output_file, "a")
             else:
-                logging.warning("Trying to append to a non-existent file\ncreating an output file")
+                logger.warning("Trying to append to a non-existent file\ncreating an output file")
                 f = open(output_file, "w+")
 
         # going through nodes twice to have the final output as all S line then all L lines
         for n in sorted_set_of_nodes:
             if n not in self.nodes:
-                logging.warning("Node {} does not exist in the graph, skipped in output".format(n))
+                logger.warning(f"Node {n} does not exist in the graph, skipped in output")
                 continue
             line = self.nodes[n].to_gfa_line()
             f.write(line + "\n")
 
         for n1 in sorted_set_of_nodes:
             if n1 not in self.nodes:
-                logging.warning("Node {} does not exist in the graph, skipped in output".format(n1))
+                logger.warning(f"Node {n1} does not exist in the graph, skipped in output")
                 continue
 
             # writing edges
@@ -542,8 +538,7 @@ class GFA:
                             )
                             edges.append(edge)
 
-            for e in edges:
-                f.write(e + "\n")
+            f.writelines(e + "\n" for e in edges)
 
         f.close()
 
@@ -663,7 +658,7 @@ class GFA:
             try:
                 case = cases[(n1[0], n2[0])]
             except KeyError:
-                logging.error(
+                logger.error(
                     "Something went wrong when checking the path, make sure the path follows this example"
                     ">node<node>node<nod"
                 )
@@ -725,10 +720,8 @@ class GFA:
         # get all nodes with chrom
         nodes_of_chrom = self.contig_to_nodes[chrom]
         if nodes_of_chrom == []:
-            logging.warning(
-                f"Not able to get any nodes for {chrom}. Stopping! Returning empty list"
-            )
-            return list()
+            logger.warning(f"Not able to get any nodes for {chrom}. Stopping! Returning empty list")
+            return []
         # sorting based on SO tags, so we get start to end of chromosome
         sorted_nodes = sorted(nodes_of_chrom, key=lambda x: int(self.nodes[x].tags["SO"][1]))
         # this sorted list should be a path already spelling the chromosome
@@ -736,10 +729,10 @@ class GFA:
             return sorted_nodes
         else:
             if throw_warning:
-                logging.warning(
+                logger.warning(
                     f"The sorted nodes with SN tag {chrom} did not create a linear path. Stopping! Returning empty list"
                 )
-                return list()
+                return []
             else:
                 # logging.warning(
                 #    f"The sorted nodes with SN tag {chrom} did not create a linear path. The sorted node list is returned for conversion."
@@ -765,7 +758,7 @@ class GFA:
         seq = []
         # path has to start with > or <, otherwise it's invalid
         if path[0] not in {"<", ">"}:
-            logging.error(f"The path {path} does not start with < or > ")
+            logger.error(f"The path {path} does not start with < or > ")
             return ""
 
         path_list = re.findall("[><][^><]+", path)
@@ -789,7 +782,7 @@ class GFA:
                 seq.append(rev_comp(self.nodes[n[1:]].seq))
                 # seq.append("".join([reverse_complement[x] for x in self.nodes[n[1:]].seq[::-1]]))
             else:
-                logging.error(f"Some error happened where a node {n} doesn't start with > or <")
+                logger.error(f"Some error happened where a node {n} doesn't start with > or <")
                 return ""
         return "".join(seq)
 
@@ -811,11 +804,11 @@ class GFA:
         if start_node not in self:
             return []
         if len(self) == 1:
-            return [list(self.nodes.keys())[0]]
+            return [next(iter(self.nodes.keys()))]
         if len(self[start_node].neighbors()) == 0:
             return [start_node]
 
-        ordered_dfs_out = list()
+        ordered_dfs_out = []
         stack = [start_node]
         while stack:
             s = stack.pop()
@@ -825,8 +818,7 @@ class GFA:
             else:
                 continue
             if len(self[s].neighbors()) <= 2:
-                for neighbour in self[s].neighbors():
-                    stack.append(neighbour)
+                stack.extend(self[s].neighbors())
         return ordered_dfs_out
 
     def dfs(self, start_node):
@@ -837,13 +829,13 @@ class GFA:
         if start_node not in self:
             return []
         if len(self) == 1:
-            return [list(self.nodes.keys())[0]]
+            return [next(iter(self.nodes.keys()))]
         if len(self[start_node].neighbors()) == 0:
             return [start_node]
 
         self.set_visited(False)
         # dfs_out = set()
-        ordered_dfs_out = list()
+        ordered_dfs_out = []
         stack = [start_node]
         while stack:
             s = stack.pop()
@@ -858,8 +850,7 @@ class GFA:
             # if len(self[s].neighbors()) == 1:
             #     ordered_dfs_out.append(s)
             # but then I have to several scans through the graph to always find an unvisited node and start dfs again
-            for neighbour in self[s].neighbors():
-                stack.append(neighbour)
+            stack.extend(self[s].neighbors())
         return ordered_dfs_out
 
     def biccs(self, set_of_nodes=None):
@@ -893,7 +884,7 @@ class GFA:
                 return stack_item[3][stack_item[2] - 1]
 
         visited = set()
-        components = list()
+        components = []
         artic_points = set()
         for n in set_of_nodes:
             if n in visited:
@@ -906,7 +897,7 @@ class GFA:
             components = []
             visited.add(n)
             edge_stack = []
-            edge_stack_loc = dict()
+            edge_stack_loc = {}
             # stack = [(start, start, iter(G[start]))]
             neighbors = self[n].neighbors()
             stack = [[n, n, 0, neighbors]]

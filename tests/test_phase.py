@@ -2,14 +2,15 @@
 Tests for gaftools phase
 """
 
+import pytest
+
 from gaftools.cli.phase import HaplotagInformation, run
 from gaftools.errors import (
-    IncorrectHaplotypeError,
-    IncorrectPhaseSetError,
     DuplicateHaplotagError,
     IncompatibleHaplotagError,
+    IncorrectHaplotypeError,
+    IncorrectPhaseSetError,
 )
-import pytest
 
 
 def parse_line(line):

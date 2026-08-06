@@ -2,10 +2,11 @@
 Test the GFA to rGFA conversion script.
 """
 
-import pysam.libcbgzf
-from gaftools.cli.gfa2rgfa import run
 import pysam
+import pysam.libcbgzf
 import pytest
+
+from gaftools.cli.gfa2rgfa import run
 
 ### Parsing functions
 
@@ -31,8 +32,8 @@ def parse_gfa(filename, gzipped=False):
         for field in fields[3:]:
             tag, ftype, value = field.split(":")
             tags[tag] = (ftype, value)
-        sorted_tags = list(tuple((k, tags[k])) for k in sorted(tags.keys()))
-        return tuple((id, seq, *sorted_tags))
+        sorted_tags = [(k, tags[k]) for k in sorted(tags.keys())]
+        return (id, seq, *sorted_tags)
 
     lines = []
     if gzipped:

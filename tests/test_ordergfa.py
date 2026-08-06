@@ -2,16 +2,17 @@
 Tests for 'gaftools order-gfa'
 """
 
-from gaftools.gfa import GFA
-from gaftools.cli.order_gfa import decompose_and_order, force_graph_order, run_order_gfa, name_comps
 import pytest
+
+from gaftools.cli.order_gfa import decompose_and_order, force_graph_order, name_comps, run_order_gfa
+from gaftools.gfa import GFA
 
 
 # compare two ordered GFAs based on the nodes BO and NO tags only
 # this comparison should only consider graph topology (ideally)
 def compare_bo_no_tags(graph1: GFA, graph2: GFA):
     assert len(graph1.nodes.keys()) == len(graph2.nodes.keys())
-    for id in graph1.nodes.keys():
+    for id in graph1.nodes:
         assert id in graph2.nodes
         bo1 = graph1.nodes[id].tags["BO"]
         no1 = graph1.nodes[id].tags["NO"]
@@ -63,7 +64,7 @@ def test_order_gfa_customgraph(tmp_path, gfa_file):
         without_sequence=True,
     )
     outname = gfa_file.split("/")[-1].split(".")[0] + "-complete.gfa"
-    output_gfa = f"{str(tmp_path)}/{outname}"
+    output_gfa = f"{tmp_path!s}/{outname}"
     graph1 = GFA("tests/data/order_gfa/customgraph-ordered.gfa", low_memory=True)
     graph2 = GFA(output_gfa, low_memory=True)
     compare_bo_no_tags(graph1, graph2)
@@ -205,7 +206,7 @@ def test_order_gfa_one_ref_endpoint_with_nonref_articulation_gets_unordered_tags
     for node1, node2 in [("x", "a"), ("a", "b"), ("b", "c"), ("c", "a"), ("c", "y")]:
         graph.add_edge(node1, "+", node2, "+", 0, [0])
 
-    scaffold_nodes, inside_nodes, node_order, bo, bubble_count = decompose_and_order(
+    scaffold_nodes, _inside_nodes, node_order, bo, bubble_count = decompose_and_order(
         graph,
         {"x", "a", "b", "c", "y"},
         "chr1",
@@ -250,7 +251,7 @@ def test_order_gfa_multiend_articulation_only_block_gets_unordered_tags():
     ]:
         graph.add_edge(node1, "+", node2, "+", 0, [0])
 
-    scaffold_nodes, inside_nodes, node_order, bo, bubble_count = decompose_and_order(
+    _scaffold_nodes, _inside_nodes, node_order, bo, bubble_count = decompose_and_order(
         graph,
         {"x", "a", "b", "c", "d", "y", "z", "w"},
         "chr1",

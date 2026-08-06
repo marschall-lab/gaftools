@@ -9,17 +9,16 @@ import logging
 import re
 from dataclasses import dataclass
 
-from gaftools.utils import FileWriter
 from gaftools.cli import log_memory_usage
-from gaftools.timer import StageTimer
-from gaftools.gaf import GAF
 from gaftools.errors import (
+    DuplicateHaplotagError,
     IncompatibleHaplotagError,
     IncorrectHaplotypeError,
     IncorrectPhaseSetError,
-    DuplicateHaplotagError,
 )
-
+from gaftools.gaf import GAF
+from gaftools.timer import StageTimer
+from gaftools.utils import FileWriter
 
 HAPLOTYPE_PATTERN = re.compile(r"^H\d+$")
 
@@ -121,20 +120,10 @@ def add_phase_info(gaf_path, tsv_path, out_path):
             line_count += 1
 
             gaf_out.write(
-                "%s\t%s\t%s\t%s\t+\t%s\t%d\t%d\t%d\t%d\t%d\t%d"
-                % (
-                    gaf_line.query_name,
-                    gaf_line.query_length,
-                    gaf_line.query_start,
-                    gaf_line.query_end,
-                    gaf_line.path,
-                    gaf_line.path_length,
-                    gaf_line.path_start,
-                    gaf_line.path_end,
-                    gaf_line.residue_matches,
-                    gaf_line.alignment_block_length,
-                    gaf_line.mapping_quality,
-                )
+                f"{gaf_line.query_name}\t{gaf_line.query_length}\t{gaf_line.query_start}\t"
+                f"{gaf_line.query_end}\t+\t{gaf_line.path}\t{gaf_line.path_length}\t"
+                f"{gaf_line.path_start}\t{gaf_line.path_end}\t{gaf_line.residue_matches}\t"
+                f"{gaf_line.alignment_block_length}\t{gaf_line.mapping_quality}"
             )
 
             in_tsv = True
@@ -147,12 +136,11 @@ def add_phase_info(gaf_path, tsv_path, out_path):
                 phased += 1
             else:
                 gaf_out.write("\tps:Z:none\tht:Z:none")
-            for k in gaf_line.tags.keys():
-                gaf_out.write("\t%s%s" % (k, gaf_line.tags[k]))
+            for k in gaf_line.tags:
+                gaf_out.write(f"\t{k}{gaf_line.tags[k]}")
 
     logger.info(
-        "INFO: Added phasing info (ps:Z and ht:Z) for %d reads out of %d GAF lines - (%d reads are missing in .tsv)"
-        % (phased, line_count, missing_in_tsv)
+        f"INFO: Added phasing info (ps:Z and ht:Z) for {phased} reads out of {line_count} GAF lines - ({missing_in_tsv} reads are missing in .tsv)"
     )
     gaf_file.close()
     tsv_file.close()
