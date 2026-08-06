@@ -8,4 +8,4 @@ The preprint is available [here](https://www.biorxiv.org/content/10.1101/2024.12
 
 ## Citation
 
-Pani, S., Dabbaghie, F., Marschall, T. & Söylev, A. gaftools: a toolkit for analyzing and manipulating pangenome alignments. (2024) doi:10.1101/2024.12.10.627813.
+Pani, S., Dabbaghie, F., Marschall, T., & Söylev, A. (2026). gaftools: a toolkit for analyzing and manipulating pangenome alignments. Bioinformatics, 42(8). https://doi.org/10.1093/bioinformatics/btag406

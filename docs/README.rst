@@ -15,7 +15,7 @@ indexing, sorting, realignment, viewing and statistical analysis of rGFA-based G
 `Documentation <https://gaftools.readthedocs.io/>`_ is available on Read The Docs. Documentation can be locally built under :code:`docs` folder
 using :code:`sphinx`. :code:`sphinx` is automatically installed when installing gaftools in `dev` mode.
 
-`Preprint <https://www.biorxiv.org/content/10.1101/2024.12.10.627813v1>`_ is available on bioRxiv.
+Publication is available `here <https://doi.org/10.1093/bioinformatics/btag406>`_.
 
 Features
 --------
@@ -30,4 +30,4 @@ Features
 Citation
 --------
 
-Pani, S., Dabbaghie, F., Marschall, T. & Söylev, A. gaftools: a toolkit for analyzing and manipulating pangenome alignments. (2024) doi:10.1101/2024.12.10.627813.
+Pani, S., Dabbaghie, F., Marschall, T., & Söylev, A. (2026). gaftools: a toolkit for analyzing and manipulating pangenome alignments. Bioinformatics, 42(8). https://doi.org/10.1093/bioinformatics/btag406
