@@ -439,8 +439,8 @@ class GFA:
                 separate_bubbles[self[n].tags["BO"][1]].append(n)
         bo_ids = []
         for bo_id, bubble in separate_bubbles.items():
-            bo_ids.append(bo_id)
-            separate_bubbles[bo_id] = sorted(
+            bo_ids.append(int(bo_id))
+            separate_bubbles[int(bo_id)] = sorted(
                 bubble, key=lambda x: int(self.nodes[x].tags["NO"][1])
             )  # sorting the BO bucket by NO
 
