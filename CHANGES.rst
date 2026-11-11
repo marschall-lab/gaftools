@@ -1,6 +1,13 @@
 Changes
 =======
 
+v1.4.1 (11/11/2026)
+-------------------
+
+* Improved sorting using external memory chunking.
+* Fixing NO sort key to integer-based.
+
+
 v1.4.0 (20/05/2026)
 -------------------
 
